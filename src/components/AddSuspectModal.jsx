@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
   const [formData, setFormData] = useState({
@@ -22,6 +23,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
   const [touchedFields, setTouchedFields] = useState({});
   const [formCompletion, setFormCompletion] = useState(0);
   const fileInputRef = useRef(null);
+
+  const navigate = useNavigate();
 
   // HCI Principle: Visibility - Calculate form completion percentage
   useEffect(() => {
@@ -667,6 +670,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               type="submit"
               disabled={isSubmitting}
               className="px-6 py-2 bg-[#14374E] text-white rounded-md hover:bg-[#021624] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              onClick={()=> navigate('/dashboard') }
             >
               {isSubmitting ? (
                 <>

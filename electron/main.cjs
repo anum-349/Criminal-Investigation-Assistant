@@ -7,6 +7,8 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, "../dist/icon.ico"),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -15,6 +17,7 @@ function createWindow() {
     },
   });
 
+  mainWindow.setMenu(null);
   // Load the app
   if (isDev) {
     // In development, load from Vite dev server
