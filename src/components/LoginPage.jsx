@@ -78,7 +78,7 @@ const LoginPage = ({ onLogin }) => {
 
   return (
     <div 
-      className="min-h-screen bg-linear-to-b from-[#1B3C53] via-[#345A76] to-[#456882] flex items-center justify-center p-4"
+      className="min-h-screen bg-linear-to-br from-[#021624] to-[#345A76] via-[#1B3C53] flex items-center justify-center p-4"
     >
       <div className="w-full max-w-lg">
         {/* Login Card */}
@@ -121,10 +121,8 @@ const LoginPage = ({ onLogin }) => {
                 onChange={(e) => handleInputChange('investigatorId', e.target.value)}
                 onFocus={() => handleFocus('investigatorId')}
                 onBlur={() => handleBlur('investigatorId')}
-                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50 placeholder:text-gray-300 ${
-                  errors.investigatorId 
-                    ?  'focus:ring-red-500' 
-                    : 'focus:ring-[#23403D]'
+                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${
+                  errors.investigatorId
                 }`}
                 style={{
                   backgroundColor: '#345A76',
@@ -162,10 +160,8 @@ const LoginPage = ({ onLogin }) => {
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   onFocus={() => handleFocus('password')}
                   onBlur={() => handleBlur('password')}
-                  className={`w-full px-4 py-3 pr-12 rounded-md border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50 placeholder:text-gray-300 ${
+                  className={`w-full px-4 py-3 pr-12 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${
                     errors.password 
-                      ? ' focus:ring-red-500' 
-                      : ' focus:ring-[#23403D] '
                   }`}
                   style={{
                     backgroundColor: '#345A76',
@@ -180,7 +176,7 @@ const LoginPage = ({ onLogin }) => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-300 hover:text-gray-400 focus:outline-none"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
@@ -215,7 +211,7 @@ const LoginPage = ({ onLogin }) => {
                   type="checkbox"
                   checked={formData.rememberMe}
                   onChange={(e) => handleInputChange('rememberMe', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-[#23403D] focus:ring-[#23403D] focus:ring-2"
+                  className="w-4 h-4 rounded border-gray-300 text-[#23403D]"
                 />
                 <label 
                   htmlFor="rememberMe" 

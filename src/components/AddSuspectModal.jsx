@@ -83,7 +83,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
       const today = new Date();
       const age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
-      
+
       if (birthDate > today) {
         newErrors.dateOfBirth = 'Date of Birth cannot be in the future';
       } else if (age > 120) {
@@ -108,7 +108,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
   // HCI Principle: User Control - Handle input changes with field tracking
@@ -126,15 +126,17 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
 
   // HCI Principle: Feedback - Handle field blur for validation
   const handleBlur = (field) => {
-    setTouchedFields({ ...touchedFields, [field]: true });
-    // Validate individual field on blur
-    if (field === 'suspectName' && formData.suspectName.trim()) {
-      if (formData.suspectName.trim().length < 2) {
-        setErrors({ ...errors, suspectName: 'Suspect Name must be at least 2 characters' });
-      } else if (!/^[a-zA-Z\s'-]+$/.test(formData.suspectName.trim())) {
-        setErrors({ ...errors, suspectName: 'Suspect Name can only contain letters, spaces, hyphens, and apostrophes' });
-      }
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+
+    const tempErrors = { ...errors };
+
+    if (!formData[field]?.trim()) {
+      tempErrors[field] = 'This field is required';
+    } else {
+      delete tempErrors[field];
     }
+
+    setErrors(tempErrors);
   };
 
   // HCI Principle: User Control - Clear field functionality
@@ -191,40 +193,22 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
   };
 
   // HCI Principle: Feedback - Enhanced form submission with validation feedback
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Mark all fields as touched for comprehensive error display
-    const allFields = Object.keys(formData);
-    const touched = {};
-    allFields.forEach(field => {
-      touched[field] = true;
-    });
-    setTouchedFields(touched);
+    const allTouched = {};
+    Object.keys(formData).forEach(f => allTouched[f] = true);
+    setTouchedFields(allTouched);
 
-    if (!validateForm()) {
-      // HCI Principle: Feedback - Scroll to first error
-      const firstErrorField = Object.keys(errors)[0];
-      if (firstErrorField) {
-        const errorElement = document.getElementById(firstErrorField);
-        if (errorElement) {
-          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          errorElement.focus();
-        }
-      }
-      return;
-    }
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) return;
 
     setIsSubmitting(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      if (onSubmit) {
-        onSubmit(formData);
-      }
-      onClose();
-    }, 1500);
+    // Simulate form submission 
+    navigate('/dashboard');
+    setIsSubmitting(false);
+    onSubmit?.(formData);
+    onClose();
   };
 
   // HCI Principle: User Control - Handle cancel
@@ -237,14 +221,14 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="suspect-modal-title"
     >
-      <div 
+      <div
         className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -272,10 +256,9 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
             </div>
             <div className="w-full bg-gray-600 rounded-full h-1.5">
               <div
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  formCompletion === 100 ? 'bg-green-400' :
+                className={`h-1.5 rounded-full transition-all duration-300 ${formCompletion === 100 ? 'bg-green-400' :
                   formCompletion >= 70 ? 'bg-yellow-400' : 'bg-blue-400'
-                }`}
+                  }`}
                 style={{ width: `${formCompletion}%` }}
                 role="progressbar"
                 aria-valuenow={formCompletion}
@@ -289,8 +272,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
         <form onSubmit={handleSubmit} className="px-6 py-4">
           {/* Case UUID */}
           <div className="mb-4">
-            <label 
-              htmlFor="caseUuid" 
+            <label
+              htmlFor="caseUuid"
               className="block text-sm font-medium text-gray-700 mb-1 text-left"
             >
               Case UUID
@@ -299,9 +282,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               id="caseUuid"
               value={formData.caseUuid}
               onChange={(e) => handleInputChange('caseUuid', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] ${
-                errors.caseUuid ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] ${errors.caseUuid ? 'border-red-500' : 'border-gray-300'
+                }`}
               aria-invalid={errors.caseUuid ? 'true' : 'false'}
               aria-describedby={errors.caseUuid ? 'caseUuid-error' : undefined}
             >
@@ -320,8 +302,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
 
           {/* Related Case */}
           <div className="mb-4">
-            <label 
-              htmlFor="relatedCase" 
+            <label
+              htmlFor="relatedCase"
               className="block text-sm font-medium text-gray-700 mb-1 text-left"
             >
               Related Case
@@ -330,9 +312,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               id="relatedCase"
               value={formData.relatedCase}
               onChange={(e) => handleInputChange('relatedCase', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] ${
-                errors.relatedCase ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] ${errors.relatedCase ? 'border-red-500' : 'border-gray-300'
+                }`}
               aria-invalid={errors.relatedCase ? 'true' : 'false'}
               aria-describedby={errors.relatedCase ? 'relatedCase-error' : undefined}
             >
@@ -355,8 +336,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
 
           {/* Suspect Name */}
           <div className="mb-4">
-            <label 
-              htmlFor="suspectName" 
+            <label
+              htmlFor="suspectName"
               className="block text-sm font-medium text-gray-700 mb-1 text-left"
             >
               Suspect Name
@@ -369,13 +350,12 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               onChange={(e) => handleInputChange('suspectName', e.target.value)}
               onBlur={() => handleBlur('suspectName')}
               maxLength={50}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] transition-colors ${
-                errors.suspectName && touchedFields.suspectName
-                  ? 'border-red-500 bg-red-50' 
-                  : touchedFields.suspectName && !errors.suspectName
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] transition-colors ${errors.suspectName && touchedFields.suspectName
+                ? 'border-red-500 bg-red-50'
+                : touchedFields.suspectName && !errors.suspectName
                   ? 'border-green-500 bg-green-50'
                   : 'border-gray-300'
-              }`}
+                }`}
               placeholder="Enter suspect Name (e.g., John)"
               aria-invalid={errors.suspectName && touchedFields.suspectName ? 'true' : 'false'}
               aria-describedby={errors.suspectName && touchedFields.suspectName ? 'suspectName-error suspectName-help' : 'suspectName-help'}
@@ -397,8 +377,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
           {/* Gender and Date of Birth - Side by Side */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label 
-                htmlFor="gender" 
+              <label
+                htmlFor="gender"
                 className="block text-sm font-medium text-gray-700 mb-1 text-left"
               >
                 Gender
@@ -407,9 +387,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                 id="gender"
                 value={formData.gender}
                 onChange={(e) => handleInputChange('gender', e.target.value)}
-                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] ${
-                  errors.gender ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] ${errors.gender ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 aria-invalid={errors.gender ? 'true' : 'false'}
                 aria-describedby={errors.gender ? 'gender-error' : undefined}
               >
@@ -426,8 +405,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               )}
             </div>
             <div>
-              <label 
-                htmlFor="dateOfBirth" 
+              <label
+                htmlFor="dateOfBirth"
                 className="block text-sm font-medium text-gray-700 mb-1 text-left"
               >
                 Date of Birth
@@ -439,13 +418,12 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                   value={formData.dateOfBirth}
                   onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
-                  className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] pr-10 ${
-                    errors.dateOfBirth && touchedFields.dateOfBirth
-                      ? 'border-red-500 bg-red-50' 
-                      : touchedFields.dateOfBirth && !errors.dateOfBirth
+                  className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] pr-10 ${errors.dateOfBirth && touchedFields.dateOfBirth
+                    ? 'border-red-500 bg-red-50'
+                    : touchedFields.dateOfBirth && !errors.dateOfBirth
                       ? 'border-green-500 bg-green-50'
                       : 'border-gray-300'
-                  }`}
+                    }`}
                   aria-invalid={errors.dateOfBirth && touchedFields.dateOfBirth ? 'true' : 'false'}
                   aria-describedby={errors.dateOfBirth && touchedFields.dateOfBirth ? 'dateOfBirth-error dateOfBirth-help' : 'dateOfBirth-help'}
                   aria-required="true"
@@ -470,8 +448,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
 
           {/* Physical Description */}
           <div className="mb-4">
-            <label 
-              htmlFor="physicalDescription" 
+            <label
+              htmlFor="physicalDescription"
               className="block text-sm font-medium text-gray-700 mb-1 text-left"
             >
               Physical Description
@@ -493,9 +471,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                 onChange={(e) => handleInputChange('physicalDescription', e.target.value)}
                 maxLength={500}
                 rows={2}
-                className={`w-full px-4 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] resize-y ${
-                  errors.physicalDescription ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] resize-y ${errors.physicalDescription ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="e.g., African American Male, 6'1, 200 lbs, brown eyes, black hair"
                 aria-invalid={errors.physicalDescription ? 'true' : 'false'}
                 aria-describedby={errors.physicalDescription ? 'physicalDescription-error physicalDescription-help' : 'physicalDescription-help'}
@@ -525,8 +502,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
 
           {/* Known Affiliations */}
           <div className="mb-4">
-            <label 
-              htmlFor="knownAffiliations" 
+            <label
+              htmlFor="knownAffiliations"
               className="block text-sm font-medium text-gray-700 mb-1 text-left"
             >
               Known Affiliations
@@ -554,12 +531,17 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                 </button>
               )}
             </div>
+            {errors.knownAffiliations && (
+              <p id="knownAffiliation-error" className="mt-1 text-sm text-red-600 text-left" role="alert">
+                {errors.knownAffiliations}
+              </p>
+            )}
           </div>
 
           {/* Notes */}
           <div className="mb-4">
-            <label 
-              htmlFor="notes" 
+            <label
+              htmlFor="notes"
               className="block text-sm font-medium text-gray-700 mb-1 text-left"
             >
               Notes
@@ -571,9 +553,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               onChange={(e) => handleInputChange('notes', e.target.value)}
               maxLength={2000}
               rows={3}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] resize-y ${
-                errors.notes ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#14374E] resize-y ${errors.notes ? 'border-red-500' : 'border-gray-300'
+                }`}
               placeholder="Enter additional notes, observations, or relevant information about the suspect"
               aria-invalid={errors.notes ? 'true' : 'false'}
               aria-describedby={errors.notes ? 'notes-error notes-help' : 'notes-help'}
@@ -590,8 +571,8 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
 
           {/* Picture Upload */}
           <div className="mb-6">
-            <label 
-              htmlFor="pictureUpload" 
+            <label
+              htmlFor="pictureUpload"
               className="block text-sm font-medium text-gray-700 mb-1 text-left"
             >
               Picture Upload
@@ -670,7 +651,6 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               type="submit"
               disabled={isSubmitting}
               className="px-6 py-2 bg-[#14374E] text-white rounded-md hover:bg-[#021624] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              onClick={()=> navigate('/dashboard') }
             >
               {isSubmitting ? (
                 <>
