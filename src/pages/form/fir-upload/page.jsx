@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import AddSuspectModal from './AddSuspectModal';
+import AddSuspectModal from '../add-suspect/page';
 
 const FIRUploadModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({

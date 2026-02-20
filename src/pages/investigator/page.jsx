@@ -1,5 +1,5 @@
-import { Card } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
+import { Card } from "../../components/ui/Card"
+import { Button } from "../../components/ui/Button";
 import {
     Table,
     TableBody,
@@ -8,9 +8,9 @@ import {
     TableHeader,
     TableRow,
     TableWrapper
-} from "../components/ui/Table";
-import { Badge } from "../components/ui/Badge";
-import Header from "../components/Header";
+} from "../../components/ui/Table";
+import { Badge } from "../../components/ui/Badge";
+import Header from "../../components/Header";
 
 const StatCard = ({ value, label }) => {
     return (
@@ -226,10 +226,9 @@ const stats = [
     { value: 80, label: "Solved cases" },
 ];
 
-const Index = () => {
+const InvestigatorPage = () => {
     return (
         <div className="min-h-screen bg-background">
-            {/* SEO Meta */}
             <title>Criminal Investigation Assistant - Dashboard</title>
             <meta
                 name="description"
@@ -273,4 +272,4 @@ const Index = () => {
     );
 };
 
-export default Index;
+export default InvestigatorPage;

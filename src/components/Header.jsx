@@ -37,9 +37,10 @@ const Header = () => {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-            <Input
+            <input 
+            type="text"
               placeholder="search case, evidence, suspect"
-              className="pl-9 w-md h-9 border-white text-white placeholder:text-gray-300 focus:border-white"
+              className="pl-9 w-md h-9 border-white text-white px-4 py-2 border focus:outline-none transition-colors placeholder:text-gray-300 focus:border-white rounded-full"
             />
           </div>
           <Button

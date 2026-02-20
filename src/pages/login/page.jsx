@@ -48,6 +48,8 @@ const LoginPage = ({ onLogin }) => {
 
     setIsLoading(true);
 
+    localStorage.setItem("token", "cia-2026")
+    
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
