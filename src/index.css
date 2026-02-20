@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+@theme{
+  --color-deep-ocean: #1B3C53;      /* Dark blue-teal */
+  --color-deep-ocean-900: #021624;      /* Dark blue-teal */
+  --color-forest-teal: #23403D;     /* Deep greenish teal */
+  --color-slate-blue: #456882;      /* Muted blue */
+  --color-soft-mist: #E9E9E9;       /* Light grey */
+  --color-cool-silver: #C7D2DA;     /* Pale blue-grey */
+  --color-crimson-red: #ef4444;     /* Bright red */
+  --color-emerald-green: #22c55e;   /* Fresh green */
+  --color-amber-gold: #fbbf24;      /* Warm yellow */
+}
+
 :root {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;

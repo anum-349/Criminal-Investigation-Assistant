@@ -1,104 +1,283 @@
-import React from 'react';
-import { 
-  Shield, Search, Calendar, Filter, 
-  ExternalLink, ChevronDown, CheckCircle 
-} from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { Search, ChevronDown, Calendar, ExternalLink } from 'lucide-react';
+import { Button } from '../../../components/ui/Button';
+import { Pagination } from '../../../components/ui/Pagination';
+
+const PAGE_SIZE = 5;
+const RELATIONS = [
+  { value: '', label: 'Relation' },
+  { value: 'suspect', label: 'Similar suspect description' },
+  { value: 'location', label: 'Same building location' },
+  { value: 'victim', label: 'Involves victim\'s colleague' },
+  { value: 'movement', label: 'Possible suspect movement pattern' },
+  { value: 'proximity', label: 'Repeated crime scene proximity' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'Status All' },
+  { value: 'Open', label: 'Open' },
+  { value: 'Closed', label: 'Closed' },
+];
+
+const linkedData = [
+  {
+    id: 'C-10046',
+    linkedCaseId: 'C-10046',
+    title: 'Armed Robbery - Clifton Market',
+    investigator: 'Insp. A. Khan',
+    registerDate: '11/23/2026',
+    status: 'Closed',
+    relation: 'Similar suspect description (dark hoodie)',
+  },
+  {
+    id: 'C-10047',
+    linkedCaseId: 'C-10047',
+    title: 'Burglary - Block 5 Apartments',
+    investigator: 'Insp. R. Malik',
+    registerDate: '11/23/2026',
+    status: 'Open',
+    relation: 'Same building location',
+  },
+  {
+    id: 'C-10048',
+    linkedCaseId: 'C-10048',
+    title: 'Assault Report - Tech Solutions Office',
+    investigator: 'Insp. S. Qureshi',
+    registerDate: '11/23/2026',
+    status: 'Closed',
+    relation: 'Involves victim\'s colleague',
+  },
+  {
+    id: 'C-10049',
+    linkedCaseId: 'C-10049',
+    title: 'Missing Person - Clifton Area',
+    investigator: 'Insp. N. Hashmi',
+    registerDate: '11/23/2026',
+    status: 'Closed',
+    relation: 'Possible suspect movement pattern',
+  },
+  {
+    id: 'C-10050',
+    linkedCaseId: 'C-10050',
+    title: 'Theft - Apartment Block 5',
+    investigator: 'Insp. A. Khan',
+    registerDate: '11/23/2026',
+    status: 'Closed',
+    relation: 'Repeated crime scene proximity',
+  },
+];
 
 const LinkedCases = () => {
-  const linkedData = [
-    {
-      id: "C-10046",
-      title: "Armed Robbery – Clifton Market",
-      investigator: "Insp. A. Khan",
-      date: "11 / 23 / 2026",
-      status: "Closed",
-      relation: "Similar suspect description (dark hoodie)"
+  const [keyword, setKeyword] = useState('');
+  const [relationFilter, setRelationFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [appliedFilters, setAppliedFilters] = useState({
+    keyword: '',
+    relation: '',
+    date: '',
+    status: 'all',
+  });
+
+  const filteredRows = linkedData.filter((row) => {
+    const kw = (appliedFilters.keyword || '').toLowerCase();
+    if (kw) {
+      const match = row.title.toLowerCase().includes(kw) ||
+        row.id.toLowerCase().includes(kw) ||
+        row.relation.toLowerCase().includes(kw);
+      if (!match) return false;
     }
-  ];
+    if (appliedFilters.relation && !row.relation.toLowerCase().includes(appliedFilters.relation.toLowerCase())) return false;
+    if (appliedFilters.status !== 'all' && row.status !== appliedFilters.status) return false;
+    return true;
+  });
+
+  const totalResults = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, totalResults);
+  const pageResults = filteredRows.slice(start, end);
+
+  const handleApply = useCallback(() => {
+    setAppliedFilters({
+      keyword: keyword.trim(),
+      relation: relationFilter,
+      date: dateFilter,
+      status: statusFilter,
+    });
+    setCurrentPage(1);
+  }, [keyword, relationFilter, dateFilter, statusFilter]);
+
+  const handleClear = useCallback(() => {
+    setKeyword('');
+    setRelationFilter('');
+    setDateFilter('');
+    setStatusFilter('all');
+    setAppliedFilters({ keyword: '', relation: '', date: '', status: 'all' });
+    setCurrentPage(1);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
-      {/* Top Section remains consistent for UI stability (HCI Principle: Consistency) */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 m-6 overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-2xl font-bold">Linked Cases</h2>
-          <p className="text-sm text-slate-500">Visualize relationship between cases</p>
+    <section
+      className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm"
+      aria-label="Linked Cases"
+    >
+      {/* Header – HCI: Clear hierarchy and context */}
+      <header className="mb-6">
+        <h2 className="text-2xl font-bold text-slate-800">Linked Cases</h2>
+        <p className="text-sm text-slate-600 mt-1">Visualize relationship between cases</p>
+      </header>
+
+      {/* Search and filters – HCI: User control, explicit Apply */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <label className="sr-only" htmlFor="linked-search">Search linked cases</label>
+        <div className="relative flex-1 min-w-50">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden />
+          <input
+            id="linked-search"
+            type="search"
+            placeholder="Search linked cases by keyword or case id"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleApply()}
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:border-transparent"
+            aria-label="Search linked cases by keyword or case id"
+          />
         </div>
 
-        {/* Filter Toolbar */}
-        <div className="p-4 bg-slate-50 flex flex-wrap gap-3 items-center border-b border-slate-200">
-          <div className="relative grow max-w-xs">
-            <Search className="absolute left-3 top-2.5 size-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search linked cases..." 
-              className="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-          </div>
-          
-          <select className="border rounded-md px-3 py-2 text-sm bg-white outline-none cursor-pointer">
-            <option>Relation</option>
-            <option>Modus Operandi</option>
-            <option>Location Match</option>
+        <label className="sr-only" htmlFor="filter-relation">Filter by relation</label>
+        <div className="relative">
+          <select
+            id="filter-relation"
+            value={relationFilter}
+            onChange={(e) => setRelationFilter(e.target.value)}
+            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] min-w-45"
+            aria-label="Filter by relation type"
+          >
+            {RELATIONS.map((opt) => (
+              <option key={opt.value || 'any'} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
-
-          <div className="relative">
-            <Calendar className="absolute left-3 top-2.5 size-4 text-slate-400" />
-            <input 
-              type="date" 
-              placeholder="Select Date" 
-              className="pl-10 pr-4 py-2 border rounded-md text-sm bg-white outline-none"
-            />
-          </div>
-
-          <select className="border rounded-md px-3 py-2 text-sm bg-white outline-none cursor-pointer">
-            <option>Status All</option>
-            <option>Open</option>
-            <option>Closed</option>
-          </select>
-
-          <button className="bg-[#1a3a4a] text-white px-8 py-2 rounded-md text-sm font-semibold hover:bg-slate-700 transition-colors">
-            Apply
-          </button>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" aria-hidden />
         </div>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-200/50 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
-                <th className="px-6 py-4">Case ID</th>
-                <th className="px-6 py-4">Title</th>
-                <th className="px-6 py-4 text-center">Investigator</th>
-                <th className="px-6 py-4 text-center">Register Date</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4">Relation</th>
+        <label className="sr-only" htmlFor="filter-date">Select date</label>
+        <div className="relative flex items-center">
+          <Calendar className="absolute left-3 h-4 w-4 text-slate-400 pointer-events-none" aria-hidden />
+          <input
+            id="filter-date"
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            aria-label="Select date"
+          />
+        </div>
+
+        <label className="sr-only" htmlFor="filter-status">Filter by status</label>
+        <div className="relative">
+          <select
+            id="filter-status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            aria-label="Filter by status"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" aria-hidden />
+        </div>
+
+        <Button onClick={handleApply} className="px-6 py-2" aria-label="Apply filters">
+          Apply
+        </Button>
+        <Button variant="outline" onClick={handleClear} className="px-6 py-2" aria-label="Clear filters">
+          Clear
+        </Button>
+      </div>
+
+      {/* Table – HCI: Consistency, scannability, clear actions */}
+            <div className="border border-slate-200 rounded-b-lg overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm border-collapse" role="table" aria-label="Linked cases list">
+          <thead>
+            <tr className="bg-slate-100 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
+              <th scope="col" className="px-6 py-4">Case ID</th>
+              <th scope="col" className="px-6 py-4">Title</th>
+              <th scope="col" className="px-6 py-4">Investigator</th>
+              <th scope="col" className="px-6 py-4">Register Date</th>
+              <th scope="col" className="px-6 py-4">Status</th>
+              <th scope="col" className="px-6 py-4">Relation</th>
+              <th scope="col" className="px-6 py-4 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {pageResults.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                  No linked cases match your search. Try different filters.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {linkedData.map((row, index) => (
-                <tr key={index} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-bold text-slate-700">{row.id}</td>
-                  <td className="px-6 py-4 text-sm font-medium">{row.title}</td>
-                  <td className="px-6 py-4 text-center text-sm">{row.investigator}</td>
-                  <td className="px-6 py-4 text-center text-sm">{row.date}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="bg-[#1a2e35] text-white px-6 py-1 rounded text-xs font-bold">
+            ) : (
+              pageResults.map((row) => (
+                <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 font-semibold text-slate-800">{row.id}</td>
+                  <td className="px-6 py-4 font-medium text-slate-800">{row.title}</td>
+                  <td className="px-6 py-4 text-slate-700">{row.investigator}</td>
+                  <td className="px-6 py-4 text-slate-700">{row.registerDate}</td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-block px-4 py-1.5 rounded text-xs font-bold text-white ${row.status === 'Open'
+                        ? 'bg-emerald-600'
+                        : 'bg-[#1a2e35]'
+                        }`}
+                      aria-label={`Status: ${row.status}`}
+                    >
                       {row.status}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="bg-rose-700 text-white px-4 py-2 rounded-full text-[10px] font-bold block text-center leading-tight">
-                      {row.relation.toUpperCase()}
+                    <span className="inline-block bg-rose-700/90 text-white px-3 py-1.5 rounded-full text-[10px] font-semibold max-w-xs leading-tight">
+                      {row.relation}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-center">
+                    <Link
+                      to="/investigator/case"
+                      state={{ caseId: row.linkedCaseId, title: row.title }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-[#1a3a4a] hover:bg-[#14374E] text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:ring-offset-2"
+                      aria-label={`Open linked case ${row.id} - ${row.title}`}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                      Open Linked Case
+                    </Link>
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-    </div>
+      </div>
+
+      {totalResults > 0 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalResults}
+            start={start}
+            end={end}
+            itemLabel="results"
+          />
+        </div>
+      )}
+    </section>
   );
 };
 

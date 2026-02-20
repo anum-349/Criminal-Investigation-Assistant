@@ -1,17 +1,20 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const LoginPage = ({ onLogin }) => {
+const LoginPage = () => {
   const [formData, setFormData] = useState({
     investigatorId: '',
     password: '',
+    isAdmin: false,
+    secret: '',
     rememberMe: true
   });
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate()
 
-  // HCI Principle: Error Prevention - Input validation
   const validateForm = () => {
     const newErrors = {};
 
@@ -25,20 +28,45 @@ const LoginPage = ({ onLogin }) => {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
+    if ((!formData.secret.trim() || formData.secret === '') && formData.isAdmin) {
+      newErrors.secret = 'Admin Secret is required';
+    } else if (formData.secret !== "CIA2026" && formData.isAdmin) {
+      newErrors.secret = 'Admin Secret is incorrect';
+    }
+
+    console.log(newErrors)
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // HCI Principle: User Control - Handle input changes
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
-    // HCI Principle: Error Recovery - Clear errors on input
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
     }
   };
 
-  // HCI Principle: Feedback - Handle form submission
+  const clear = () => {
+    setFormData({
+      investigatorId: '',
+      password: '',
+      isAdmin: false,
+      secret: '',
+      rememberMe: true
+    })
+  }
+
+  const handleLogin = async () => {
+    try {
+      const res = await axios.post("http://localhost:8000/login", { username, password });
+      localStorage.setItem("token", res.data.access_token);
+      const role = res.data.access_token ? JSON.parse(atob(res.data.access_token.split('.')[1])).role : "investigator";
+      navigate(role === "admin" ? "/admin" : "/investigator");
+    } catch (err) {
+      alert("Invalid credentials");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -47,25 +75,21 @@ const LoginPage = ({ onLogin }) => {
     }
 
     setIsLoading(true);
-
-    localStorage.setItem("token", "cia-2026")
+    handleLogin();
+    clear();
+    setIsLoading(false);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      if (onLogin) {
-        onLogin(formData);
-      }
-    }, 1500);
   };
 
-  // HCI Principle: User Control - Handle focus events
   const handleFocus = (field) => {
     if (field === 'investigatorId' && formData.investigatorId === '') {
       setFormData({ ...formData, investigatorId: '' });
     }
     if (field === 'password' && formData.password === '') {
       setFormData({ ...formData, password: '' });
+    }
+    if (field === 'secret' && formData.secret === '') {
+      setFormData({ ...formData, secret: '' });
     }
   };
 
@@ -76,11 +100,14 @@ const LoginPage = ({ onLogin }) => {
     if (field === 'password' && !formData.password.trim()) {
       setFormData({ ...formData, password: '' });
     }
+    if (field === 'secret' && !formData.secret.trim()) {
+      setFormData({ ...formData, secret: '' });
+    }
   };
 
   return (
-    <div 
-      className="min-h-screen bg-linear-to-br from-[#021624] to-[#345A76] via-[#1B3C53] flex items-center justify-center p-4"
+    <div
+      className="min-h-screen bg-linear-to-br from-deep-ocean-900 to-slate-blue via-deep-ocean flex items-center justify-center p-4"
     >
       <div className="w-full max-w-lg">
         {/* Login Card */}
@@ -89,29 +116,47 @@ const LoginPage = ({ onLogin }) => {
           <div className="flex flex-col items-center mb-8">
             {/* Logo Icon */}
             <div className="mb-4">
-                <img src={'/dist/logo.png'} alt="Criminal Investigation Assistant Logo" width={150} height={150}/>
+              <img src={'/dist/logo.png'} alt="Criminal Investigation Assistant Logo" width={150} height={150} />
             </div>
 
             {/* Title */}
-            <h1 
-              className="text-2xl font-serif font-bold mb-2 text-center"
-              style={{ color: '#23403D' }}
+            <h1
+              className="text-2xl font-serif font-bold mb-2 text-center text-deep-ocean"
             >
               Criminal Investigation Assistant
             </h1>
 
             {/* Subtitle */}
-            <p className="text-sm text-[#456882] text-center">
+            <p className="text-sm text-slate-blue text-center">
               A Secure Platform for Criminal Analysis
             </p>
           </div>
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+            {/* Login as Admin */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="isAdmin"
+                  type="checkbox"
+                  checked={formData.isAdmin}
+                  onChange={(e) => handleInputChange('isAdmin', e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-forest-teal"
+                />
+                <label
+                  htmlFor="isAdmin"
+                  className="ml-2 text-sm text-gray-700 cursor-pointer"
+                >
+                  Login as Admin
+                </label>
+              </div>
+            </div>
+
             {/* Investigator ID Field */}
             <div>
-              <label 
-                htmlFor="investigatorId" 
+              <label
+                htmlFor="investigatorId"
                 className="block text-sm font-medium text-gray-700 mb-2 text-left"
               >
                 Investigator ID
@@ -123,9 +168,8 @@ const LoginPage = ({ onLogin }) => {
                 onChange={(e) => handleInputChange('investigatorId', e.target.value)}
                 onFocus={() => handleFocus('investigatorId')}
                 onBlur={() => handleBlur('investigatorId')}
-                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${
-                  errors.investigatorId
-                }`}
+                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${errors.investigatorId
+                  }`}
                 style={{
                   backgroundColor: '#345A76',
                   color: '#ffffff'
@@ -136,9 +180,9 @@ const LoginPage = ({ onLogin }) => {
                 autoComplete="username"
               />
               {errors.investigatorId && (
-                <p 
-                  id="investigatorId-error" 
-                  className="mt-1 text-sm text-red-600 text-left" 
+                <p
+                  id="investigatorId-error"
+                  className="mt-1 text-sm text-crimson-red text-left"
                   role="alert"
                 >
                   {errors.investigatorId}
@@ -148,8 +192,8 @@ const LoginPage = ({ onLogin }) => {
 
             {/* Password Field */}
             <div>
-              <label 
-                htmlFor="password" 
+              <label
+                htmlFor="password"
                 className="block text-sm font-medium text-gray-700 mb-2 text-left"
               >
                 Password
@@ -162,9 +206,8 @@ const LoginPage = ({ onLogin }) => {
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   onFocus={() => handleFocus('password')}
                   onBlur={() => handleBlur('password')}
-                  className={`w-full px-4 py-3 pr-12 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${
-                    errors.password 
-                  }`}
+                  className={`w-full px-4 py-3 pr-12 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${errors.password
+                    }`}
                   style={{
                     backgroundColor: '#345A76',
                     color: '#ffffff'
@@ -194,12 +237,49 @@ const LoginPage = ({ onLogin }) => {
                 </button>
               </div>
               {errors.password && (
-                <p 
-                  id="password-error" 
-                  className="mt-1 text-sm text-red-600 text-left" 
+                <p
+                  id="password-error"
+                  className="mt-1 text-sm text-crimson-red text-left"
                   role="alert"
                 >
                   {errors.password}
+                </p>
+              )}
+            </div>
+
+            {/* Admin Secret Field */}
+            <div className={`${formData.isAdmin ? 'block' : 'hidden'}`}>
+              <label
+                htmlFor="adminSecret"
+                className="block text-sm font-medium text-gray-700 mb-2 text-left"
+              >
+                Admin Secret
+              </label>
+              <input
+                id="adminSecret"
+                type="text"
+                value={formData.secret || ''}
+                onChange={(e) => handleInputChange('secret', e.target.value)}
+                onFocus={() => handleFocus('secret')}
+                onBlur={() => handleBlur('secret')}
+                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${errors.investigatorId
+                  }`}
+                style={{
+                  backgroundColor: '#345A76',
+                  color: '#ffffff'
+                }}
+                placeholder="Enter Admin Secret"
+                aria-invalid={errors.secret ? 'true' : 'false'}
+                aria-describedby={errors.secret ? 'adminSecret-error' : undefined}
+                autoComplete="username"
+              />
+              {errors.secret && (
+                <p
+                  id="adminSecret-error"
+                  className="mt-1 text-sm text-crimson-red text-left"
+                  role="alert"
+                >
+                  {errors.secret}
                 </p>
               )}
             </div>
@@ -213,10 +293,10 @@ const LoginPage = ({ onLogin }) => {
                   type="checkbox"
                   checked={formData.rememberMe}
                   onChange={(e) => handleInputChange('rememberMe', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-[#23403D]"
+                  className="w-4 h-4 rounded border-gray-300 text-forest-teal"
                 />
-                <label 
-                  htmlFor="rememberMe" 
+                <label
+                  htmlFor="rememberMe"
                   className="ml-2 text-sm text-gray-700 cursor-pointer"
                 >
                   Remember Me
@@ -231,7 +311,7 @@ const LoginPage = ({ onLogin }) => {
                   // Handle forgot password
                   alert('Forgot password functionality would be implemented here');
                 }}
-                className="text-sm text-gray-600 hover:text-[#23403D] transition-colors focus:outline-none focus:ring-2 focus:ring-[#23403D] rounded"
+                className="text-sm text-gray-600 hover:text-forest-teal transition-colors focus:outline-none focus:ring-2 focus:ring-forest-teal rounded"
               >
                 Forget Password?
               </a>
@@ -241,11 +321,10 @@ const LoginPage = ({ onLogin }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                isLoading
-                  ? 'opacity-70 cursor-not-allowed'
-                  : 'hover:opacity-90 active:scale-[0.98]'
-              }`}
+              className={`w-full py-3 px-4 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${isLoading
+                ? 'opacity-70 cursor-not-allowed'
+                : 'hover:opacity-90 active:scale-[0.98]'
+                }`}
               style={{ backgroundColor: '#23403D' }}
               aria-busy={isLoading}
             >
