@@ -14,7 +14,7 @@ export default function ForbiddenPage() {
           You do not have permission to access this page.
         </p>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(-1) || navigate("/")}
           className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-md"
         >
           Go Back

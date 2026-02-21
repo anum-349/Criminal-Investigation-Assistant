@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
+import axios from 'axios';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
-    investigatorId: '',
+    badge_number: '',
     password: '',
     isAdmin: false,
-    secret: '',
+    secret_code: '',
     rememberMe: true
   });
 
@@ -14,12 +16,13 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate()
+  const { login } = useContext(AuthContext);
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.investigatorId.trim() || formData.investigatorId === '') {
-      newErrors.investigatorId = 'Please enter a valid Investigator ID';
+    if (!formData.badge_number.trim() || formData.badge_number === '') {
+      newErrors.badge_number = 'Please enter a valid Investigator ID';
     }
 
     if (!formData.password.trim() || formData.password === '') {
@@ -28,13 +31,10 @@ const LoginPage = () => {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
-    if ((!formData.secret.trim() || formData.secret === '') && formData.isAdmin) {
-      newErrors.secret = 'Admin Secret is required';
-    } else if (formData.secret !== "CIA2026" && formData.isAdmin) {
-      newErrors.secret = 'Admin Secret is incorrect';
+    if ((!formData.secret_code.trim() || formData.secret_code === '') && formData.isAdmin) {
+      newErrors.secret_code = 'Admin secret_code is required';
     }
 
-    console.log(newErrors)
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -48,22 +48,23 @@ const LoginPage = () => {
 
   const clear = () => {
     setFormData({
-      investigatorId: '',
+      badge_number: '',
       password: '',
       isAdmin: false,
-      secret: '',
+      secret_code: '',
       rememberMe: true
     })
   }
 
   const handleLogin = async () => {
+    const url = import.meta.env.VITE_API_URL;
     try {
-      const res = await axios.post("http://localhost:8000/login", { username, password });
-      localStorage.setItem("token", res.data.access_token);
-      const role = res.data.access_token ? JSON.parse(atob(res.data.access_token.split('.')[1])).role : "investigator";
+      const res = await axios.post(`${url}/api/login`, { badge_number: formData.badge_number, password: formData.password, secret_code: formData.secret_code });
+      login(res.data.access_token);
+      const role = res.data.role;
       navigate(role === "admin" ? "/admin" : "/investigator");
     } catch (err) {
-      alert("Invalid credentials");
+      setErrors({ ...errors, secret_code: 'Invalid Credentials.', password: 'Invalid Credentials.', badge_number: 'Invalid Credentials.' });
     }
   };
 
@@ -74,6 +75,8 @@ const LoginPage = () => {
       return;
     }
 
+    console.log(formData)
+
     setIsLoading(true);
     handleLogin();
     clear();
@@ -82,26 +85,26 @@ const LoginPage = () => {
   };
 
   const handleFocus = (field) => {
-    if (field === 'investigatorId' && formData.investigatorId === '') {
-      setFormData({ ...formData, investigatorId: '' });
+    if (field === 'badge_number' && formData.badge_number === '') {
+      setFormData({ ...formData, badge_number: '' });
     }
     if (field === 'password' && formData.password === '') {
       setFormData({ ...formData, password: '' });
     }
-    if (field === 'secret' && formData.secret === '') {
-      setFormData({ ...formData, secret: '' });
+    if (field === 'secret_code' && formData.secret_code === '') {
+      setFormData({ ...formData, secret_code: '' });
     }
   };
 
   const handleBlur = (field) => {
-    if (field === 'investigatorId' && !formData.investigatorId.trim()) {
-      setFormData({ ...formData, investigatorId: '' });
+    if (field === 'badge_number' && !formData.badge_number.trim()) {
+      setFormData({ ...formData, badge_number: '' });
     }
     if (field === 'password' && !formData.password.trim()) {
       setFormData({ ...formData, password: '' });
     }
-    if (field === 'secret' && !formData.secret.trim()) {
-      setFormData({ ...formData, secret: '' });
+    if (field === 'secret_code' && !formData.secret_code.trim()) {
+      setFormData({ ...formData, secret_code: '' });
     }
   };
 
@@ -156,36 +159,36 @@ const LoginPage = () => {
             {/* Investigator ID Field */}
             <div>
               <label
-                htmlFor="investigatorId"
+                htmlFor="badge_number"
                 className="block text-sm font-medium text-gray-700 mb-2 text-left"
               >
                 Investigator ID
               </label>
               <input
-                id="investigatorId"
+                id="badge_number"
                 type="text"
-                value={formData.investigatorId}
-                onChange={(e) => handleInputChange('investigatorId', e.target.value)}
-                onFocus={() => handleFocus('investigatorId')}
-                onBlur={() => handleBlur('investigatorId')}
-                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${errors.investigatorId
+                value={formData.badge_number}
+                onChange={(e) => handleInputChange('badge_number', e.target.value)}
+                onFocus={() => handleFocus('badge_number')}
+                onBlur={() => handleBlur('badge_number')}
+                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${errors.badge_number
                   }`}
                 style={{
                   backgroundColor: '#345A76',
                   color: '#ffffff'
                 }}
                 placeholder="Enter Investigator ID"
-                aria-invalid={errors.investigatorId ? 'true' : 'false'}
-                aria-describedby={errors.investigatorId ? 'investigatorId-error' : undefined}
+                aria-invalid={errors.badge_number ? 'true' : 'false'}
+                aria-describedby={errors.badge_number ? 'badge_number-error' : undefined}
                 autoComplete="username"
               />
-              {errors.investigatorId && (
+              {errors.badge_number && (
                 <p
-                  id="investigatorId-error"
+                  id="badge_number-error"
                   className="mt-1 text-sm text-crimson-red text-left"
                   role="alert"
                 >
-                  {errors.investigatorId}
+                  {errors.badge_number}
                 </p>
               )}
             </div>
@@ -247,39 +250,39 @@ const LoginPage = () => {
               )}
             </div>
 
-            {/* Admin Secret Field */}
+            {/* Admin secret_code Field */}
             <div className={`${formData.isAdmin ? 'block' : 'hidden'}`}>
               <label
                 htmlFor="adminSecret"
                 className="block text-sm font-medium text-gray-700 mb-2 text-left"
               >
-                Admin Secret
+                Admin secret_code
               </label>
               <input
                 id="adminSecret"
                 type="text"
-                value={formData.secret || ''}
-                onChange={(e) => handleInputChange('secret', e.target.value)}
-                onFocus={() => handleFocus('secret')}
-                onBlur={() => handleBlur('secret')}
-                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${errors.investigatorId
+                value={formData.secret_code || ''}
+                onChange={(e) => handleInputChange('secret_code', e.target.value)}
+                onFocus={() => handleFocus('secret_code')}
+                onBlur={() => handleBlur('secret_code')}
+                className={`w-full px-4 py-3 rounded-md border-2 transition-all duration-200 placeholder:text-gray-300 ${errors.badge_number
                   }`}
                 style={{
                   backgroundColor: '#345A76',
                   color: '#ffffff'
                 }}
-                placeholder="Enter Admin Secret"
-                aria-invalid={errors.secret ? 'true' : 'false'}
-                aria-describedby={errors.secret ? 'adminSecret-error' : undefined}
+                placeholder="Enter Admin secret_code"
+                aria-invalid={errors.secret_code ? 'true' : 'false'}
+                aria-describedby={errors.secret_code ? 'adminSecret-error' : undefined}
                 autoComplete="username"
               />
-              {errors.secret && (
+              {errors.secret_code && (
                 <p
                   id="adminSecret-error"
                   className="mt-1 text-sm text-crimson-red text-left"
                   role="alert"
                 >
-                  {errors.secret}
+                  {errors.secret_code}
                 </p>
               )}
             </div>
