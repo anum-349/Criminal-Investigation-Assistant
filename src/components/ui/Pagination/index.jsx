@@ -39,7 +39,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="inline-flex items-center gap-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:ring-offset-1"
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:ring-offset-1"
           aria-label="Previous page"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -56,9 +56,9 @@ export function Pagination({
                 onClick={() => onPageChange(p)}
                 aria-label={`Page ${p}`}
                 aria-current={currentPage === p ? 'page' : undefined}
-                className={`min-w-[2.25rem] px-2 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:ring-offset-1 ${
+                className={`min-w-9 px-2 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-deep-ocean-500 focus:ring-offset-1 ${
                   currentPage === p
-                    ? 'bg-[#1a3a4a] text-white'
+                    ? 'bg-deep-ocean shadow-inner shadow-deep-ocean-900 text-white'
                     : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -71,7 +71,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="inline-flex items-center gap-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:ring-offset-1"
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:ring-offset-1"
           aria-label="Next page"
         >
           <span className="hidden sm:inline">Next</span>

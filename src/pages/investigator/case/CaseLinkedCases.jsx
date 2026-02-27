@@ -3,21 +3,22 @@ import { Link } from 'react-router-dom';
 import { Search, ChevronDown, Calendar, ExternalLink } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
+import { Badge } from '../../../components/ui/Badge';
 
 const PAGE_SIZE = 5;
 const RELATIONS = [
-  { value: '', label: 'Relation' },
-  { value: 'suspect', label: 'Similar suspect description' },
-  { value: 'location', label: 'Same building location' },
-  { value: 'victim', label: 'Involves victim\'s colleague' },
-  { value: 'movement', label: 'Possible suspect movement pattern' },
-  { value: 'proximity', label: 'Repeated crime scene proximity' },
+  { value: '', label: 'Relation', variant: 'default' },
+  { value: 'suspect', label: 'Similar suspect description', variant: 'warning' },
+  { value: 'location', label: 'Same building location', variant: 'success' },
+  { value: 'victim', label: 'Involves victim\'s colleague', variant: 'default' },
+  { value: 'movement', label: 'Possible suspect movement pattern', variant: 'destructive' },
+  { value: 'proximity', label: 'Repeated crime scene proximity', variant: 'warning' },
 ];
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'Status All' },
-  { value: 'Open', label: 'Open' },
-  { value: 'Closed', label: 'Closed' },
+  { value: 'all', label: 'Status All', variant: 'default' },
+  { value: 'Open', label: 'Open', variant: 'success' },
+  { value: 'Closed', label: 'Closed', variant: 'destructive' },
 ];
 
 const linkedData = [
@@ -119,18 +120,26 @@ const LinkedCases = () => {
     setCurrentPage(1);
   }, []);
 
+  const getStatusVariant = (status) => {
+    const res = STATUS_OPTIONS.find(s => s.value === status)?.variant || "default";
+    console.log(res)
+    return res;
+  };
+
+  const getRelationVariant = (relation) => {
+    return RELATIONS.find(r => r.label === relation)?.variant || "default";
+  };
+
   return (
     <section
       className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm"
       aria-label="Linked Cases"
     >
-      {/* Header – HCI: Clear hierarchy and context */}
       <header className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Linked Cases</h2>
         <p className="text-sm text-slate-600 mt-1">Visualize relationship between cases</p>
       </header>
 
-      {/* Search and filters – HCI: User control, explicit Apply */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <label className="sr-only" htmlFor="linked-search">Search linked cases</label>
         <div className="relative flex-1 min-w-50">
@@ -142,7 +151,7 @@ const LinkedCases = () => {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleApply()}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:border-transparent"
             aria-label="Search linked cases by keyword or case id"
           />
         </div>
@@ -153,7 +162,7 @@ const LinkedCases = () => {
             id="filter-relation"
             value={relationFilter}
             onChange={(e) => setRelationFilter(e.target.value)}
-            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] min-w-45"
+            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean min-w-45"
             aria-label="Filter by relation type"
           >
             {RELATIONS.map((opt) => (
@@ -171,7 +180,7 @@ const LinkedCases = () => {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            className="pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-deep-ocean-500"
             aria-label="Select date"
           />
         </div>
@@ -182,7 +191,7 @@ const LinkedCases = () => {
             id="filter-status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean-500"
             aria-label="Filter by status"
           >
             {STATUS_OPTIONS.map((opt) => (
@@ -192,76 +201,69 @@ const LinkedCases = () => {
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" aria-hidden />
         </div>
 
-        <Button onClick={handleApply} className="px-6 py-2" aria-label="Apply filters">
+        <Button onClick={handleApply} className="px-6 py-2 shadow-inner shadow-deep-ocean-900" aria-label="Apply filters">
           Apply
         </Button>
-        <Button variant="outline" onClick={handleClear} className="px-6 py-2" aria-label="Clear filters">
+        <Button variant="outline" onClick={handleClear} className="px-6 py-2 " aria-label="Clear filters">
           Clear
         </Button>
       </div>
 
-      {/* Table – HCI: Consistency, scannability, clear actions */}
-            <div className="border border-slate-200 rounded-b-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse" role="table" aria-label="Linked cases list">
-          <thead>
-            <tr className="bg-slate-100 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
-              <th scope="col" className="px-6 py-4">Case ID</th>
-              <th scope="col" className="px-6 py-4">Title</th>
-              <th scope="col" className="px-6 py-4">Investigator</th>
-              <th scope="col" className="px-6 py-4">Register Date</th>
-              <th scope="col" className="px-6 py-4">Status</th>
-              <th scope="col" className="px-6 py-4">Relation</th>
-              <th scope="col" className="px-6 py-4 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {pageResults.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                  No linked cases match your search. Try different filters.
-                </td>
+      <div className="border border-slate-200 rounded-b-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse" role="table" aria-label="Linked cases list">
+            <thead>
+              <tr className="bg-slate-100 text-slate-600 text-nowrap *:uppercase *:font-semibold *:text-[11px] tracking-wider">
+                <th scope="col" className="px-6 py-4">Case ID</th>
+                <th scope="col" className="px-6 py-4">Title</th>
+                <th scope="col" className="px-6 py-4">Investigator</th>
+                <th scope="col" className="px-6 py-4">Register Date</th>
+                <th scope="col" className="px-6 py-4">Status</th>
+                <th scope="col" className="px-6 py-4">Relation</th>
+                <th scope="col" className="px-6 py-4 text-center">Actions</th>
               </tr>
-            ) : (
-              pageResults.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-800">{row.id}</td>
-                  <td className="px-6 py-4 font-medium text-slate-800">{row.title}</td>
-                  <td className="px-6 py-4 text-slate-700">{row.investigator}</td>
-                  <td className="px-6 py-4 text-slate-700">{row.registerDate}</td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-block px-4 py-1.5 rounded text-xs font-bold text-white ${row.status === 'Open'
-                        ? 'bg-emerald-600'
-                        : 'bg-[#1a2e35]'
-                        }`}
-                      aria-label={`Status: ${row.status}`}
-                    >
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-block bg-rose-700/90 text-white px-3 py-1.5 rounded-full text-[10px] font-semibold max-w-xs leading-tight">
-                      {row.relation}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <Link
-                      to="/investigator/case"
-                      state={{ caseId: row.linkedCaseId, title: row.title }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-[#1a3a4a] hover:bg-[#14374E] text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:ring-offset-2"
-                      aria-label={`Open linked case ${row.id} - ${row.title}`}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                      Open Linked Case
-                    </Link>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {pageResults.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                    No linked cases match your search. Try different filters.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                pageResults.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-semibold text-slate-800 text-nowrap">{row.id}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">{row.title}</td>
+                    <td className="px-6 py-4 text-slate-700">{row.investigator}</td>
+                    <td className="px-6 py-4 text-slate-700">{row.registerDate}</td>
+                    <td className="px-6 py-4">
+                      <Badge variant={getStatusVariant(row.status)}>
+                        {row.status}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={getRelationVariant(row.relation)}>
+                        {row.relation}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <Link
+                        to="/investigator/case"
+                        state={{ caseId: row.linkedCaseId, title: row.title }}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 shadow-inner shadow-black text-white transition-colors focus:outline-none focus:ring-2 focus:ring-deep-ocean-500 focus:ring-offset-2"
+                        aria-label={`Open linked case ${row.id} - ${row.title}`}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                        Open Linked Case
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {totalResults > 0 && (

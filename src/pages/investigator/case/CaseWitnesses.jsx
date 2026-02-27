@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, ChevronDown, Calendar, X, ExternalLink } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
+import { Badge } from '../../../components/ui/Badge';
 
 const PAGE_SIZE = 5;
 const STATUSES = [
@@ -177,7 +178,7 @@ const CaseWitnesses = () => {
             value={searchName}
             onChange={(e) => setSearchName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleApply()}
-            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:border-transparent"
             aria-label="Search witness by name"
           />
         </div>
@@ -189,7 +190,7 @@ const CaseWitnesses = () => {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            className="pl-9 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:border-transparent"
             aria-label="Select date"
           />
         </div>
@@ -199,7 +200,7 @@ const CaseWitnesses = () => {
             id="filter-status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:border-transparent"
             aria-label="Filter by status"
           >
             {STATUSES.map((s) => (
@@ -208,7 +209,7 @@ const CaseWitnesses = () => {
           </select>
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" aria-hidden />
         </div>
-        <Button onClick={handleApply} className="px-6 py-2" aria-label="Apply filters">
+        <Button onClick={handleApply} className="px-6 py-2 shadow-inner shadow-deep-ocean-900" aria-label="Apply filters">
           Apply
         </Button>
         <Button variant="outline" onClick={handleClear} className="px-6 py-2" aria-label="Clear filters">
@@ -220,7 +221,7 @@ const CaseWitnesses = () => {
       <div className="border border-slate-200 rounded-b-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm" role="table" aria-label="Witness list">
-            <thead className="bg-slate-100 text-slate-600">
+            <thead className="bg-slate-100 text-slate-600 text-nowrap">
               <tr>
                 <th scope="col" className="p-4 font-semibold uppercase text-[11px] tracking-wide">Witness ID</th>
                 <th scope="col" className="p-4 font-semibold uppercase text-[11px] tracking-wide">Name</th>
@@ -241,23 +242,42 @@ const CaseWitnesses = () => {
               ) : (
                 pageWitnesses.map((w) => (
                   <tr key={w.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-semibold text-slate-800">{w.id}</td>
+                    <td className="p-4 font-semibold text-slate-800 text-nowrap">{w.id}</td>
                     <td className="p-4 text-slate-800">{w.name}</td>
                     <td className="p-4 text-slate-700">{w.age} / {w.gender}</td>
                     <td className="p-4">
                       <a
                         href={`tel:${w.contact.replace(/\s/g, '')}`}
-                        className="text-[#1a3a4a] hover:underline focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:ring-offset-1 rounded"
+                        className="text-deep-ocean-500 hover:underline rounded"
                       >
                         {w.contact}
                       </a>
                     </td>
                     <td className="p-4 text-slate-700">{w.dateAdded}</td>
-                    <td className="p-4 text-slate-700 max-w-xs">{w.description}</td>
+                    <td className="p-4 text-slate-700 max-w-xs">{w.description ? (<>
+                      <div>
+                        {w.description.length > 50
+                          ? `${w.description.slice(0, 50)}...`
+                          : w.description}
+                      </div>
+
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="text-xs px-4 py-2 mt-3"
+                      >
+                        Update Statement
+                      </Button>
+                    </>) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="text-xs px-4 py-2">
+                        Add Statement</Button>
+                    )}</td>
                     <td className="p-4 text-center">
                       <Button
-                        variant="outline"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-[#1a3a4a] hover:bg-[#14374E] text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] focus:ring-offset-2"
+                        className="inline-flex items-center justify-center shadow-inner shadow-deep-ocean-900 gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 text-white transition-colors focus:outline-none"
                         onClick={() => openDialog(w)}
                         aria-label={`View full details for ${w.name}`}
                       >
@@ -311,7 +331,7 @@ const CaseWitnesses = () => {
                 ref={closeButtonRef}
                 type="button"
                 onClick={closeDialog}
-                className="p-2 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+                className="p-2 rounded-md text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
                 aria-label="Close dialog"
               >
                 <X className="h-5 w-5" aria-hidden />
@@ -319,36 +339,34 @@ const CaseWitnesses = () => {
             </div>
             <div id="witness-dialog-desc" className="p-6 space-y-6">
               <section aria-labelledby="personal-heading">
-                <h4 id="personal-heading" className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Personal Information</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <p><span className="text-slate-500">Witness ID:</span> <span className="text-slate-800 font-medium">{dialogWitness.id}</span></p>
-                  <p><span className="text-slate-500">Name:</span> <span className="text-slate-800">{dialogWitness.name}</span></p>
-                  <p><span className="text-slate-500">Age:</span> <span className="text-slate-800">{dialogWitness.age}</span></p>
-                  <p><span className="text-slate-500">Gender:</span> <span className="text-slate-800">{dialogWitness.gender}</span></p>
-                  <p><span className="text-slate-500">Contact:</span>{' '}
-                    <a href={`tel:${dialogWitness.contact.replace(/\s/g, '')}`} className="text-[#1a3a4a] hover:underline">{dialogWitness.contact}</a>
+                <h4 id="personal-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Personal Information</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
+                  <p><span className="font-semibold text-slate-700">Witness ID:</span> <span className="text-slate-500 font-medium">{dialogWitness.id}</span></p>
+                  <p><span className="font-semibold text-slate-700">Name:</span> <span className="text-slate-500">{dialogWitness.name}</span></p>
+                  <p><span className="font-semibold text-slate-700">Age:</span> <span className="text-slate-500">{dialogWitness.age}</span></p>
+                  <p><span className="font-semibold text-slate-700">Gender:</span> <span className="text-slate-500">{dialogWitness.gender}</span></p>
+                  <p><span className="font-semibold text-slate-700">Contact:</span>{' '}
+                    <a href={`tel:${dialogWitness.contact.replace(/\s/g, '')}`} className="text-slate-500 hover:underline">{dialogWitness.contact}</a>
                   </p>
-                  <p><span className="text-slate-500">Address:</span> <span className="text-slate-800">{dialogWitness.address}</span></p>
-                  <p className="sm:col-span-2"><span className="text-slate-500">Relation to case:</span> <span className="text-slate-800">{dialogWitness.relationToCase}</span></p>
+                  <p><span className="font-semibold text-slate-700">Address:</span> <span className="text-slate-500">{dialogWitness.address}</span></p>
+                  <p className="sm:col-span-2"><span className="font-semibold text-slate-700">Relation to case:</span> <span className="text-slate-500">{dialogWitness.relationToCase}</span></p>
                 </div>
               </section>
               <section aria-labelledby="case-heading">
-                <h4 id="case-heading" className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Case & Status</h4>
+                <h4 id="case-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Case & Status</h4>
                 <div className="flex flex-wrap gap-2 text-sm">
-                  <p><span className="text-slate-500">Case ID:</span> <span className="text-slate-800 font-medium">{dialogWitness.caseId}</span></p>
-                  <p><span className="text-slate-500">Status:</span>{' '}
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${dialogWitness.status === 'Active' ? 'bg-emerald-100 text-emerald-800' :
-                        dialogWitness.status === 'Closed' ? 'bg-slate-200 text-slate-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
+                  <p><span className="font-semibold text-slate-700">Case ID:</span> <span className="text-slate-500 font-medium">{dialogWitness.caseId}</span></p>
+                  <p><span className="font-semibold text-slate-700">Status:</span>{' '}
+                    <Badge variant={dialogWitness.status === 'Active' ? 'success' : dialogWitness.status === 'Pending' ? 'warning' : 'default'} >
                       {dialogWitness.status}
-                    </span>
+                    </Badge>
                   </p>
-                  <p><span className="text-slate-500">Date added:</span> <span className="text-slate-800">{dialogWitness.dateAdded}</span></p>
-                  <p><span className="text-slate-500">Statement date:</span> <span className="text-slate-800">{dialogWitness.statementDate}</span></p>
+                  <p><span className="font-semibold text-slate-700">Date added:</span> <span className="text-slate-500">{dialogWitness.dateAdded}</span></p>
+                  <p><span className="font-semibold text-slate-700">Statement date:</span> <span className="text-slate-500">{dialogWitness.statementDate}</span></p>
                 </div>
               </section>
               <section aria-labelledby="statement-heading">
-                <h4 id="statement-heading" className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Witness Statement / Description</h4>
+                <h4 id="statement-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Witness Statement / Description</h4>
                 <p className="text-slate-700 text-sm leading-relaxed">{dialogWitness.description}</p>
               </section>
             </div>

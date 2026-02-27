@@ -7,7 +7,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, "../dist/icon.ico"),
+    icon: path.join(__dirname, "../icon.ico"),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -26,7 +26,7 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // In production, load from the built files
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../index.html'));
   }
 }
 

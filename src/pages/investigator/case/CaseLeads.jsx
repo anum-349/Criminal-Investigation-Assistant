@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Search, ChevronDown, Calendar, Info } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
+import { Badge } from '../../../components/ui/Badge';
 
 const PAGE_SIZE = 5;
 const LEAD_TYPES = [
@@ -111,7 +112,7 @@ const CaseInvestigationLeads = () => {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleApply()}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:border-transparent"
             aria-label="Search leads by keyword"
           />
         </div>
@@ -122,7 +123,7 @@ const CaseInvestigationLeads = () => {
             id="filter-lead-type"
             value={leadTypeFilter}
             onChange={(e) => setLeadTypeFilter(e.target.value)}
-            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a] min-w-35"
+            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean min-w-35"
             aria-label="Filter by lead type"
           >
             {LEAD_TYPES.map((opt) => (
@@ -140,7 +141,7 @@ const CaseInvestigationLeads = () => {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            className="pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:border-transparent"
             aria-label="Select date"
           />
         </div>
@@ -151,7 +152,7 @@ const CaseInvestigationLeads = () => {
             id="filter-severity"
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
-            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]"
+            className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean"
             aria-label="Filter by severity"
           >
             {SEVERITIES.map((opt) => (
@@ -161,7 +162,7 @@ const CaseInvestigationLeads = () => {
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" aria-hidden />
         </div>
 
-        <Button onClick={handleApply} className="px-6 py-2" aria-label="Apply filters">
+        <Button onClick={handleApply} className="px-6 py-2 shadow-inner shadow-deep-ocean-900" aria-label="Apply filters">
           Apply
         </Button>
         <Button variant="outline" onClick={handleClear} className="px-6 py-2" aria-label="Clear filters">
@@ -172,7 +173,7 @@ const CaseInvestigationLeads = () => {
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse" role="table" aria-label="Leads list">
           <thead>
-            <tr className="bg-slate-100 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
+            <tr className="bg-slate-100 text-slate-600 *:uppercase *:font-semibold *:text-[11px] text-nowrap tracking-wider">
               <th scope="col" className="px-6 py-4">Lead ID</th>
               <th scope="col" className="px-6 py-4 w-1/3">Description</th>
               <th scope="col" className="px-6 py-4">Lead Type</th>
@@ -192,7 +193,7 @@ const CaseInvestigationLeads = () => {
             ) : (
               pageLeads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-800">{lead.id}</td>
+                  <td className="px-6 py-4 font-semibold text-slate-800 text-nowrap">{lead.id}</td>
                   <td className="px-6 py-4">
                     <div className="flex gap-2">
                       <Info size={16} className="text-amber-500 shrink-0 mt-0.5" aria-hidden />
@@ -207,24 +208,24 @@ const CaseInvestigationLeads = () => {
                   </td>
                   <td className="px-6 py-4 text-center text-slate-700">{lead.date}</td>
                   <td className="px-6 py-4 text-center">
-                    <span className={`inline-block px-4 py-1.5 rounded text-[10px] font-bold ${getStatusClass(lead.status)}`} aria-label={`Status: ${lead.status}`}>
+                    <Badge variant={lead.status === 'Under Review' || lead.status === 'In Progress' || lead.status === 'New' ? 'success' : lead.status === 'Pending' ? 'warning' : 'default'}>
                       {lead.status}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    {lead.action === 'Reject' ? (
-                      <button type="button" className="inline-flex items-center gap-1 border border-red-300 rounded px-3 py-1.5 bg-red-600 text-white text-xs font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <ChevronDown size={12} aria-hidden /> Reject
-                      </button>
-                    ) : lead.action === 'Pending' ? (
-                      <button type="button" className="inline-flex items-center gap-1 border border-slate-300 rounded px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400">
-                        <ChevronDown size={12} aria-hidden /> Pending
-                      </button>
-                    ) : (
-                      <button type="button" className="inline-flex items-center gap-1 border border-slate-300 rounded px-3 py-1.5 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]">
-                        <ChevronDown size={12} aria-hidden /> Accept
-                      </button>
-                    )}
+                    <div className="relative">
+                      <select
+                        value={lead.action}
+                        onChange={() => {}}
+                        className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean min-w-25"
+                        aria-label="Select action for lead"
+                      >
+                        <option value="Accept">Accept</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Reject">Reject</option>
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" aria-hidden />
+                    </div>
                   </td>
                 </tr>
               ))

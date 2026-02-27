@@ -7,8 +7,10 @@ export const Button = ({ children, className, variant = "default", ...props }) =
   const variants = {
     default: "bg-[#14374E] hover:bg-[#021624] text-white",
     destructive: "bg-red-600 text-white hover:bg-red-700",
-    outline:
-      "border border-gray-300 text-gray-700",
+    outline: "border border-gray-300 hover:bg-gray-100",
+    ghost: "hover:bg-gray-100",
+    link: "text-blue-600 hover:underline",
+    icon: "p-2 rounded-full hover:bg-gray-200",
   };
 
   return (

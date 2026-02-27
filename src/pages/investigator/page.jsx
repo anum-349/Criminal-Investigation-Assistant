@@ -11,6 +11,7 @@ import {
 } from "../../components/ui/Table";
 import { Badge } from "../../components/ui/Badge";
 import Header from "../../components/Header";
+import { useNavigate } from "react-router-dom";
 
 const StatCard = ({ value, label }) => {
     return (
@@ -34,6 +35,7 @@ const cases = [
 ];
 
 const ActiveCasesTable = () => {
+    const navigate = useNavigate()
     return (
         <Card className="p-5 bg-card border border-border shadow-sm animate-slide-up">
             <div className="mb-4 text-left">
@@ -73,7 +75,7 @@ const ActiveCasesTable = () => {
                                     </TableCell>
                                     <TableCell>{caseItem.lastUpdate}</TableCell>
                                     <TableCell>
-                                        <Button className="h-7 px-6  rounded-md w-full">
+                                        <Button className="h-7 px-6  rounded-md w-full" onClick={() => navigate(`/investigator/case`)}>
                                             View
                                         </Button>
                                     </TableCell>
@@ -197,7 +199,7 @@ const CrimeHotspotMap = () => {
                 <div className="lg:col-span-2">
                     <div className="relative w-full h-64 lg:h-80 rounded-lg overflow-hidden bg-muted">
                         <img
-                            src="/dist/map.webp"
+                            src="/map.webp"
                             alt="Crime hotspot map visualization"
                             className="w-full h-full object-cover"
                         />
@@ -239,7 +241,7 @@ const InvestigatorPage = () => {
             <Header />
 
             {/* Main Content */}
-            <main className="p-4 lg:p-6 space-y-6">
+            <main className="p-6 space-y-6 pt-20">
                 {/* Statistics Cards - HCI: Visibility of system status */}
                 <section aria-label="Case Statistics">
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

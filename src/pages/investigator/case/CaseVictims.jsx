@@ -8,6 +8,8 @@ import {
   Circle,
 } from 'lucide-react';
 
+import { Badge } from '../../../components/ui/Badge';
+
 const victimsList = [
   {
     id: 1,
@@ -52,6 +54,10 @@ const victim1Details = {
   timeline: [
     { date: '20 Aug, 2025 5:00 PM', text: 'Victim last contacted sister via phone' },
     { date: '20 Aug, 2025 5:00 PM', text: 'Neighbors heard loud argument' },
+    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
+    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
+    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
+    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
     { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
   ],
   protection: {
@@ -109,7 +115,7 @@ const CaseVictim = () => {
       {/* Header – HCI: Clear hierarchy and navigation */}
       <header className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Victims</h2>
-                <p className="text-sm text-slate-600 mt-1">View all victims and their case involvement</p>
+        <p className="text-sm text-slate-600 mt-1">View all victims and their case involvement</p>
       </header>
 
       {/* Victim selection tabs – HCI: Recognition over recall, clear selected state */}
@@ -127,30 +133,25 @@ const CaseVictim = () => {
             aria-controls="victim-details-panel"
             id={`victim-tab-${v.id}`}
             onClick={() => setSelectedVictimId(v.id)}
-            className={`rounded-xl p-5 text-left transition-all focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2 ${
-              selectedVictimId === v.id
-                ? 'bg-[#1e3a4c] text-white shadow-lg'
-                : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300/80'
-            }`}
+            className={`rounded-xl p-5 text-left transition-all shadow-inner shadow-deep-ocean-900/50 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2 ${selectedVictimId === v.id
+              ? 'bg-slate-blue text-white'
+              : 'bg-cool-silver text-slate-700 hover:bg-deep-ocean hover:text-slate-300 shadow-deep-ocean/30'
+              }`}
           >
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-bold">{v.title}</h3>
-                <p className={`text-sm ${selectedVictimId === v.id ? 'opacity-90' : 'text-slate-600'}`}>
+                <p className={`text-sm ${selectedVictimId === v.id ? 'opacity-90' : ''}`}>
                   {v.role}
                 </p>
               </div>
-              <span
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide ${
-                  v.statusVariant === 'fatal'
-                    ? 'bg-rose-700/90 text-white border border-rose-400'
-                    : 'bg-emerald-700/80 text-white border border-emerald-400'
-                }`}
-                aria-label={`Status: ${v.status}`}
-              >
-                {v.statusVariant === 'fatal' ? <Info size={14} aria-hidden /> : <CheckCircle2 size={14} aria-hidden />}
-                {v.status}
-              </span>
+              <Badge variant={v.statusVariant === 'fatal' ? 'destructive' : 'success'} size="sm" className="shrink-0 px-4 py-2">
+                {v.statusVariant === 'fatal' ? <Info size={14} aria-hidden className='mr-2' /> : <CheckCircle2 size={14} aria-hidden className='mr-2' />}
+                {v.statusVariant.toLowerCase()
+                  .split(" ")
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(" ")}
+              </Badge>
             </div>
           </button>
         ))}
@@ -161,12 +162,12 @@ const CaseVictim = () => {
         id="victim-details-panel"
         role="tabpanel"
         aria-labelledby={`victim-tab-${selectedVictimId}`}
-        className="bg-[#536d7e] rounded-lg p-6 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
+        className="from-deep-ocean bg-linear-60 to-slate-blue rounded-lg p-6 shadow-inner shadow-deep-ocean-900/50 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
       >
         <div className="flex items-center gap-4 flex-wrap">
-          <div className="size-14 rounded-full overflow-hidden border-2 border-white/20 bg-slate-400 shrink-0">
+          <div className="size-18 rounded-full overflow-hidden border-2 border-white/20 bg-slate-400 shrink-0">
             <img
-              src="/dist/profile.jpg"
+              src="/profile.jpg"
               alt=""
               className="object-cover h-full w-full"
               onError={(e) => { e.target.style.display = 'none'; }}
@@ -182,17 +183,14 @@ const CaseVictim = () => {
         </div>
         <div className="flex flex-wrap gap-3 items-center">
           {details.cooperative && (
-            <span
-              className="inline-flex items-center gap-2 bg-slate-800/40 border border-emerald-400/50 px-4 py-2 rounded-full text-sm font-semibold"
-              aria-label="Cooperative"
-            >
-              <CheckCircle2 size={16} className="text-emerald-400" aria-hidden />
+            <Badge variant="success" size="sm" className="inline-flex items-center gap-2 px-4 py-2 border border-forest-teal font-semibold">
+              <CheckCircle2 size={16} className="text-emerald-green" aria-hidden />
               Cooperative
-            </span>
+            </Badge>
           )}
           <button
             type="button"
-            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 border border-emerald-500 px-4 py-2 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-[#536d7e]"
+            className="inline-flex items-center gap-2 bg-emerald-green hover:bg-emerald-700 text-xs border border-emerald-700 px-4 py-2 rounded-full font-semibold transition-colors"
             aria-label="Add statement"
           >
             <Plus size={16} aria-hidden />
@@ -212,15 +210,15 @@ const CaseVictim = () => {
             Personal Information
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <div className="space-y-2">
-              <p><span className="text-slate-500">Name:</span> <span className="text-slate-800">{details.personal.name}</span></p>
-              <p><span className="text-slate-500">Age:</span> <span className="text-slate-800">{details.personal.age}</span></p>
-              <p><span className="text-slate-500">Contact:</span> <span className="text-slate-800">{details.personal.contact}</span></p>
+            <div className="space-y-2 *:grid *:gap-1 *:grid-cols-2">
+              <p><span className="text-slate-700 font-semibold">Name:</span> <span className="text-slate-600">{details.personal.name}</span></p>
+              <p><span className="text-slate-700 font-semibold">Age:</span> <span className="text-slate-600">{details.personal.age}</span></p>
+              <p><span className="text-slate-700 font-semibold">Contact:</span> <span className="text-slate-600">{details.personal.contact}</span></p>
             </div>
-            <div className="space-y-2 sm:border-l sm:border-slate-200 sm:pl-6">
-              <p><span className="text-slate-500">Gender:</span> <span className="text-slate-800">{details.personal.gender}</span></p>
-              <p><span className="text-slate-500">Occupation:</span> <span className="text-slate-800">{details.personal.occupation}</span></p>
-              <p><span className="text-slate-500">CNIC:</span> <span className="text-slate-800">{details.personal.cnic}</span></p>
+            <div className="space-y-2 *:grid *:gap-1 *:grid-cols-2">
+              <p><span className="text-slate-700 font-semibold">Gender:</span> <span className="text-slate-600">{details.personal.gender}</span></p>
+              <p><span className="text-slate-700 font-semibold">Occupation:</span> <span className="text-slate-600">{details.personal.occupation}</span></p>
+              <p><span className="text-slate-700 font-semibold">CNIC:</span> <span className="text-slate-600">{details.personal.cnic}</span></p>
             </div>
           </div>
         </article>
@@ -233,21 +231,17 @@ const CaseVictim = () => {
           <h3 id="incident-details-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
             Incident Details
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <div className="space-y-2 text-slate-500">
-              <p>Residential Address:</p>
-              <p>Nature of Injuries:</p>
-              <p>Cause of Death:</p>
-              <p>Declared Dead:</p>
-              <p>Postmortem, Autopsy:</p>
-            </div>
-            <div className="space-y-2 text-slate-800">
-              <p>{details.incident.residentialAddress}</p>
-              <p>{details.incident.natureOfInjuries}</p>
-              <p>{details.incident.causeOfDeath}</p>
-              <p>{details.incident.declaredDead}</p>
-              <p>{details.incident.postmortemAutopsy}</p>
-            </div>
+          <div className="space-y-2 *:grid *:gap-1 *:grid-cols-2">
+            <p><span className="text-slate-700 font-semibold">Residential Address:</span>
+              <span className="text-slate-600">{details.incident.residentialAddress}</span></p>
+            <p><span className="text-slate-700 font-semibold">Nature of Injuries:</span>
+              <span className="text-slate-600">{details.incident.natureOfInjuries}</span></p>
+            <p><span className="text-slate-700 font-semibold">Cause of Death:</span>
+              <span className="text-slate-600">{details.incident.causeOfDeath}</span></p>
+            <p><span className="text-slate-700 font-semibold">Declared Dead:</span>
+              <span className="text-slate-600">{details.incident.declaredDead}</span></p>
+            <p><span className="text-slate-700 font-semibold">Postmortem, Autopsy:</span>
+              <span className="text-slate-600">{details.incident.postmortemAutopsy}</span></p>
           </div>
         </article>
 
@@ -259,7 +253,7 @@ const CaseVictim = () => {
           <h3 id="injury-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
             Injury & Medical Status
           </h3>
-          <div className="bg-[#3d5a6c] text-white rounded-md px-4 py-3 mb-3">
+          <div className="bg-deep-ocean-500 text-white rounded-md px-4 py-3 mb-3">
             <p className="font-medium">{details.injurySummary}</p>
           </div>
           <p className="flex items-center gap-2 text-sm text-slate-600">
@@ -279,7 +273,7 @@ const CaseVictim = () => {
           <ul className="list-none space-y-2 text-sm text-slate-700">
             {details.forensic.map((item, i) => (
               <li key={i} className="flex gap-2">
-                <span className="text-slate-400 shrink-0">•</span>
+                <span className="text-deep-ocean-900 shrink-0">•</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -297,11 +291,11 @@ const CaseVictim = () => {
           {details.timeline.length === 0 ? (
             <p className="text-sm text-slate-500">No timeline entries yet.</p>
           ) : (
-            <ul className="relative space-y-0 pl-6 border-l-2 border-slate-200 ml-2" role="list">
+            <ul className="relative space-y-0 pl-6 grid-cols-2 grid ml-2" role="list">
               {details.timeline.map((entry, i) => (
                 <li key={i} className="relative pb-4 last:pb-0">
                   <span
-                    className="absolute -left-7.25 top-0.5 w-3 h-3 rounded-full bg-[#1e3a4c] border-2 border-white shadow"
+                    className="absolute -left-8 top-0.5 w-3 h-3 rounded-full bg-deep-ocean-500 border-2 border-soft-mist shadow"
                     aria-hidden
                   />
                   <p className="text-sm font-medium text-slate-800">{entry.date}</p>
@@ -321,11 +315,10 @@ const CaseVictim = () => {
             <Shield size={20} className="text-slate-600" aria-hidden />
             Protection Status
           </h3>
-          <div className="space-y-2 text-sm">
-            <p><span className="text-slate-500">Threat Level:</span> <span className="text-slate-800 font-medium">{details.protection.threatLevel}</span></p>
-            <p><span className="text-slate-500">Protection Assigned:</span> <span className="text-slate-800">{details.protection.protectionAssigned}</span></p>
-            <p className="mt-3"><span className="text-slate-500">Notes:</span></p>
-            <p className="text-slate-700">{details.protection.notes}</p>
+          <div className="space-y-2 text-sm *:grid *:gap-1 *:grid-cols-2">
+            <p><span className="text-slate-700 font-semibold ">Threat Level:</span> <span className="text-slate-600">{details.protection.threatLevel}</span></p>
+            <p><span className="text-slate-700 font-semibold">Protection Assigned:</span> <span className="text-slate-600">{details.protection.protectionAssigned}</span></p>
+            <p className="mt-3"><span className="text-slate-700 font-semibold">Notes:</span><span className="text-slate-600">{details.protection.notes}</span></p>
           </div>
         </article>
 
@@ -341,7 +334,7 @@ const CaseVictim = () => {
             {details.legal.map((item, i) => (
               <li key={i} className="flex items-center gap-2">
                 {item.done ? (
-                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0" aria-hidden />
+                  <CheckCircle2 size={18} className="text-emerald-green shrink-0" aria-hidden />
                 ) : (
                   <Circle size={18} className="text-slate-300 shrink-0" aria-hidden />
                 )}

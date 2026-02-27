@@ -13,7 +13,7 @@ export const Badge = ({ children, variant = "default", className }) => {
     <span
       className={clsx(
         "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-        variants[variant],
+        variants[variant] || variants.default,
         className
       )}
     >

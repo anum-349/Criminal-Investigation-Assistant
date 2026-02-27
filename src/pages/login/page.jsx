@@ -119,7 +119,7 @@ const LoginPage = () => {
           <div className="flex flex-col items-center mb-8">
             {/* Logo Icon */}
             <div className="mb-4">
-              <img src={'/dist/logo.png'} alt="Criminal Investigation Assistant Logo" width={150} height={150} />
+              <img src={'/logo.png'} alt="Criminal Investigation Assistant Logo" width={150} height={150} />
             </div>
 
             {/* Title */}
