@@ -164,7 +164,7 @@ const FIRUploadModal = ({ isOpen, onClose, onSubmit }) => {
               </h2>
               <button
                 onClick={onClose}
-                className="text-white hover:text-gray-300 transition-colors"
+                className="text-white hover:text-gray-300 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,7 +205,7 @@ const FIRUploadModal = ({ isOpen, onClose, onSubmit }) => {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
-                      className="px-6 py-2 bg-[#14374E] text-white rounded-md hover:bg-[#021624] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                      className="px-6 py-2 bg-[#14374E] text-white rounded-md cursor-pointer hover:bg-deep-ocean-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                     >
                       {isUploading ? (
                         <>
@@ -304,7 +304,7 @@ const FIRUploadModal = ({ isOpen, onClose, onSubmit }) => {
                       Title
                       <button
                         type="button"
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 cursor-pointer hover:text-gray-600"
                         title="Enter a brief title describing the case"
                         aria-label="Help: Enter a brief title describing the case"
                       >
@@ -504,14 +504,14 @@ const FIRUploadModal = ({ isOpen, onClose, onSubmit }) => {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="px-6 py-2 border border-[#14374E] rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-6 py-2 border border-[#14374E] cursor-pointer rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="px-6 py-2 bg-[#14374E] text-white rounded-md hover:bg-[#021624] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="px-6 py-2 bg-[#14374E] text-white rounded-md hover:bg-deep-ocean-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {isProcessing ? (
                     <>

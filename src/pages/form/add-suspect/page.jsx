@@ -240,7 +240,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
             </h2>
             <button
               onClick={onClose}
-              className="text-white hover:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-white rounded"
+              className="text-white  cursor-pointer hover:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-white rounded"
               aria-label="Close modal"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -455,7 +455,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
               Physical Description
               <button
                 type="button"
-                className="ml-2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                className="ml-2  cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none"
                 title="Enter physical characteristics like height, weight, build, hair color, eye color, etc."
                 aria-label="Help: Enter physical characteristics"
               >
@@ -481,7 +481,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                 <button
                   type="button"
                   onClick={() => handleClearField('physicalDescription')}
-                  className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#14374E] rounded"
+                  className="absolute  cursor-pointer right-2 top-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#14374E] rounded"
                   aria-label="Clear physical description"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -522,7 +522,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                 <button
                   type="button"
                   onClick={() => handleClearField('knownAffiliations')}
-                  className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                  className="absolute  cursor-pointer right-2 top-2 text-gray-400 hover:text-gray-600"
                   aria-label="Clear known affiliations"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -592,7 +592,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#14374E]"
+                  className="flex items-center  cursor-pointer gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#14374E]"
                 >
                   <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -605,7 +605,7 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
                   <button
                     type="button"
                     onClick={() => handleClearField('picture')}
-                    className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
+                    className="text-gray-400  cursor-pointer hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
                     aria-label="Remove uploaded photo"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -643,14 +643,14 @@ const AddSuspectModal = ({ isOpen, onClose, onSubmit, caseData }) => {
             <button
               type="button"
               onClick={handleCancel}
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              className="px-6 py-2 border  cursor-pointer border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2 bg-[#14374E] text-white rounded-md hover:bg-[#021624] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="px-6 py-2 bg-[#14374E] text-white rounded-md hover:bg-deep-ocean-900  cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {isSubmitting ? (
                 <>

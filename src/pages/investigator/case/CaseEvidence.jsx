@@ -290,7 +290,7 @@ const CaseEvidence = () => {
                                     ref={closeButtonRef}
                                     type="button"
                                     onClick={closeDialog}
-                                    className="p-2 rounded-md text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
+                                    className="p-2 rounded-md text-slate-500 cursor-pointer hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
                                     aria-label="Close dialog"
                                 >
                                     <X className="h-5 w-5" aria-hidden />
@@ -369,7 +369,7 @@ const CaseEvidence = () => {
                                                                 photos: prev.photos.filter((_, i) => i !== index),
                                                             }));
                                                         }}
-                                                        className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
+                                                        className="absolute top-2 cursor-pointer right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
                                                     >
                                                         🗑
                                                     </button>

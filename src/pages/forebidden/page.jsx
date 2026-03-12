@@ -15,7 +15,7 @@ export default function ForbiddenPage() {
         </p>
         <button
           onClick={() => navigate(-1) || navigate("/")}
-          className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-md"
+          className="px-6 py-3 bg-red-500 text-white rounded-lg  cursor-pointer hover:bg-red-600 transition-colors shadow-md"
         >
           Go Back
         </button>

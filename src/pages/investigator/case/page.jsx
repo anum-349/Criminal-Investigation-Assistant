@@ -59,7 +59,7 @@ const CasePage = () => {
                         </div>
                     </div>
                     <div className="flex flex-col items-end gap-3">
-                        <div className="grid grid-cols-3  gap-2 *:bg-deep-ocean-500 *:text-white *:px-4 *:py-1.5 *:rounded *:text-xs *:font-medium *:hover:bg-slate-700 *:transition *:shadow-inner *:shadow-deep-ocean-900">
+                        <div className="grid grid-cols-3 *:cursor-pointer  gap-2 *:bg-deep-ocean-500 *:text-white *:px-4 *:py-1.5 *:rounded *:text-xs *:font-medium *:hover:bg-slate-700 *:transition *:shadow-inner *:shadow-deep-ocean-900">
                             <button>Add Evidence</button>
                             <button>Add Suspect</button>
                             <button>Add Victim</button>
@@ -110,7 +110,7 @@ const CasePage = () => {
                     {['Timeline', 'Victims', 'Evidences', 'Witnesses', 'Suspects', 'Leads', 'Linked Cases'].map((tab) => (
                         <button
                             key={tab}
-                            className={`px-6 py-1.5 rounded-full shadow-inner text-xs font-semibold transition-all 
+                            className={` cursor-pointer px-6 py-1.5 rounded-full shadow-inner text-xs font-semibold transition-all 
                                 ${activeTab === tab.toLowerCase()
                                     ? 'bg-deep-ocean-500  shadow-deep-ocean-900/60 text-white scale-105'
                                     : 'bg-slate-blue shadow-deep-ocean text-white opacity-80 hover:opacity-100'

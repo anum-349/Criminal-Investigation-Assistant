@@ -277,7 +277,7 @@ const CaseWitnesses = () => {
                     )}</td>
                     <td className="p-4 text-center">
                       <Button
-                        className="inline-flex items-center justify-center shadow-inner shadow-deep-ocean-900 gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 text-white transition-colors focus:outline-none"
+                        className="inline-flex cursor-pointer items-center justify-center shadow-inner shadow-deep-ocean-900 gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 text-white transition-colors focus:outline-none"
                         onClick={() => openDialog(w)}
                         aria-label={`View full details for ${w.name}`}
                       >
@@ -331,7 +331,7 @@ const CaseWitnesses = () => {
                 ref={closeButtonRef}
                 type="button"
                 onClick={closeDialog}
-                className="p-2 rounded-md text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
+                className="p-2 rounded-md  cursor-pointer text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
                 aria-label="Close dialog"
               >
                 <X className="h-5 w-5" aria-hidden />
@@ -370,7 +370,7 @@ const CaseWitnesses = () => {
                 <p className="text-slate-700 text-sm leading-relaxed">{dialogWitness.description}</p>
               </section>
             </div>
-            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end">
+            <div className="sticky bottom-0 bg-slate-50  cursor-pointer border-t border-slate-200 px-6 py-4 flex justify-end">
               <Button onClick={closeDialog} className={'px-4 py-2'}>
                 Close
               </Button>

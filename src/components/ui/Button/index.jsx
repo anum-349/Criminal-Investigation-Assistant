@@ -2,7 +2,7 @@ import clsx from "clsx";
 
 export const Button = ({ children, className, variant = "default", ...props }) => {
   const baseStyles =
-    "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
+    "inline-flex items-center cursor-pointer justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
 
   const variants = {
     default: "bg-[#14374E] hover:bg-[#021624] text-white",

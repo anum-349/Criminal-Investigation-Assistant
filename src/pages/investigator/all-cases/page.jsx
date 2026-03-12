@@ -163,7 +163,7 @@ const AllCasesPage = () => {
                         <div className="flex items-center gap-2 mb-1">
                             <button
                                 onClick={() => navigate("/investigator")}
-                                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 <LayoutDashboard className="h-3.5 w-3.5" />
                                 Dashboard
@@ -188,7 +188,7 @@ const AllCasesPage = () => {
                         <button
                             key={tab.key}
                             onClick={() => { setStatusTab(tab.key); setCurrentPage(1); }}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all
+                            className={` cursor-pointer flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all
                                 ${statusTab === tab.key
                                     ? "bg-deep-ocean text-white shadow-sm"
                                     : "bg-muted text-muted-foreground hover:bg-deep-ocean/10 hover:text-deep-ocean"
@@ -268,7 +268,7 @@ const AllCasesPage = () => {
                                         <TableHead key={col.field}>
                                             <button
                                                 onClick={() => handleSort(col.field)}
-                                                className="flex items-center gap-1.5 hover:opacity-80 transition-opacity text-nowrap"
+                                                className="flex cursor-pointer items-center gap-1.5 hover:opacity-80 transition-opacity text-nowrap"
                                             >
                                                 {col.label}
                                                 <SortIcon field={col.field} sortField={sortField} sortDir={sortDir} />
@@ -282,11 +282,11 @@ const AllCasesPage = () => {
                             <TableBody>
                                 {pageResults.length === 0 ? (
                                     <TableRow>
-                                        <TableCell className="py-12 text-center text-muted-foreground" style={{ gridColumn: "span 10" }}>
+                                        <TableCell className="py-12 text-center text-muted-foreground col-span-10">
                                             <div className="flex flex-col items-center gap-2">
                                                 <Search className="h-8 w-8 opacity-25" />
                                                 <p>No cases match your filters.</p>
-                                                <button onClick={handleClear} className="text-deep-ocean text-sm underline">Clear filters</button>
+                                                <button onClick={handleClear} className="text-deep-ocean text-sm underline cursor-pointer ">Clear filters</button>
                                             </div>
                                         </TableCell>
                                     </TableRow>

@@ -1,6 +1,6 @@
 import { Search, Bell, ChevronDown } from "lucide-react";
 import { Button } from "../components/ui/Button";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 
 const navItems = [
@@ -66,7 +66,7 @@ const NotificationsDropdown = ({ notifications, setNotifications }) => {
               notifications.map(n => ({ ...n, read: true }))
             )
           }
-          className="text-xs text-slate-blue hover:underline"
+          className="text-xs text-slate-blue hover:underline cursor-pointer"
         >
           Mark all as read
         </button>
@@ -132,6 +132,11 @@ const Header = () => {
     }
   };
 
+  const handleNavClick = (path) => {
+    if (path) navigate(path);
+    setOpenMenu(null); 
+  };
+
   return (
     <>
       <header className="fixed top-0 left-0 w-full h-14 z-40 bg-deep-ocean shadow shadow-black/80">        {/* Navigation bar */}
@@ -139,7 +144,7 @@ const Header = () => {
           <div className="flex items-center gap-1" ref={menuRef}>
             {navItems.map((item) => (
               <div key={item.label} className="relative">
-                <button className={`text-sm font-medium hover:bg-gray-400 hover:text-deep-ocean-500 ${openMenu === item.label ? "bg-cool-silver text-gray-700" : "text-white"} rounded-md px-3 py-2 flex items-center`} onClick={() =>
+                <button className={` cursor-pointer text-sm font-medium hover:bg-gray-400 hover:text-deep-ocean-500 ${openMenu === item.label ? "bg-cool-silver text-gray-700" : "text-white"} rounded-md px-3 py-2 flex items-center`} onClick={() =>
                   setOpenMenu(openMenu === item.label ? null : item.label)
                 }>
                   {item.label}
@@ -147,10 +152,10 @@ const Header = () => {
                 </button>
 
                 {openMenu === item.label && (
-                  <div className="absolute left-0 w-48 text-nowrap bg-cool-silver rounded-md border-deep-ocean border shadow-lg z-20">
+                  <div className="absolute left-0 w-48 text-nowrap bg-cool-silver rounded-md border-deep-ocean border shadow-lg z-20 transition-transform ease-in-out">
                     {item.items.map(sub => (
-                      <button key={sub.label} onClick={() => {sub.path && navigate(sub.path)}}
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
+                      <button key={sub.label} onClick={() => {handleNavClick(sub.path)}}
+                        className=" cursor-pointer block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
                         {sub.label}
                       </button>
                     ))}
@@ -176,7 +181,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               onClick={() => setShowNotifications(!showNotifications)}
-              className={`${showNotifications ? "bg-slate-blue" : ""} hover:bg-slate-blue relative border-0 p-2 rounded-full transition ease-in-out`}
+              className={`${showNotifications ? "bg-slate-blue" : ""} hover:bg-slate-blue  cursor-pointer relative border-0 p-2 rounded-full transition ease-in-out`}
             >
               <Bell className="h-7 w-7 text-white" />
               {unreadCount > 0 && (

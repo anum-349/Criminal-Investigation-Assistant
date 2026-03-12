@@ -306,7 +306,7 @@ const CaseSuspects = () => {
                 ref={closeButtonRef}
                 type="button"
                 onClick={closeDialog}
-                className="p-2 rounded-md text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
+                className="p-2 rounded-md cursor-pointer text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
                 aria-label="Close dialog"
               >
                 <X className="h-5 w-5" aria-hidden />

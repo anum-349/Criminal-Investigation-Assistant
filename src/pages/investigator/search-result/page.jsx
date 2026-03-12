@@ -373,7 +373,7 @@ const CaseSearch = () => {
             <button
               key={cat.key}
               onClick={() => { setActiveCategory(cat.key); setCurrentPage(1); }}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all
+              className={`flex items-center  cursor-pointer gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all
                 ${activeCategory === cat.key
                   ? "bg-deep-ocean-500 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:bg-deep-ocean-500/10 hover:text-deep-ocean-500"

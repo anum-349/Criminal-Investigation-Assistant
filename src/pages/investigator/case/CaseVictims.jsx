@@ -133,7 +133,7 @@ const CaseVictim = () => {
             aria-controls="victim-details-panel"
             id={`victim-tab-${v.id}`}
             onClick={() => setSelectedVictimId(v.id)}
-            className={`rounded-xl p-5 text-left transition-all shadow-inner shadow-deep-ocean-900/50 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2 ${selectedVictimId === v.id
+            className={`rounded-xl cursor-pointer p-5 text-left transition-all shadow-inner shadow-deep-ocean-900/50 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2 ${selectedVictimId === v.id
               ? 'bg-slate-blue text-white'
               : 'bg-cool-silver text-slate-700 hover:bg-deep-ocean hover:text-slate-300 shadow-deep-ocean/30'
               }`}
@@ -190,7 +190,7 @@ const CaseVictim = () => {
           )}
           <button
             type="button"
-            className="inline-flex items-center gap-2 bg-emerald-green hover:bg-emerald-700 text-xs border border-emerald-700 px-4 py-2 rounded-full font-semibold transition-colors"
+            className="inline-flex cursor-pointer items-center gap-2 bg-emerald-green hover:bg-emerald-700 text-xs border border-emerald-700 px-4 py-2 rounded-full font-semibold transition-colors"
             aria-label="Add statement"
           >
             <Plus size={16} aria-hidden />
