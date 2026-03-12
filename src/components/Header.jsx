@@ -1,14 +1,47 @@
 import { Search, Bell, ChevronDown } from "lucide-react";
 import { Button } from "../components/ui/Button";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 
 const navItems = [
-  { label: "File", items: ["New Case", "Import Data", "Export", "Print"] },
-  { label: "Cases", items: ["All Cases", "Active", "Closed", "Archived"] },
-  { label: "Reports", items: ["Generate Report", "Templates", "History"] },
-  { label: "Analytics", items: ["Dashboard", "Trends", "Predictions"] },
-  { label: "Settings", items: ["Profile", "Preferences", "Security", "Help"] },
+  {
+    label: "File", items: [
+      { label: "New Case", path: "/" },
+      { label: "Import Data", path: "/" },
+      { label: "Export", path: "/" },
+      { label: "Print", path: "/" }
+    ]
+  },
+  {
+    label: "Cases", items: [
+      { label: "All Cases", path: "/investigator/cases?tab=all" },
+      { label: "Active", path: "/investigator/cases?tab=Active" },
+      { label: "Closed", path: "/investigator/cases?tab=Closed" },
+      { label: "Archived", path: null },
+    ]
+  },
+  {
+    label: "Reports", items: [
+      { label: "Generate Report", path: "/" },
+      { label: "Templates", path: "/" },
+      { label: "History", path: "/" },
+    ]
+  },
+  {
+    label: "Analytics", items: [
+      { label: "Dashboard", path: "/" },
+      { label: "Trends", path: "/" },
+      { label: "Predictions", path: "/" },
+    ]
+  },
+  {
+    label: "Settings", items: [
+      { label: "Profile", path: "/" },
+      { label: "Preferences", path: "/" },
+      { label: "Security", path: "/" },
+      { label: "Help", path: "/" },
+    ]
+  },
 ];
 
 const NotificationsDropdown = ({ notifications, setNotifications }) => {
@@ -69,7 +102,9 @@ const NotificationsDropdown = ({ notifications, setNotifications }) => {
 const Header = () => {
   const [openMenu, setOpenMenu] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [keywords, setKeywords] = useState("");
   const menuRef = useRef();
+  const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState([
     { id: 1, text: "New case assigned", read: false },
@@ -89,14 +124,22 @@ const Header = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const handleSearch = () => {
+    const trimmed = keywords.trim();
+    if (trimmed) {
+      navigate(`/search-case?q=${encodeURIComponent(trimmed)}`);
+      setKeywords("");
+    }
+  };
+
   return (
     <>
-      <header className="fixed top-0 left-0 w-full h-14 z-40 bg-deep-ocean">        {/* Navigation bar */}
+      <header className="fixed top-0 left-0 w-full h-14 z-40 bg-deep-ocean shadow shadow-black/80">        {/* Navigation bar */}
         <nav className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-1" ref={menuRef}>
             {navItems.map((item) => (
               <div key={item.label} className="relative">
-                <button className={`text-sm font-medium hover:bg-gray-400 ${openMenu === item.label ? "bg-cool-silver text-gray-700" : "text-white"} rounded-md px-3 py-2 flex items-center`} onClick={() =>
+                <button className={`text-sm font-medium hover:bg-gray-400 hover:text-deep-ocean-500 ${openMenu === item.label ? "bg-cool-silver text-gray-700" : "text-white"} rounded-md px-3 py-2 flex items-center`} onClick={() =>
                   setOpenMenu(openMenu === item.label ? null : item.label)
                 }>
                   {item.label}
@@ -105,15 +148,11 @@ const Header = () => {
 
                 {openMenu === item.label && (
                   <div className="absolute left-0 w-48 text-nowrap bg-cool-silver rounded-md border-deep-ocean border shadow-lg z-20">
-                    {item.items.map((subItem) => (
-                      <NavLink
-                        key={subItem}
-                        to={`/${subItem.toLowerCase().replace(/\s+/g, "-")}`}
-                        onClick={() => setOpenMenu(null)}
-                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:rounded-md"
-                      >
-                        {subItem}
-                      </NavLink>
+                    {item.items.map(sub => (
+                      <button key={sub.label} onClick={() => {sub.path && navigate(sub.path)}}
+                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
+                        {sub.label}
+                      </button>
                     ))}
                   </div>
                 )}
@@ -126,6 +165,9 @@ const Header = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
               <input
                 type="text"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="search case, evidence, suspect"
                 className="pl-9 w-md h-9 border-white text-white px-4 py-2 border focus:outline-none transition-colors placeholder:text-gray-300 focus:border-white rounded-full"
               />

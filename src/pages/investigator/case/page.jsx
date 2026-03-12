@@ -8,18 +8,15 @@ import CaseInvestigationLeads from './CaseLeads';
 import LinkedCases from './CaseLinkedCases';
 import { Badge } from '../../../components/ui/Badge';
 import CaseEvidence from './CaseEvidence';
+import { ArrowLeft, FolderOpen, LayoutDashboard } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const CasePage = () => {
     const [activeTab, setActiveTab] = useState("timeline")
+    const navigate = useNavigate()
 
     return (
         <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
-
-            <title>Criminal Investigation Assistant - Dashboard</title>
-            <meta
-                name="description"
-                content="Criminal Investigation Assistant Dashboard - Manage cases, track leads, and analyze crime data efficiently."
-            />
 
             {/* Header */}
             <Header />
@@ -28,6 +25,28 @@ const CasePage = () => {
             <header className="bg-cool-silver p-6 border-b border-slate-300">
                 <div className="flex justify-between items-start">
                     <div>
+                         <div className="flex items-center gap-2 mb-1">
+          <button
+            onClick={() => navigate("/investigator")}
+            className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Dashboard
+          </button>
+          <span className="text-muted-foreground text-xs">/</span>
+          <button
+            onClick={() => navigate("/investigator/cases")}
+            className="flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            All Cases
+          </button>
+          <span className="text-muted-foreground text-xs">/</span>
+          <span className="text-xs font-medium text-foreground">Case 101</span>
+        </div>
+
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Case ID: C-2053</p>
+
                         <h1 className="text-2xl font-bold mt-1">Murder - Homicide Investigation</h1>
                         <p className="text-sm text-slate-600 mt-1">Assigned: Inspector Rana Ali Khan</p>
                         <div className="flex gap-2 mt-3">

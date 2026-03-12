@@ -12,6 +12,9 @@ import {
 import { Badge } from "../../components/ui/Badge";
 import Header from "../../components/Header";
 import { useNavigate } from "react-router-dom";
+import CrimeHotspotMap from "../../components/HotSpot/map";
+import { ChevronRight } from "lucide-react"
+import { Link } from "react-router-dom";
 
 const StatCard = ({ value, label }) => {
     return (
@@ -39,10 +42,17 @@ const ActiveCasesTable = () => {
     return (
         <Card className="p-5 bg-card border border-border shadow-sm animate-slide-up">
             <div className="mb-4 text-left">
-                <h2 className="text-lg font-semibold text-foreground text-left">Active Cases</h2>
+                <div className="flex justify-between">
+                    <h2 className="text-lg font-semibold text-foreground text-left">Active Cases</h2>
+                    <Link to="/investigator/cases"
+                        className="font-medium text-deep-ocean hover:underline flex items-center gap-1">
+                        View All <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                </div>
                 <p className="text-sm text-muted-foreground text-left">
                     Click view case to view case details and generate ai leads
                 </p>
+
             </div>
 
             <div className="overflow-x-auto">
@@ -169,57 +179,6 @@ const RecentActivities = () => {
     );
 };
 
-const CrimeHotspotMap = () => {
-    return (
-        <Card className="p-5 bg-card border border-border shadow-sm animate-slide-up">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Legend Section */}
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold text-foreground">
-                        Crime Hotspot Locations
-                    </h2>
-
-                    <div className="space-y-3 mt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 rounded bg-red-800" />
-                            <span className="text-sm text-foreground">High</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 rounded bg-orange-600" />
-                            <span className="text-sm text-foreground">Medium</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 rounded bg-yellow-600" />
-                            <span className="text-sm text-foreground">Low</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Map Placeholder */}
-                <div className="lg:col-span-2">
-                    <div className="relative w-full h-64 lg:h-80 rounded-lg overflow-hidden bg-muted">
-                        <img
-                            src="/map.webp"
-                            alt="Crime hotspot map visualization"
-                            className="w-full h-full object-cover"
-                        />
-                        {/* Map overlay with hotspot markers */}
-                        <div className="absolute inset-0 bg-linear-to-t from-card/20 to-transparent">
-                            {/* Simulated hotspot markers */}
-                            <div className="absolute top-1/4 left-1/4 w-4 h-4 rounded-full bg-hotspot-high animate-pulse shadow-lg" />
-                            <div className="absolute top-1/3 right-1/3 w-4 h-4 rounded-full bg-hotspot-medium animate-pulse shadow-lg" />
-                            <div className="absolute bottom-1/3 left-1/2 w-4 h-4 rounded-full bg-hotspot-high animate-pulse shadow-lg" />
-                            <div className="absolute top-1/2 right-1/4 w-4 h-4 rounded-full bg-hotspot-low animate-pulse shadow-lg" />
-                            <div className="absolute bottom-1/4 left-1/3 w-4 h-4 rounded-full bg-hotspot-medium animate-pulse shadow-lg" />
-                            <div className="absolute top-2/3 right-1/2 w-4 h-4 rounded-full bg-hotspot-high animate-pulse shadow-lg" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Card>
-    );
-};
-
 const stats = [
     { value: 67, label: "New cases this month" },
     { value: 42, label: "Total active cases" },
@@ -231,11 +190,6 @@ const stats = [
 const InvestigatorPage = () => {
     return (
         <div className="min-h-screen bg-background">
-            <title>Criminal Investigation Assistant - Dashboard</title>
-            <meta
-                name="description"
-                content="Criminal Investigation Assistant Dashboard - Manage cases, track leads, and analyze crime data efficiently."
-            />
 
             {/* Header */}
             <Header />

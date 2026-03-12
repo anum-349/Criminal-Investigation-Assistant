@@ -1,6 +1,7 @@
 @import "tailwindcss";
+@import 'leaflet/dist/leaflet.css';
 
-@theme{
+@theme {
   --color-deep-ocean: #1B3C53;      /* Dark blue-teal */
   --color-deep-ocean-900: #021624;      /* Dark blue-teal */
   --color-deep-ocean-500: #1a3a4a;      /* Dark blue-teal */

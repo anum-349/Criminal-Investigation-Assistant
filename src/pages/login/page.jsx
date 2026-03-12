@@ -60,7 +60,7 @@ const LoginPage = () => {
     const url = import.meta.env.VITE_API_URL;
     try {
       const res = await axios.post(`${url}/api/login`, { badge_number: formData.badge_number, password: formData.password, secret_code: formData.secret_code });
-      login(res.data.access_token);
+      login(res.data.access_token, formData.rememberMe);
       const role = res.data.role;
       navigate(role === "admin" ? "/admin" : "/investigator");
     } catch (err) {
@@ -324,11 +324,10 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${isLoading
+              className={`w-full py-3 px-4 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-deep-ocean-900 ${isLoading
                 ? 'opacity-70 cursor-not-allowed'
-                : 'hover:opacity-90 active:scale-[0.98]'
-                }`}
-              style={{ backgroundColor: '#23403D' }}
+                : ''
+                } ${!formData.id && !formData.password || (formData.isAdmin && !formData.secret_code) ? "opacity-80 cursor-not-allowed": "hover:opacity-90 active:scale-[0.98]"}`}
               aria-busy={isLoading}
             >
               {isLoading ? (

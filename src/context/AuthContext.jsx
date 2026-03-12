@@ -10,21 +10,34 @@ export const AuthProvider = ({ children }) => {
 
     // Run once when app loads (for refresh support)
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token") ||
+            sessionStorage.getItem("token");
         if (token) {
             try {
                 const decoded = jwtDecode(token);
                 setIsAuth(true);
                 setUserRole(decoded.role);
+                if (decoded.exp * 1000 > Date.now()) {
+                    setIsAuth(true);
+                    setUserRole(decoded.role);
+                } else {
+                    localStorage.removeItem("token");
+                    sessionStorage.removeItem("token");
+                }
             } catch (err) {
                 localStorage.removeItem("token");
+                sessionStorage.removeItem("token");
             }
         }
     }, []);
 
     // 🔥 Login function
-    const login = (token) => {
-        localStorage.setItem("token", token);
+    const login = (token, rememberMe = false) => {
+        if (rememberMe) {
+            localStorage.setItem("token", token);
+        } else {
+            sessionStorage.setItem("token", token);
+        }
         const decoded = jwtDecode(token);
         setIsAuth(true);
         setUserRole(decoded.role);
@@ -33,6 +46,7 @@ export const AuthProvider = ({ children }) => {
     // 🔥 Logout function
     const logout = () => {
         localStorage.removeItem("token");
+        sessionStorage.removeItem("token");
         setIsAuth(false);
         setUserRole(null);
     };

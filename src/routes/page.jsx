@@ -8,6 +8,7 @@ import ProtectedRoute from "./protected-routes/page";
 import CaseSearch from "../pages/investigator/search-result/page";
 import AdminPage from "../pages/admin/page";
 import NotFoundPage from "../pages/404/page";
+import AllCasesPage from "../pages/investigator/all-cases/page";
 
 
 export default function AppRoutes() {
@@ -37,6 +38,11 @@ export default function AppRoutes() {
                 <ProtectedRoute allowedRoles={["investigator"]}>
                     <CaseSearch />
                 </ProtectedRoute>} />
+            <Route path="/investigator/cases" element={
+                <ProtectedRoute allowedRoles={["investigator"]}>
+                    <AllCasesPage />
+                </ProtectedRoute>
+            } />
 
             <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={["admin"]}>
