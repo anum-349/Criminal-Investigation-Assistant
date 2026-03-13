@@ -17,29 +17,20 @@ const navItems = [
       { label: "All Cases", path: "/investigator/cases?tab=all" },
       { label: "Active", path: "/investigator/cases?tab=Active" },
       { label: "Closed", path: "/investigator/cases?tab=Closed" },
-      { label: "Archived", path: null },
-    ]
-  },
-  {
-    label: "Reports", items: [
-      { label: "Generate Report", path: "/" },
-      { label: "Templates", path: "/" },
-      { label: "History", path: "/" },
     ]
   },
   {
     label: "Analytics", items: [
-      { label: "Dashboard", path: "/" },
-      { label: "Trends", path: "/" },
-      { label: "Predictions", path: "/" },
+      { label: "Dashboard", path: "/investigator" },
+      { label: "Generate Report", path: "/investigator/report" },
+      { label: "Trends", path: "/investigator/trends" },
+      { label: "Predictions", path: "/investigator/trends?tab=predictions" },
     ]
   },
   {
     label: "Settings", items: [
-      { label: "Profile", path: "/" },
-      { label: "Preferences", path: "/" },
-      { label: "Security", path: "/" },
-      { label: "Help", path: "/" },
+      { label: "Profile", path: "/investigator/profile" },
+      { label: "Help", path: "/investigator/help" },
     ]
   },
 ];
@@ -134,7 +125,7 @@ const Header = () => {
 
   const handleNavClick = (path) => {
     if (path) navigate(path);
-    setOpenMenu(null); 
+    setOpenMenu(null);
   };
 
   return (
@@ -154,7 +145,7 @@ const Header = () => {
                 {openMenu === item.label && (
                   <div className="absolute left-0 w-48 text-nowrap bg-cool-silver rounded-md border-deep-ocean border shadow-lg z-20 transition-transform ease-in-out">
                     {item.items.map(sub => (
-                      <button key={sub.label} onClick={() => {handleNavClick(sub.path)}}
+                      <button key={sub.label} onClick={() => { handleNavClick(sub.path) }}
                         className=" cursor-pointer block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
                         {sub.label}
                       </button>

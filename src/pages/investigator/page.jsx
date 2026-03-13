@@ -12,9 +12,22 @@ import {
 import { Badge } from "../../components/ui/Badge";
 import Header from "../../components/Header";
 import { useNavigate } from "react-router-dom";
-import CrimeHotspotMap from "../../components/HotSpot/map";
+import LeafletMap from "../../components/HotSpot/map";
 import { ChevronRight } from "lucide-react"
 import { Link } from "react-router-dom";
+
+const HOTSPOTS = [
+    { id: 1, city: 'Karachi', lat: 24.8607, lng: 67.0011, severity: 'high', cases: 14, province: 'Sindh' },
+    { id: 2, city: 'Lahore', lat: 31.5204, lng: 74.3587, severity: 'high', cases: 11, province: 'Punjab' },
+    { id: 3, city: 'Rawalpindi', lat: 33.5651, lng: 73.0169, severity: 'medium', cases: 7, province: 'Punjab' },
+    { id: 4, city: 'Peshawar', lat: 34.0151, lng: 71.5249, severity: 'medium', cases: 6, province: 'KPK' },
+    { id: 5, city: 'Quetta', lat: 30.1798, lng: 66.9750, severity: 'high', cases: 9, province: 'Balochistan' },
+    { id: 6, city: 'Multan', lat: 30.1575, lng: 71.5249, severity: 'medium', cases: 5, province: 'Punjab' },
+    { id: 7, city: 'Hyderabad', lat: 25.3960, lng: 68.3578, severity: 'low', cases: 3, province: 'Sindh' },
+    { id: 8, city: 'Faisalabad', lat: 31.4504, lng: 73.1350, severity: 'low', cases: 4, province: 'Punjab' },
+    { id: 9, city: 'Gujranwala', lat: 32.1877, lng: 74.1945, severity: 'medium', cases: 5, province: 'Punjab' },
+    { id: 10, city: 'Islamabad', lat: 33.6844, lng: 73.0479, severity: 'low', cases: 2, province: 'ICT' },
+];
 
 const StatCard = ({ value, label }) => {
     return (
@@ -85,7 +98,7 @@ const ActiveCasesTable = () => {
                                     </TableCell>
                                     <TableCell>{caseItem.lastUpdate}</TableCell>
                                     <TableCell>
-                                        <Button className="h-7 px-6  rounded-md w-full" onClick={() => navigate(`/investigator/case`)}>
+                                        <Button className="h-7 px-6 cursor-pointer rounded-md w-full" onClick={() => navigate(`/investigator/case`)}>
                                             View
                                         </Button>
                                     </TableCell>
@@ -221,7 +234,12 @@ const InvestigatorPage = () => {
 
                 {/* Crime Hotspot Map - HCI: Recognition rather than recall */}
                 <section aria-label="Crime Hotspot Map">
-                    <CrimeHotspotMap />
+                    <LeafletMap
+                        mode="hotspots"
+                        hotspots={HOTSPOTS}
+                        height="h-80"
+                        initialZoom={5}
+                    />
                 </section>
             </main>
         </div>

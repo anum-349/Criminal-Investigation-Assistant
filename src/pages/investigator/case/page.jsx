@@ -10,6 +10,7 @@ import { Badge } from '../../../components/ui/Badge';
 import CaseEvidence from './CaseEvidence';
 import { ArrowLeft, FolderOpen, LayoutDashboard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import CaseLocation from './CaseLocation';
 
 const CasePage = () => {
     const [activeTab, setActiveTab] = useState("timeline")
@@ -25,25 +26,25 @@ const CasePage = () => {
             <header className="bg-cool-silver p-6 border-b border-slate-300">
                 <div className="flex justify-between items-start">
                     <div>
-                         <div className="flex items-center gap-2 mb-1">
-          <button
-            onClick={() => navigate("/investigator")}
-            className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            Dashboard
-          </button>
-          <span className="text-muted-foreground text-xs">/</span>
-          <button
-            onClick={() => navigate("/investigator/cases")}
-            className="flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <FolderOpen className="h-3.5 w-3.5" />
-            All Cases
-          </button>
-          <span className="text-muted-foreground text-xs">/</span>
-          <span className="text-xs font-medium text-foreground">Case 101</span>
-        </div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <button
+                                onClick={() => navigate("/investigator")}
+                                className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <LayoutDashboard className="h-3.5 w-3.5" />
+                                Dashboard
+                            </button>
+                            <span className="text-muted-foreground text-xs">/</span>
+                            <button
+                                onClick={() => navigate("/investigator/cases")}
+                                className="flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <FolderOpen className="h-3.5 w-3.5" />
+                                All Cases
+                            </button>
+                            <span className="text-muted-foreground text-xs">/</span>
+                            <span className="text-xs font-medium text-foreground">Case 101</span>
+                        </div>
 
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Case ID: C-2053</p>
 
@@ -107,7 +108,7 @@ const CasePage = () => {
 
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-2 mt-8 mb-6">
-                    {['Timeline', 'Victims', 'Evidences', 'Witnesses', 'Suspects', 'Leads', 'Linked Cases'].map((tab) => (
+                    {['Timeline', 'Victims', 'Evidences', 'Witnesses', 'Suspects', 'Leads', 'Linked Cases', "Location"].map((tab) => (
                         <button
                             key={tab}
                             className={` cursor-pointer px-6 py-1.5 rounded-full shadow-inner text-xs font-semibold transition-all 
@@ -130,7 +131,8 @@ const CasePage = () => {
                                     : activeTab === "suspects" ? <CaseSuspects />
                                         : activeTab === "leads" ? <CaseInvestigationLeads />
                                             : activeTab === "linked cases" ? <LinkedCases />
-                                                : null
+                                                : activeTab === "location" ? <CaseLocation />
+                                                    : null
                 }
             </main>
         </div>

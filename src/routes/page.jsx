@@ -9,6 +9,10 @@ import CaseSearch from "../pages/investigator/search-result/page";
 import AdminPage from "../pages/admin/page";
 import NotFoundPage from "../pages/404/page";
 import AllCasesPage from "../pages/investigator/all-cases/page";
+import HelpPage from "../pages/investigator/help/page";
+import ProfilePage from "../pages/investigator/profile/page";
+import ReportPage from "../pages/investigator/report/page";
+import AnalyticsPage from "../pages/investigator/analytics/page";
 
 
 export default function AppRoutes() {
@@ -41,6 +45,26 @@ export default function AppRoutes() {
             <Route path="/investigator/cases" element={
                 <ProtectedRoute allowedRoles={["investigator"]}>
                     <AllCasesPage />
+                </ProtectedRoute>
+            } />
+            <Route path="/investigator/help" element={
+                <ProtectedRoute allowedRoles={["investigator"]}>
+                    <HelpPage />
+                </ProtectedRoute>
+            } />
+             <Route path="/investigator/profile" element={
+                <ProtectedRoute allowedRoles={["investigator"]}>
+                    <ProfilePage />
+                </ProtectedRoute>
+            } />
+            <Route path="/investigator/report" element={
+                <ProtectedRoute allowedRoles={["investigator"]}>
+                    <ReportPage />
+                </ProtectedRoute>
+            } />
+            <Route path="/investigator/trends" element={
+                <ProtectedRoute allowedRoles={["investigator"]}>
+                    <AnalyticsPage />
                 </ProtectedRoute>
             } />
 

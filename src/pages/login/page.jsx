@@ -324,10 +324,10 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-md  cursor-pointer font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-deep-ocean-900 ${isLoading
+              className={`w-full py-3 px-4 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-deep-ocean-900 ${isLoading
                 ? 'opacity-70 cursor-not-allowed'
                 : ''
-                } ${!formData.id && !formData.password || (formData.isAdmin && !formData.secret_code) ? "opacity-80 cursor-not-allowed": "hover:opacity-90 active:scale-[0.98]"}`}
+                } ${!formData.id && !formData.password || (formData.isAdmin && !formData.secret_code) ? "opacity-80 cursor-not-allowed": "hover:opacity-90 active:scale-[0.98] cursor-pointer"}`}
               aria-busy={isLoading}
             >
               {isLoading ? (
