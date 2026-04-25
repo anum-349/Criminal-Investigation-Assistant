@@ -11,9 +11,13 @@ import CaseEvidence from './CaseEvidence';
 import { ArrowLeft, FolderOpen, LayoutDashboard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CaseLocation from './CaseLocation';
+import AddEvidenceDialog from './forms/AddEvidence';
+import AddSuspectDialog from './forms/AddSuspect';
 
 const CasePage = () => {
     const [activeTab, setActiveTab] = useState("timeline")
+    const [showAddEvidence, setShowAddEvidence] = useState(false);
+    const [showAddSuspects, setShowAddSuspect] = useState(false);
     const navigate = useNavigate()
 
     return (
@@ -61,11 +65,12 @@ const CasePage = () => {
                     </div>
                     <div className="flex flex-col items-end gap-3">
                         <div className="grid grid-cols-3 *:cursor-pointer  gap-2 *:bg-deep-ocean-500 *:text-white *:px-4 *:py-1.5 *:rounded *:text-xs *:font-medium *:hover:bg-slate-700 *:transition *:shadow-inner *:shadow-deep-ocean-900">
-                            <button>Add Evidence</button>
-                            <button>Add Suspect</button>
+                            <button onClick={() => setShowAddEvidence(true)}>Add Evidence</button>
+                            <button onClick={() => setShowAddSuspect(true)}>Add Suspect</button>
                             <button>Add Victim</button>
                             <button>Add Witness</button>
                             <button>Add Timeline</button>
+                            <button>Add Lead</button>
                         </div>
                         <p className="text-xs text-slate-blue italic">Last Updated: Today, 3:12 PM</p>
                     </div>
@@ -135,6 +140,21 @@ const CasePage = () => {
                                                     : null
                 }
             </main>
+
+            <AddEvidenceDialog
+                isOpen={showAddEvidence}
+                onClose={() => setShowAddEvidence(false)}
+                onSubmit={(data) => console.log(data)}
+                caseId="C-2053"
+            />
+
+            
+            <AddSuspectDialog
+                isOpen={showAddSuspects}
+                onClose={() => setShowAddSuspect(false)}
+                onSubmit={(data) => console.log(data)}
+                caseId="C-2053"
+            />
         </div>
     )
 }

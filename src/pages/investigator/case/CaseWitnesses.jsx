@@ -1,3 +1,115 @@
+// // ════════════════════════════════════════════════════════════════════════════
+// // CaseWitnesses.jsx  (updated — replaces existing)
+// // Wires in AddWitnessModal for the Add + Edit flow.
+// // ════════════════════════════════════════════════════════════════════════════
+// /**
+//  * Place at: src/pages/investigator/case/CaseWitnesses.jsx
+//  */
+// export function CaseWitnesses({ caseId = "C-2052" }) {
+//   const [witnesses, setWitnesses] = useState([
+//     { id: "WIT-001", name: "Khalid Mehmood", witnessType: "Eyewitness", contact: "+92-321-1112223", address: "Shop 4, Main Street Market", statement: "I was closing my shop next door when I heard shouting. I saw three men running out with bags. One had a pistol. They got into a white car parked outside.", credibility: "High — Corroborated", relatedCase: caseId, statementDate: "2026-04-12", statementRecordedBy: "Insp. Rashid Ali Khan", anonymous: false, protectionRequired: false, cooperating: true },
+//     { id: "WIT-002", name: "Anonymous", witnessType: "Earwitness", contact: "Hidden", address: "Hidden", statement: "Heard screaming from nearby. Saw a white Toyota Corolla parked outside for about 20 minutes before the incident.", credibility: "Medium — Unverified", relatedCase: caseId, statementDate: "2026-04-13", statementRecordedBy: "Insp. Rashid Ali Khan", anonymous: true, protectionRequired: true, cooperating: true },
+//   ]);
+//   const [showAdd,  setShowAdd]  = useState(false);
+//   const [editing,  setEditing]  = useState(null);
+//   const [toDelete, setToDelete] = useState(null);
+
+//   const handleSave = (w) => {
+//     setWitnesses(ws => ws.find(x => x.id === w.id) ? ws.map(x => x.id === w.id ? w : x) : [...ws, w]);
+//     setShowAdd(false); setEditing(null);
+//   };
+//   const handleDelete = (id) => { setWitnesses(ws => ws.filter(w => w.id !== id)); setToDelete(null); };
+
+//   return (
+//     <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+//       <div className="flex items-center justify-between mb-6">
+//         <div>
+//           <h2 className="text-xl font-bold text-slate-800">Witnesses</h2>
+//           <p className="text-xs text-slate-500 mt-0.5">{witnesses.length} witness{witnesses.length !== 1 ? "es" : ""} on record</p>
+//         </div>
+//         <button
+//           onClick={() => { setEditing(null); setShowAdd(true); }}
+//           className="flex items-center gap-2 px-4 py-2 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 transition-colors cursor-pointer shadow-sm"
+//         >
+//           <Plus className="h-4 w-4" /> Add Witness
+//         </button>
+//       </div>
+
+//       {witnesses.length === 0 ? (
+//         <div className="text-center py-10 text-slate-400">
+//           <User className="h-10 w-10 mx-auto mb-3 opacity-30" />
+//           <p className="text-sm">No witnesses recorded yet.</p>
+//           <button onClick={() => setShowAdd(true)} className="mt-3 text-deep-ocean text-sm font-semibold hover:underline cursor-pointer">Add the first witness</button>
+//         </div>
+//       ) : (
+//         <div className="space-y-4">
+//           {witnesses.map((w) => (
+//             <div key={w.id} className="border border-slate-200 rounded-xl p-5">
+//               <div className="flex items-start justify-between gap-3 mb-3">
+//                 <div className="flex items-center gap-3">
+//                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${w.anonymous ? "bg-slate-500" : "bg-deep-ocean"}`}>
+//                     {w.anonymous ? "A" : w.name.charAt(0)}
+//                   </div>
+//                   <div>
+//                     <div className="flex items-center gap-2 flex-wrap">
+//                       <p className="font-bold text-slate-800">{w.anonymous ? "Anonymous Witness" : w.name}</p>
+//                       {w.anonymous && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Anonymous</span>}
+//                       {w.protectionRequired && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"><Shield className="h-2.5 w-2.5" />Protection</span>}
+//                       {w.cooperating && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">Cooperating</span>}
+//                     </div>
+//                     <p className="text-xs text-slate-500 mt-0.5">{w.witnessType} · Statement: {w.statementDate}</p>
+//                   </div>
+//                 </div>
+//                 <div className="flex gap-1 shrink-0">
+//                   <button onClick={() => { setEditing(w); setShowAdd(true); }}
+//                     className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer" title="Edit">
+//                     <FileText className="h-4 w-4" />
+//                   </button>
+//                   <button onClick={() => setToDelete(w.id)}
+//                     className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer" title="Delete">
+//                     <Trash2 className="h-4 w-4" />
+//                   </button>
+//                 </div>
+//               </div>
+
+//               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3 text-xs">
+//                 {!w.anonymous && <div><span className="font-semibold text-slate-500">Contact</span><p className="text-slate-700">{w.contact}</p></div>}
+//                 <div><span className="font-semibold text-slate-500">Credibility</span><p className="text-slate-700">{w.credibility}</p></div>
+//                 <div><span className="font-semibold text-slate-500">Recorded By</span><p className="text-slate-700">{w.statementRecordedBy}</p></div>
+//               </div>
+
+//               <div className="bg-slate-50 rounded-lg p-3">
+//                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Statement</p>
+//                 <p className="text-sm text-slate-700 leading-relaxed">{w.statement}</p>
+//               </div>
+
+//               {toDelete === w.id && (
+//                 <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5">
+//                   <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+//                   <p className="text-xs text-red-700 flex-1">Delete this witness record permanently?</p>
+//                   <button onClick={() => handleDelete(w.id)} className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-2">Delete</button>
+//                   <button onClick={() => setToDelete(null)} className="text-xs text-slate-500 cursor-pointer px-2">Cancel</button>
+//                 </div>
+//               )}
+//             </div>
+//           ))}
+//         </div>
+//       )}
+
+//       {showAdd && (
+//         <AddWitnessModal
+//           caseId={caseId}
+//           witness={editing}
+//           onClose={() => { setShowAdd(false); setEditing(null); }}
+//           onSave={handleSave}
+//         />
+//       )}
+//     </div>
+//   );
+// }
+
+
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, ChevronDown, Calendar, X, ExternalLink } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';

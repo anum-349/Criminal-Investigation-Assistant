@@ -35,10 +35,11 @@ const evidences = [
 ];
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Calendar, X, ExternalLink } from 'lucide-react';
+import { Search, ChevronDown, Calendar, X, ExternalLink, Pencil } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
 import { Badge } from '../../../components/ui/Badge';
+import AddEvidenceDialog from './forms/AddEvidence';
 
 const PAGE_SIZE = 5;
 const STATUSES = [
@@ -64,6 +65,7 @@ const CaseEvidence = () => {
     const [zoom, setZoom] = useState(1);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    const [updateTarget, setUpdateTarget] = useState(null); // evidence item being updated
 
     const filteredEvidence = evidences.filter((e) => {
         const searchMatch =
@@ -217,7 +219,7 @@ const CaseEvidence = () => {
                                 </tr>
                             ) : (
                                 pageEvidence.map((e) => (
-                                    <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                                    <tr key={e.id} className="hover:bg-slate-50 transition-colors *:text-sm">
                                         <td className="p-4 font-semibold text-slate-800 text-nowrap">{e.id}</td>
                                         <td className="p-4 text-slate-800">{e.type}</td>
                                         <td className="p-4 text-slate-700">{e.date}</td>
@@ -232,15 +234,24 @@ const CaseEvidence = () => {
                                                 <span className="text-slate-400 text-xs">No Photos</span>
                                             )}
                                         </td>
-                                        <td className="p-4 text-center">
+                                        <td className="p-4 text-center grid grid-rows-2">
                                             <Button
                                                 variant='default'
-                                                className={'px-4 py-2'}
+                                                className={'px-4 py-2 mb-2'}
                                                 onClick={() => openDialog(e)}
                                                 aria-label={`View full details for ${e.id}`}
                                             >
-                                                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                                                View full evidence details
+                                                <ExternalLink className="h-3.5 w-3.5 mr-2" aria-hidden />
+                                                View details
+                                            </Button>
+                                            <Button
+                                                variant='outline'
+                                                className={'px-4 py-2 '}
+                                                onClick={() => setUpdateTarget(e)}
+                                                aria-label={`Update evidence ${e.id}`}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                                                Update
                                             </Button>
                                         </td>
                                     </tr>
@@ -483,6 +494,17 @@ const CaseEvidence = () => {
                     </div>
                 </div>
             )}
+            {/* Update Evidence Dialog */}
+            <AddEvidenceDialog
+                isOpen={!!updateTarget}
+                onClose={() => setUpdateTarget(null)}
+                caseId="C-2053"
+                initialData={updateTarget}
+                onSubmit={(updated) => {
+                    console.log("Updated evidence:", updated);
+                    setUpdateTarget(null);
+                }}
+            />
         </section >
 
     );

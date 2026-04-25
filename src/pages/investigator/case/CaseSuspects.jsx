@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Calendar, X, ExternalLink } from 'lucide-react';
+import { Search, ChevronDown, Calendar, X, ExternalLink, Pencil, Users } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
 import { Badge } from '../../../components/ui/Badge';
+import AddSuspectDialog from './forms/AddSuspect';
 
 const PAGE_SIZE = 5;
 const STATUSES = [
@@ -73,6 +74,8 @@ const CaseSuspects = () => {
   const [dialogSuspect, setDialogSuspect] = useState(null);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const [updateTarget, setUpdateTarget] = useState(null); // evidence item being updated
+
 
   const filteredSuspects = MOCK_SUSPECTS.filter((w) => {
     const nameMatch = !appliedFilters.name || w.name.toLowerCase().includes(appliedFilters.name.toLowerCase()) || w.id.toLowerCase().includes(appliedFilters.name.toLowerCase());
@@ -225,20 +228,8 @@ const CaseSuspects = () => {
                             ? `${s.alibi.slice(0, 50)}...`
                             : s.alibi}
                         </div>
-
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="text-xs px-4 py-2 mt-3"
-                        >
-                          Update Alibi
-                        </Button>
-                      </> )
-                      : (<Button 
-                          variant="default"
-                          size="sm"
-                          className="text-xs px-4 py-2">
-                            Add Alibi</Button>)
+                      </>)
+                      : null
                     }</td>
                     <td className="px-6 py-4 text-center">
                       <Badge
@@ -250,14 +241,24 @@ const CaseSuspects = () => {
                       </Badge>
                     </td>
                     <td className="p-4 text-slate-700">{s.relationToCase}</td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center grid grid-rows-2 *:text-xs *:text-nowrap">
                       <Button
-                        className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 text-white transition-colors focus:outline-none focus:ring-2 shadow-inner shadow-deep-ocean-900 focus:ring-offset-2"
+                        variant='default'
+                        className={'px-4 py-1 mb-2'}
                         onClick={() => openDialog(s)}
                         aria-label={`View full details for ${s.name}`}
                       >
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                        View full suspect details
+                        <ExternalLink className="h-3.5 w-3.5 mr-2" aria-hidden />
+                        View details
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className={'px-4 py-1 '}
+                        onClick={() => setUpdateTarget(s)}
+                        aria-label={`Update suspect ${s.name} information`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" aria-hidden />
+                        Update
                       </Button>
                     </td>
                   </tr>
@@ -283,77 +284,235 @@ const CaseSuspects = () => {
       )}
 
       {/* Full suspect details dialog – HCI: Focus management, Escape to close */}
-      {dialogSuspect && (
+{dialogSuspect && (
+    <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="suspect-dialog-title"
+        aria-describedby="suspect-dialog-desc"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={(e) => e.target === e.currentTarget && closeDialog()}
+    >
+        <div className="absolute inset-0 bg-black/50" aria-hidden />
         <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="suspect-dialog-title"
-          aria-describedby="suspect-dialog-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={(e) => e.target === e.currentTarget && closeDialog()}
-        >
-          <div className="absolute inset-0 bg-black/50" aria-hidden />
-          <div
             className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200"
             onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-              <h3 id="suspect-dialog-title" className="text-lg font-bold text-slate-800">
-                Suspect Details – {dialogSuspect.name}
-              </h3>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={closeDialog}
-                className="p-2 rounded-md cursor-pointer text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
-                aria-label="Close dialog"
-              >
-                <X className="h-5 w-5" aria-hidden />
-              </button>
+        >
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                        <Users className="h-4 w-4" />
+                    </div>
+                    <div>
+                        <h3 id="suspect-dialog-title" className="text-lg font-bold text-slate-800">
+                            Suspect Details
+                        </h3>
+                        <p className="text-xs text-slate-500 font-mono">{dialogSuspect.id}</p>
+                    </div>
+                </div>
+                <button
+                    ref={closeButtonRef}
+                    type="button"
+                    onClick={closeDialog}
+                    className="p-2 rounded-md cursor-pointer text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
+                    aria-label="Close dialog"
+                >
+                    <X className="h-5 w-5" aria-hidden />
+                </button>
             </div>
+
             <div id="suspect-dialog-desc" className="p-6 space-y-6">
-              <section aria-labelledby="personal-heading">
-                <h4 id="personal-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Personal Information</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
-                  <p><span className="font-semibold text-slate-700">Suspect ID:</span> <span className="text-slate-500 font-medium">{dialogSuspect.id}</span></p>
-                  <p><span className="font-semibold text-slate-700">Name:</span> <span className="text-slate-500">{dialogSuspect.name}</span></p>
-                  <p><span className="font-semibold text-slate-700">Age:</span> <span className="text-slate-500">{dialogSuspect.age}</span></p>
-                  <p><span className="font-semibold text-slate-700">Gender:</span> <span className="text-slate-500">{dialogSuspect.gender}</span></p>
-                  <p><span className="font-semibold text-slate-700">Contact:</span>{' '}
-                    <a href={`tel:${dialogSuspect.contact.replace(/\s/g, '')}`} className="text-slate-500 hover:underline">{dialogSuspect.contact}</a>
-                  </p>
-                  <p><span className="font-semibold text-slate-700">Address:</span> <span className="text-slate-500">{dialogSuspect.address}</span></p>
-                  <p className="sm:col-span-2"><span className="font-semibold text-slate-700">Relation to case:</span> <span className="text-slate-500">{dialogSuspect.relationToCase}</span></p>
-                  <p className="sm:col-span-2"><span className="font-semibold text-slate-700">Reason for suspicion:</span> <span className="text-slate-500">{dialogSuspect.reason}</span></p>
-                </div>
-              </section>
-              <section aria-labelledby="case-heading">
-                <h4 id="case-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Case & Status</h4>
-                <div className="flex flex-wrap gap-2 text-sm ">
-                  <p><span className="font-semibold text-slate-700">Case ID:</span> <span className="text-slate-500 font-medium">{dialogSuspect.caseId}</span></p>
-                  <p><span className="font-semibold text-slate-700">Status:</span>{' '}
-                    <Badge variant={dialogSuspect.status === 'QUESTIONED - CONFIRMED' ? 'success' : dialogSuspect.status === 'DETAINED' ? 'warning' : dialogSuspect.status === 'QUESTIONED - DENIES' ? 'default' : 'default'} className="ml-1">
-                      {dialogSuspect.status}
-                    </Badge>
-                  </p>
-                  <p><span className="font-semibold text-slate-700">Date added:</span> <span className="text-slate-500">{dialogSuspect.dateAdded}</span></p>
-                  <p><span className="font-semibold text-slate-700">Statement date:</span> <span className="text-slate-500">{dialogSuspect.statementDate}</span></p>
-                </div>
-              </section>
-              <section aria-labelledby="statement-heading">
-                <h4 id="statement-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Suspect Alibi / Statement / Description</h4>
-                <p className="text-slate-700 text-sm leading-relaxed">{dialogSuspect.alibi}</p>
-              </section>
+
+                {/* Personal Information */}
+                <section aria-labelledby="personal-heading">
+                    <h4 id="personal-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
+                        Personal Information
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
+                        <p>
+                            <span className="font-semibold text-slate-700">Suspect ID:</span>
+                            <span className="text-slate-500 font-mono text-xs">{dialogSuspect.id}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Name:</span>
+                            <span className="text-slate-500">{dialogSuspect.name || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">CNIC:</span>
+                            <span className="text-slate-500 font-mono text-xs">{dialogSuspect.cnic || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Age:</span>
+                            <span className="text-slate-500">{dialogSuspect.age || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Gender:</span>
+                            <span className="text-slate-500">{dialogSuspect.gender || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Occupation:</span>
+                            <span className="text-slate-500">{dialogSuspect.occupation || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Contact:</span>
+                            {dialogSuspect.contact ? (
+                                <a
+                                    href={`tel:${dialogSuspect.contact.replace(/\s/g, '')}`}
+                                    className="text-slate-500 hover:underline"
+                                >
+                                    {dialogSuspect.contact}
+                                </a>
+                            ) : (
+                                <span className="text-slate-500">—</span>
+                            )}
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Address:</span>
+                            <span className="text-slate-500">{dialogSuspect.address || '—'}</span>
+                        </p>
+                    </div>
+                </section>
+
+                {/* Case & Status */}
+                <section aria-labelledby="case-heading">
+                    <h4 id="case-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
+                        Case & Status
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
+                        <p>
+                            <span className="font-semibold text-slate-700">Case ID:</span>
+                            <span className="text-slate-500 font-medium">{dialogSuspect.caseId || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Status:</span>
+                            <span>
+                                <Badge
+                                    variant={
+                                        dialogSuspect.status === 'QUESTIONED - CONFIRMED' ? 'success'
+                                            : dialogSuspect.status === 'DETAINED' ? 'warning'
+                                                : dialogSuspect.status === 'QUESTIONED - DENIES' ? 'default'
+                                                    : 'default'
+                                    }
+                                >
+                                    {dialogSuspect.status || 'Unknown'}
+                                </Badge>
+                            </span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Relation to Case:</span>
+                            <span className="text-slate-500">{dialogSuspect.relationToCase || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Date Added:</span>
+                            <span className="text-slate-500">{dialogSuspect.dateAdded || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Statement Date:</span>
+                            <span className="text-slate-500">{dialogSuspect.statementDate || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Currently Arrested:</span>
+                            <span>
+                                <Badge variant={dialogSuspect.arrested ? 'warning' : 'default'}>
+                                    {dialogSuspect.arrested ? 'Yes' : 'No'}
+                                </Badge>
+                            </span>
+                        </p>
+                        <p className="sm:col-span-2">
+                            <span className="font-semibold text-slate-700">Prior Criminal Record:</span>
+                            <span>
+                                <Badge variant={dialogSuspect.criminalRecord ? 'destructive' : 'success'}>
+                                    {dialogSuspect.criminalRecord ? 'Yes — Has Record' : 'No Known Record'}
+                                </Badge>
+                            </span>
+                        </p>
+                    </div>
+                </section>
+
+                {/* Reason for Suspicion */}
+                <section aria-labelledby="reason-heading">
+                    <h4 id="reason-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
+                        Reason for Suspicion
+                    </h4>
+                    <p className="text-slate-700 text-sm leading-relaxed bg-amber-50/50 border border-amber-100 rounded-lg p-3">
+                        {dialogSuspect.reason || <span className="text-slate-400 italic">No reason documented yet.</span>}
+                    </p>
+                </section>
+
+                {/* Alibi / Statement */}
+                <section aria-labelledby="statement-heading">
+                    <h4 id="statement-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
+                        Alibi / Statement
+                    </h4>
+                    <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        {dialogSuspect.alibi || <span className="text-slate-400 italic">No statement recorded yet.</span>}
+                    </p>
+                </section>
+
+                {/* Physical Description */}
+                <section aria-labelledby="description-heading">
+                    <h4 id="description-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
+                        Physical Description
+                    </h4>
+                    <p className="text-slate-700 text-sm leading-relaxed">
+                        {dialogSuspect.physicalDescription || <span className="text-slate-400 italic">No physical description on file.</span>}
+                    </p>
+                </section>
+
+                {/* Affiliations & Escape Details */}
+                <section aria-labelledby="affiliations-heading">
+                    <h4 id="affiliations-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
+                        Affiliations & Escape Details
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
+                        <p className="sm:col-span-2">
+                            <span className="font-semibold text-slate-700">Known Affiliations / Gang:</span>
+                            <span className="text-slate-500">{dialogSuspect.knownAffiliations || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Arrival / Escape Method:</span>
+                            <span className="text-slate-500">{dialogSuspect.arrivalMethod || '—'}</span>
+                        </p>
+                        <p>
+                            <span className="font-semibold text-slate-700">Vehicle Description:</span>
+                            <span className="text-slate-500">{dialogSuspect.vehicleDescription || '—'}</span>
+                        </p>
+                    </div>
+                </section>
+
+                {/* Additional Notes */}
+                <section aria-labelledby="notes-heading">
+                    <h4 id="notes-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
+                        Additional Notes
+                    </h4>
+                    <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        {dialogSuspect.notes || <span className="text-slate-400 italic">No additional notes.</span>}
+                    </p>
+                </section>
             </div>
+
+            {/* Sticky footer */}
             <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end">
-              <Button onClick={closeDialog} className={'px-4 py-2'}>
-                Close
-              </Button>
+                <Button onClick={closeDialog} className={'px-4 py-2'}>
+                    Close
+                </Button>
             </div>
-          </div>
         </div>
-      )}
+    </div>
+)}
+
+      <AddSuspectDialog
+        isOpen={!!updateTarget}
+        onClose={() => setUpdateTarget(null)}
+        caseId="C-2053"
+        initialData={updateTarget}
+        onSubmit={(updated) => {
+          console.log("Updated suspect:", updated);
+          setUpdateTarget(null);
+        }}
+      />
     </section>
   );
 };

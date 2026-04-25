@@ -1,3 +1,139 @@
+// ════════════════════════════════════════════════════════════════════════════
+// CaseInvestigationLeads.jsx  (updated — replaces existing)
+// Wires in AddLeadModal. AI leads are shown with Brain icon; manual with User.
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * Place at: src/pages/investigator/case/CaseLeads.jsx
+ */
+// export function CaseInvestigationLeads({ caseId = "C-2052" }) {
+//   const [leads, setLeads] = useState([
+//     { id: "LEAD-081", caseId, type: "Suspect Match",    severity: "Critical", status: "New",          confidence: 89, description: "Suspect Zafar Iqbal (alias Kala) — same MO, same weapon type (pistol), active in same area.", suggestedSuspect: "Zafar Iqbal (SUP-0041)", nextStep: "Cross-reference CCTV on routes between suspect's address and crime scene. Check known associates.", generatedAt: "2026-04-12 09:15", eventSource: "ai"     },
+//     { id: "LEAD-082", caseId, type: "Location Pattern", severity: "High",     status: "Under Review", confidence: 76, description: "5 similar armed robberies within 2km radius in last 30 days.", nextStep: "Deploy surveillance on Block 5 exit routes. Coordinate with Saddar PS for shared intelligence.", generatedAt: "2026-04-12 09:17", eventSource: "ai"     },
+//     { id: "LEAD-083", caseId, type: "Informant Tip",    severity: "High",     status: "New",          confidence: 65, description: "Confidential informant reports suspect was seen in area 48 hours before robbery.", suggestedSuspect: "Unknown — physical description provided", nextStep: "Task CI to obtain more details. Check area surveillance for 8–10 April.", generatedAt: "2026-04-13 16:30", eventSource: "manual", source: "Field Intelligence" },
+//   ]);
+//   const [showAdd,  setShowAdd]  = useState(false);
+//   const [toDelete, setToDelete] = useState(null);
+
+//   const setStatus = (id, status) => setLeads(ls => ls.map(l => l.id === id ? { ...l, status } : l));
+//   const handleSave  = (l) => { setLeads(ls => [l, ...ls]); setShowAdd(false); };
+//   const handleDelete = (id) => { setLeads(ls => ls.filter(l => l.id !== id)); setToDelete(null); };
+
+//   const SEV = { Critical: "bg-red-100 text-red-700 border-red-200", High: "bg-orange-100 text-orange-700 border-orange-200", Medium: "bg-amber-100 text-amber-700 border-amber-200", Low: "bg-green-100 text-green-700 border-green-200" };
+//   const ST_COLOR = { New: "bg-blue-100 text-blue-700", "Under Review": "bg-amber-100 text-amber-700", Actioned: "bg-green-100 text-green-700", Dismissed: "bg-slate-100 text-slate-500" };
+//   const confColor = (v) => v >= 80 ? "bg-emerald-500" : v >= 60 ? "bg-amber-400" : "bg-red-400";
+
+//   return (
+//     <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+//       <div className="flex items-center justify-between mb-6">
+//         <div>
+//           <h2 className="text-xl font-bold text-slate-800">Investigative Leads</h2>
+//           <p className="text-xs text-slate-500 mt-0.5">{leads.filter(l => l.status !== "Dismissed").length} active · {leads.filter(l => l.eventSource === "ai").length} AI-generated · {leads.filter(l => l.eventSource === "manual").length} manual</p>
+//         </div>
+//         <button
+//           onClick={() => setShowAdd(true)}
+//           className="flex items-center gap-2 px-4 py-2 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 transition-colors cursor-pointer shadow-sm"
+//         >
+//           <Plus className="h-4 w-4" /> Add Lead Manually
+//         </button>
+//       </div>
+
+//       {leads.length === 0 ? (
+//         <div className="text-center py-10 text-slate-400">
+//           <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
+//           <p className="text-sm">No leads yet. AI will generate leads after case analysis.</p>
+//         </div>
+//       ) : (
+//         <div className="space-y-4">
+//           {leads.map((lead) => (
+//             <div key={lead.id} className={`border rounded-xl overflow-hidden ${lead.status === "Dismissed" ? "opacity-50" : ""}`}>
+//               {/* Severity bar */}
+//               <div className={`h-1 ${lead.severity === "Critical" ? "bg-red-500" : lead.severity === "High" ? "bg-orange-400" : "bg-amber-400"}`} />
+//               <div className="p-4">
+//                 <div className="flex items-start justify-between gap-3">
+//                   <div className="flex-1">
+//                     <div className="flex flex-wrap items-center gap-2 mb-2">
+//                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${SEV[lead.severity] || ""}`}>{lead.severity}</span>
+//                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ST_COLOR[lead.status] || ""}`}>{lead.status}</span>
+//                       <span className="text-xs text-slate-500">{lead.type}</span>
+//                       {lead.eventSource === "ai"
+//                         ? <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Brain className="h-2.5 w-2.5" />AI</span>
+//                         : <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1"><User className="h-2.5 w-2.5" />Manual</span>}
+//                     </div>
+//                     <p className="text-sm text-slate-700 leading-relaxed mb-2">{lead.description}</p>
+//                     {lead.suggestedSuspect && (
+//                       <p className="text-xs text-slate-500 mb-2"><span className="font-semibold">Suggested Suspect:</span> {lead.suggestedSuspect}</p>
+//                     )}
+//                     {/* Confidence bar */}
+//                     <div className="flex items-center gap-2 mb-3">
+//                       <span className="text-xs text-slate-400">Confidence</span>
+//                       <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+//                         <div className={`h-1.5 rounded-full ${confColor(lead.confidence)}`} style={{ width: `${lead.confidence}%` }} />
+//                       </div>
+//                       <span className="text-xs font-bold text-slate-600">{lead.confidence}%</span>
+//                     </div>
+//                     <div className="bg-deep-ocean/5 border border-deep-ocean/15 rounded-lg p-2.5 mb-3">
+//                       <p className="text-xs font-semibold text-deep-ocean mb-1">Next Recommended Step</p>
+//                       <p className="text-xs text-slate-600 leading-relaxed">{lead.nextStep}</p>
+//                     </div>
+//                     <p className="text-[10px] text-slate-400">{lead.eventSource === "ai" ? "Generated" : "Added"}: {lead.generatedAt}{lead.source ? ` · Source: ${lead.source}` : ""}</p>
+//                   </div>
+//                   {/* Actions */}
+//                   <div className="flex flex-col gap-1 shrink-0">
+//                     {lead.status !== "Dismissed" && (
+//                       <>
+//                         <button onClick={() => setStatus(lead.id, "Actioned")} title="Mark Actioned"
+//                           className="p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600 transition-colors cursor-pointer">
+//                           <CheckCircle2 className="h-4 w-4" />
+//                         </button>
+//                         <button onClick={() => setToDelete(lead.id)} title="Dismiss lead"
+//                           className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
+//                           <Trash2 className="h-4 w-4" />
+//                         </button>
+//                       </>
+//                     )}
+//                   </div>
+//                 </div>
+
+//                 {/* Status buttons */}
+//                 {lead.status !== "Dismissed" && (
+//                   <div className="flex gap-2 mt-1">
+//                     {["New", "Under Review", "Actioned"].map(s => (
+//                       <button key={s} onClick={() => setStatus(lead.id, s)}
+//                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border
+//                           ${lead.status === s ? "bg-deep-ocean text-white border-deep-ocean" : "bg-white text-slate-600 border-slate-300 hover:border-deep-ocean/50"}`}>
+//                         {s}
+//                       </button>
+//                     ))}
+//                   </div>
+//                 )}
+
+//                 {toDelete === lead.id && (
+//                   <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5">
+//                     <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+//                     <p className="text-xs text-red-700 flex-1">Dismiss this lead permanently?</p>
+//                     <button onClick={() => handleDelete(lead.id)} className="text-xs font-semibold text-red-600 cursor-pointer px-2">Dismiss</button>
+//                     <button onClick={() => setToDelete(null)} className="text-xs text-slate-500 cursor-pointer px-2">Cancel</button>
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+//           ))}
+//         </div>
+//       )}
+
+//       {showAdd && (
+//         <AddLeadModal
+//           caseId={caseId}
+//           onClose={() => setShowAdd(false)}
+//           onSave={handleSave}
+//         />
+//       )}
+//     </div>
+//   );
+// }
+
+// export default CaseInvestigationLeads; 
+
 import { useState, useCallback } from 'react';
 import { Search, ChevronDown, Calendar, Info } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';

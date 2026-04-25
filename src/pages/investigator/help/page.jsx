@@ -154,8 +154,7 @@ const QUICK_LINKS = [
     { icon: Search, label: 'Search Cases', path: '/search-case' },
     { icon: FileText, label: 'Generate Report', path: '/investigator/report' },
     { icon: Map, label: 'Crime Map', path: '/investigator' },
-    { icon: Users, label: 'Add Suspect', path: '/add-suspect' },
-    { icon: AlertTriangle, label: 'Upload FIR', path: '/upload-fir' },
+    { icon: AlertTriangle, label: 'Register Case', path: '/register-case' },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────

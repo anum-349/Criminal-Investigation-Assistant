@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -266,10 +266,12 @@ const ChartCard = ({ title, subtitle, onExportCSV, onExportPNG, children }) => (
     </Card>
 );
 
+
 // ═════════════════════════════════════════════════════════════════════════════
 const AnalyticsPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const initialQuery = searchParams.get('tab') || 'overview';
 
     // ── Filter state ─────────────────────────────────────────────────────
     const [dateRange, setDateRange] = useState('Last 9 months');
@@ -277,7 +279,7 @@ const AnalyticsPage = () => {
     const [crimeType, setCrimeType] = useState('All Types');
 
     // Read tab from URL — Analytics → Predictions nav sets ?tab=predictions
-    const [activeView, setActiveView] = useState(searchParams.get('tab') || 'overview');
+    const [activeView, setActiveView] = useState(initialQuery);
 
     // Chart refs for PNG export
     const trendRef = useRef(null);
@@ -316,6 +318,11 @@ const AnalyticsPage = () => {
         { id: 'predictions', label: 'Predictions', icon: Zap },
     ];
 
+    useEffect(() => {
+        const s = searchParams.get("tab") || "overview";
+        setActiveView(s);
+    }, [searchParams]);
+
     return (
         <div className="min-h-screen bg-slate-100 font-sans text-slate-900 mt-14">
             <Header />
@@ -344,7 +351,7 @@ const AnalyticsPage = () => {
                         <p className="text-sm text-slate-500 mt-1">Visualize crime patterns, trends, and case statistics</p>
                     </div>
                     <button className="flex cursor-pointer items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-600 hover:bg-slate-50 transition-colors self-start"
-                    onClick={()=>{window.location.reload}}>
+                        onClick={() => { window.location.reload }}>
                         <RefreshCw className="h-4 w-4" /> Refresh
                     </button>
                 </div>

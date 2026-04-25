@@ -23,7 +23,7 @@ const navItems = [
     label: "Analytics", items: [
       { label: "Dashboard", path: "/investigator" },
       { label: "Generate Report", path: "/investigator/report" },
-      { label: "Trends", path: "/investigator/trends" },
+      { label: "Trends", path: "/investigator/trends?tab=trends" },
       { label: "Predictions", path: "/investigator/trends?tab=predictions" },
     ]
   },
