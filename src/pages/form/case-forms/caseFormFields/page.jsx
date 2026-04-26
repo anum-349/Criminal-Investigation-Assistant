@@ -5,7 +5,8 @@
  *
  * Place at: src/pages/investigator/case-for../CaseFormFields/page.jsx
  */
-import { HelpCircle, AlertCircle } from "lucide-react";
+import { HelpCircle, AlertCircle, X } from "lucide-react";
+import { useEffect } from "react";
 
 // ── FieldLabel ────────────────────────────────────────────────────────────────
 export const FieldLabel = ({ children, required, hint }) => (

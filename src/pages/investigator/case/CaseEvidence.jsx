@@ -250,7 +250,7 @@ const CaseEvidence = () => {
                                                 onClick={() => setUpdateTarget(e)}
                                                 aria-label={`Update evidence ${e.id}`}
                                             >
-                                                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                                                <Pencil className="h-3.5 w-3.5 mr-2" aria-hidden />
                                                 Update
                                             </Button>
                                         </td>

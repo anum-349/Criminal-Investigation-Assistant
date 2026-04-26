@@ -257,7 +257,7 @@ const CaseSuspects = () => {
                         onClick={() => setUpdateTarget(s)}
                         aria-label={`Update suspect ${s.name} information`}
                       >
-                        <Pencil className="h-3.5 w-3.5" aria-hidden />
+                        <Pencil className="h-3.5 w-3.5 mr-2" aria-hidden />
                         Update
                       </Button>
                     </td>

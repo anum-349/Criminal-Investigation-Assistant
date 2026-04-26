@@ -12,7 +12,7 @@ import ProfilePage from "../pages/investigator/profile/page";
 import ReportPage from "../pages/investigator/report/page";
 import AnalyticsPage from "../pages/investigator/analytics/page";
 import RegisterCasePage from "../pages/form/case-forms/register-case/page";
-import UpdateCasePage from "../pages/form/case-forms/update-case/page";
+// import UpdateCasePage from "../pages/form/case-forms/update-case/page";
 import UserManagementPage from "../pages/form/user-management/page";
 import SystemSettingsPage from "../pages/form/system-setting/page";
 import ChangePasswordForm from "../pages/form/change-password/page";
@@ -70,9 +70,9 @@ export default function AppRoutes() {
                 <RegisterCasePage />
             } />
 
-            <Route path="/update-case" element={
+            {/* <Route path="/update-case" element={
                 <UpdateCasePage />
-            } />
+            } /> */}
 
             <Route path="user-management" element={
                 <UserManagementPage />

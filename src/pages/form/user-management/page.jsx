@@ -254,7 +254,7 @@ function ViewUserModal({ user, onClose, onEdit }) {
           <button onClick={onClose} className="flex-1 border border-slate-300 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 cursor-pointer">Close</button>
           <button onClick={() => { onEdit(user); onClose(); }}
             className="flex-1 bg-deep-ocean text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 cursor-pointer flex items-center justify-center gap-2">
-            <Pencil className="h-4 w-4" /> Edit User
+            <Pencil className="h-4 w-4 mr-2" /> Edit User
           </button>
         </div>
       </div>

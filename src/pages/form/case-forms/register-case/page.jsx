@@ -3,24 +3,25 @@ import { useNavigate } from "react-router-dom";
 import {
   Upload, FileText, MapPin, User, Users, Gavel,
   Camera, Brain, CheckCircle2, ChevronRight, ChevronLeft,
-  LayoutDashboard, FolderOpen, AlertTriangle, Loader2, Plus, Check,
+  LayoutDashboard, FolderOpen, AlertTriangle, Loader2, Plus, Check, File,
 } from "lucide-react";
 import { CASE_STEPS, emptyFormData } from "../CaseFormConstants/page";
 
 // ── Step components ───────────────────────────────────────────────────────────
 import StepFIRUpload     from "../fir-upload/page";
 import StepCaseDetails   from "../case-details/page";
-import StepLocation      from "../add-location/page";
-import { StepVictims }   from "../add-victim/page";
 import StepCrimeDetails  from "../crime-details/page";
 import { StepEvidence }  from "../step-evidence/page";
 import StepAIAnalysis    from "../ai-analysis/page";
 import { StepReview }    from "../review/page";
 import Header from "../../../../components/Header";
 import StepSuspects from "../step-suspects/page";
+import StepVictims from "../step-victim/page";
+import StepWitnesses from "../step-witness/page";
+import StepLocation from "../step-location/page";
 
 // ── Icon map (step icons from constants are strings) ─────────────────────────
-const ICON_MAP = { Upload, FileText, MapPin, User, Users, Gavel, Camera, Brain, CheckCircle2 };
+const ICON_MAP = { Upload, FileText, MapPin, User, Users, Gavel, Camera, Brain, CheckCircle2, File };
 
 // ── Step Progress Bar ─────────────────────────────────────────────────────────
 const StepProgressBar = ({ currentStep, completedSteps, onStepClick }) => (
@@ -223,9 +224,10 @@ export default function RegisterCasePage() {
           {currentStep === 4 && <StepVictims      data={formData} setData={setFormData} mode="register" />}
           {currentStep === 5 && <StepSuspects    data={formData} setData={setFormData} mode="register" />}
           {currentStep === 6 && <StepCrimeDetails data={formData} setData={setFormData} errors={errors} />}
-          {currentStep === 7 && <StepEvidence     data={formData} setData={setFormData} />}
-          {currentStep === 8 && <StepAIAnalysis   data={formData} />}
-          {currentStep === 9 && <StepReview       data={formData} mode="register" />}
+          {currentStep === 7 && <StepEvidence     data={formData} setData={setFormData} mode="register"/>}
+          {currentStep === 8 && <StepWitnesses     data={formData} setData={setFormData} mode="register"/>}
+          {currentStep === 9 && <StepAIAnalysis   data={formData} />}
+          {currentStep === 10 && <StepReview       data={formData} mode="register" />}
         </div>
 
         {/* Navigation */}

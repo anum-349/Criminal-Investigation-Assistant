@@ -149,7 +149,7 @@ export function SuspectProfilePage() {
               {!editing ? (
                 <button onClick={() => setEditing(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-deep-ocean text-white rounded-lg text-sm font-medium hover:bg-deep-ocean-900 cursor-pointer transition-colors">
-                  <Pencil className="h-3.5 w-3.5" /> Edit
+                  <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                 </button>
               ) : (
                 <>
@@ -332,7 +332,7 @@ export function VictimProfilePage() {
             </div>
             <div className="flex gap-2 self-start">
               {!editing
-                ? <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-4 py-2 bg-deep-ocean text-white rounded-lg text-sm cursor-pointer hover:bg-deep-ocean-900 transition-colors"><Pencil className="h-3.5 w-3.5" />Edit</button>
+                ? <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-4 py-2 bg-deep-ocean text-white rounded-lg text-sm cursor-pointer hover:bg-deep-ocean-900 transition-colors"><Pencil className="h-3.5 w-3.5 mr-2" />Edit</button>
                 : <>
                   <button onClick={() => { setEditing(false); setForm({ ...victim }); }} className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50 cursor-pointer">Cancel</button>
                   <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer ${saving ? "bg-deep-ocean/60" : "bg-deep-ocean hover:bg-deep-ocean-900"} transition-colors`}>

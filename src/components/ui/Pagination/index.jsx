@@ -71,7 +71,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="inline-flex items-center  cursor-pointer gap-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:ring-offset-1"
+          className="inline-flex items-center cursor-pointer gap-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:ring-offset-1"
           aria-label="Next page"
         >
           <span className="hidden sm:inline">Next</span>

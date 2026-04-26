@@ -1,120 +1,9 @@
-// // ════════════════════════════════════════════════════════════════════════════
-// // CaseWitnesses.jsx  (updated — replaces existing)
-// // Wires in AddWitnessModal for the Add + Edit flow.
-// // ════════════════════════════════════════════════════════════════════════════
-// /**
-//  * Place at: src/pages/investigator/case/CaseWitnesses.jsx
-//  */
-// export function CaseWitnesses({ caseId = "C-2052" }) {
-//   const [witnesses, setWitnesses] = useState([
-//     { id: "WIT-001", name: "Khalid Mehmood", witnessType: "Eyewitness", contact: "+92-321-1112223", address: "Shop 4, Main Street Market", statement: "I was closing my shop next door when I heard shouting. I saw three men running out with bags. One had a pistol. They got into a white car parked outside.", credibility: "High — Corroborated", relatedCase: caseId, statementDate: "2026-04-12", statementRecordedBy: "Insp. Rashid Ali Khan", anonymous: false, protectionRequired: false, cooperating: true },
-//     { id: "WIT-002", name: "Anonymous", witnessType: "Earwitness", contact: "Hidden", address: "Hidden", statement: "Heard screaming from nearby. Saw a white Toyota Corolla parked outside for about 20 minutes before the incident.", credibility: "Medium — Unverified", relatedCase: caseId, statementDate: "2026-04-13", statementRecordedBy: "Insp. Rashid Ali Khan", anonymous: true, protectionRequired: true, cooperating: true },
-//   ]);
-//   const [showAdd,  setShowAdd]  = useState(false);
-//   const [editing,  setEditing]  = useState(null);
-//   const [toDelete, setToDelete] = useState(null);
-
-//   const handleSave = (w) => {
-//     setWitnesses(ws => ws.find(x => x.id === w.id) ? ws.map(x => x.id === w.id ? w : x) : [...ws, w]);
-//     setShowAdd(false); setEditing(null);
-//   };
-//   const handleDelete = (id) => { setWitnesses(ws => ws.filter(w => w.id !== id)); setToDelete(null); };
-
-//   return (
-//     <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-//       <div className="flex items-center justify-between mb-6">
-//         <div>
-//           <h2 className="text-xl font-bold text-slate-800">Witnesses</h2>
-//           <p className="text-xs text-slate-500 mt-0.5">{witnesses.length} witness{witnesses.length !== 1 ? "es" : ""} on record</p>
-//         </div>
-//         <button
-//           onClick={() => { setEditing(null); setShowAdd(true); }}
-//           className="flex items-center gap-2 px-4 py-2 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 transition-colors cursor-pointer shadow-sm"
-//         >
-//           <Plus className="h-4 w-4" /> Add Witness
-//         </button>
-//       </div>
-
-//       {witnesses.length === 0 ? (
-//         <div className="text-center py-10 text-slate-400">
-//           <User className="h-10 w-10 mx-auto mb-3 opacity-30" />
-//           <p className="text-sm">No witnesses recorded yet.</p>
-//           <button onClick={() => setShowAdd(true)} className="mt-3 text-deep-ocean text-sm font-semibold hover:underline cursor-pointer">Add the first witness</button>
-//         </div>
-//       ) : (
-//         <div className="space-y-4">
-//           {witnesses.map((w) => (
-//             <div key={w.id} className="border border-slate-200 rounded-xl p-5">
-//               <div className="flex items-start justify-between gap-3 mb-3">
-//                 <div className="flex items-center gap-3">
-//                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${w.anonymous ? "bg-slate-500" : "bg-deep-ocean"}`}>
-//                     {w.anonymous ? "A" : w.name.charAt(0)}
-//                   </div>
-//                   <div>
-//                     <div className="flex items-center gap-2 flex-wrap">
-//                       <p className="font-bold text-slate-800">{w.anonymous ? "Anonymous Witness" : w.name}</p>
-//                       {w.anonymous && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Anonymous</span>}
-//                       {w.protectionRequired && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"><Shield className="h-2.5 w-2.5" />Protection</span>}
-//                       {w.cooperating && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">Cooperating</span>}
-//                     </div>
-//                     <p className="text-xs text-slate-500 mt-0.5">{w.witnessType} · Statement: {w.statementDate}</p>
-//                   </div>
-//                 </div>
-//                 <div className="flex gap-1 shrink-0">
-//                   <button onClick={() => { setEditing(w); setShowAdd(true); }}
-//                     className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer" title="Edit">
-//                     <FileText className="h-4 w-4" />
-//                   </button>
-//                   <button onClick={() => setToDelete(w.id)}
-//                     className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer" title="Delete">
-//                     <Trash2 className="h-4 w-4" />
-//                   </button>
-//                 </div>
-//               </div>
-
-//               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3 text-xs">
-//                 {!w.anonymous && <div><span className="font-semibold text-slate-500">Contact</span><p className="text-slate-700">{w.contact}</p></div>}
-//                 <div><span className="font-semibold text-slate-500">Credibility</span><p className="text-slate-700">{w.credibility}</p></div>
-//                 <div><span className="font-semibold text-slate-500">Recorded By</span><p className="text-slate-700">{w.statementRecordedBy}</p></div>
-//               </div>
-
-//               <div className="bg-slate-50 rounded-lg p-3">
-//                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Statement</p>
-//                 <p className="text-sm text-slate-700 leading-relaxed">{w.statement}</p>
-//               </div>
-
-//               {toDelete === w.id && (
-//                 <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5">
-//                   <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
-//                   <p className="text-xs text-red-700 flex-1">Delete this witness record permanently?</p>
-//                   <button onClick={() => handleDelete(w.id)} className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-2">Delete</button>
-//                   <button onClick={() => setToDelete(null)} className="text-xs text-slate-500 cursor-pointer px-2">Cancel</button>
-//                 </div>
-//               )}
-//             </div>
-//           ))}
-//         </div>
-//       )}
-
-//       {showAdd && (
-//         <AddWitnessModal
-//           caseId={caseId}
-//           witness={editing}
-//           onClose={() => { setShowAdd(false); setEditing(null); }}
-//           onSave={handleSave}
-//         />
-//       )}
-//     </div>
-//   );
-// }
-
-
-
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Calendar, X, ExternalLink } from 'lucide-react';
+import { Search, ChevronDown, Calendar, X, ExternalLink, Pencil, CheckCircle2, Shield, EyeOff, AlertTriangle, User } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
 import { Badge } from '../../../components/ui/Badge';
+import AddWitnessDialog from './forms/AddWitness';
 
 const PAGE_SIZE = 5;
 const STATUSES = [
@@ -210,6 +99,7 @@ const CaseWitnesses = () => {
   const [dialogWitness, setDialogWitness] = useState(null);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const [updateTarget, setUpdateTarget] = useState(null); // evidence item being updated
 
   const filteredWitnesses = MOCK_WITNESSES.filter((w) => {
     const nameMatch = !appliedFilters.name || w.name.toLowerCase().includes(appliedFilters.name.toLowerCase()) || w.id.toLowerCase().includes(appliedFilters.name.toLowerCase());
@@ -372,29 +262,26 @@ const CaseWitnesses = () => {
                           ? `${w.description.slice(0, 50)}...`
                           : w.description}
                       </div>
-
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="text-xs px-4 py-2 mt-3"
-                      >
-                        Update Statement
-                      </Button>
-                    </>) : (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="text-xs px-4 py-2">
-                        Add Statement</Button>
+                    </>) : (null
                     )}</td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center grid grid-rows-2">
                       <Button
-                        className="inline-flex cursor-pointer items-center justify-center shadow-inner shadow-deep-ocean-900 gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 text-white transition-colors focus:outline-none"
+                        variant='default'
+                        className={'px-4 py-2 mb-2'}
                         onClick={() => openDialog(w)}
-                        aria-label={`View full details for ${w.name}`}
+                        aria-label={`View full details for ${w.id}`}
                       >
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                        View full witness details
+                        <ExternalLink className="h-3.5 w-3.5 mr-2" aria-hidden />
+                        View details
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className={'px-4 py-2 '}
+                        onClick={() => setUpdateTarget(w)}
+                        aria-label={`Update witness ${w.id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-3" aria-hidden />
+                        Update
                       </Button>
                     </td>
                   </tr>
@@ -435,54 +322,239 @@ const CaseWitnesses = () => {
             className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-              <h3 id="witness-dialog-title" className="text-lg font-bold text-slate-800">
-                Witness Details – {dialogWitness.name}
-              </h3>
+            {/* ── Header ───────────────────────────────────────────────────── */}
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                  <User className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="witness-dialog-title" className="text-lg font-bold text-slate-800 truncate">
+                    {dialogWitness.anonymous
+                      ? "Witness Details — Anonymous"
+                      : `Witness Details — ${dialogWitness.name || "Unnamed"}`}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    {dialogWitness.witnessId || dialogWitness.id || "—"}
+                  </p>
+                </div>
+              </div>
               <button
                 ref={closeButtonRef}
                 type="button"
                 onClick={closeDialog}
-                className="p-2 rounded-md  cursor-pointer text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
+                className="p-2 rounded-md cursor-pointer text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
                 aria-label="Close dialog"
               >
                 <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
+
+            {/* ── Status / Flag chips strip ────────────────────────────────── */}
+            <div className="px-6 pt-4 flex flex-wrap gap-2">
+              <Badge
+                variant={
+                  dialogWitness.status === 'Active' ? 'success'
+                    : dialogWitness.status === 'Pending' ? 'warning'
+                      : 'default'
+                }
+              >
+                {dialogWitness.status || '—'}
+              </Badge>
+              {dialogWitness.anonymous && (
+                <span className="text-[11px] inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 font-medium">
+                  <EyeOff className="h-3 w-3" /> Anonymous
+                </span>
+              )}
+              {dialogWitness.protectionRequired && (
+                <span className="text-[11px] inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-700 font-medium">
+                  <Shield className="h-3 w-3" /> Protection Required
+                </span>
+              )}
+              {dialogWitness.cooperating !== false && (
+                <span className="text-[11px] inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> Cooperating
+                </span>
+              )}
+              {dialogWitness.cooperating === false && (
+                <span className="text-[11px] inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-100 text-slate-600 font-medium">
+                  <AlertTriangle className="h-3 w-3" /> Not Cooperating
+                </span>
+              )}
+            </div>
+
+            {/* ── Body ─────────────────────────────────────────────────────── */}
             <div id="witness-dialog-desc" className="p-6 space-y-6">
-              <section aria-labelledby="personal-heading">
-                <h4 id="personal-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Personal Information</h4>
+
+              {/* Personal Information */}
+              <section aria-labelledby="witness-personal-heading">
+                <h4 id="witness-personal-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
+                  Personal Information
+                </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
-                  <p><span className="font-semibold text-slate-700">Witness ID:</span> <span className="text-slate-500 font-medium">{dialogWitness.id}</span></p>
-                  <p><span className="font-semibold text-slate-700">Name:</span> <span className="text-slate-500">{dialogWitness.name}</span></p>
-                  <p><span className="font-semibold text-slate-700">Age:</span> <span className="text-slate-500">{dialogWitness.age}</span></p>
-                  <p><span className="font-semibold text-slate-700">Gender:</span> <span className="text-slate-500">{dialogWitness.gender}</span></p>
-                  <p><span className="font-semibold text-slate-700">Contact:</span>{' '}
-                    <a href={`tel:${dialogWitness.contact.replace(/\s/g, '')}`} className="text-slate-500 hover:underline">{dialogWitness.contact}</a>
+                  <p>
+                    <span className="font-semibold text-slate-700">Witness ID:</span>
+                    <span className="text-slate-500 font-mono text-xs">
+                      {dialogWitness.witnessId || dialogWitness.id || '—'}
+                    </span>
                   </p>
-                  <p><span className="font-semibold text-slate-700">Address:</span> <span className="text-slate-500">{dialogWitness.address}</span></p>
-                  <p className="sm:col-span-2"><span className="font-semibold text-slate-700">Relation to case:</span> <span className="text-slate-500">{dialogWitness.relationToCase}</span></p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Name:</span>
+                    <span className="text-slate-500">
+                      {dialogWitness.anonymous
+                        ? <span className="italic text-slate-400">Hidden</span>
+                        : (dialogWitness.name || '—')}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Age:</span>
+                    <span className="text-slate-500">{dialogWitness.age || '—'}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Gender:</span>
+                    <span className="text-slate-500">{dialogWitness.gender || '—'}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Contact:</span>
+                    {dialogWitness.anonymous ? (
+                      <span className="italic text-slate-400">Hidden</span>
+                    ) : dialogWitness.contact ? (
+                      <a
+                        href={`tel:${dialogWitness.contact.replace(/\s/g, '')}`}
+                        className="text-slate-500 hover:underline"
+                      >
+                        {dialogWitness.contact}
+                      </a>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Address:</span>
+                    <span className="text-slate-500">
+                      {dialogWitness.anonymous
+                        ? <span className="italic text-slate-400">Hidden</span>
+                        : (dialogWitness.address || '—')}
+                    </span>
+                  </p>
                 </div>
               </section>
-              <section aria-labelledby="case-heading">
-                <h4 id="case-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Case & Status</h4>
-                <div className="flex flex-wrap gap-2 text-sm">
-                  <p><span className="font-semibold text-slate-700">Case ID:</span> <span className="text-slate-500 font-medium">{dialogWitness.caseId}</span></p>
-                  <p><span className="font-semibold text-slate-700">Status:</span>{' '}
-                    <Badge variant={dialogWitness.status === 'Active' ? 'success' : dialogWitness.status === 'Pending' ? 'warning' : 'default'} >
-                      {dialogWitness.status}
-                    </Badge>
+
+              {/* Classification */}
+              <section aria-labelledby="witness-classification-heading">
+                <h4 id="witness-classification-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
+                  Classification
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
+                  <p>
+                    <span className="font-semibold text-slate-700">Witness Type:</span>
+                    <span className="text-slate-500">{dialogWitness.witnessType || '—'}</span>
                   </p>
-                  <p><span className="font-semibold text-slate-700">Date added:</span> <span className="text-slate-500">{dialogWitness.dateAdded}</span></p>
-                  <p><span className="font-semibold text-slate-700">Statement date:</span> <span className="text-slate-500">{dialogWitness.statementDate}</span></p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Relation to Case:</span>
+                    <span className="text-slate-500">{dialogWitness.relationToCase || '—'}</span>
+                  </p>
+                  <p className="sm:col-span-2">
+                    <span className="font-semibold text-slate-700">Credibility Assessment:</span>
+                    <span className="text-slate-500">{dialogWitness.credibility || '—'}</span>
+                  </p>
                 </div>
               </section>
-              <section aria-labelledby="statement-heading">
-                <h4 id="statement-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2">Witness Statement / Description</h4>
-                <p className="text-slate-700 text-sm leading-relaxed">{dialogWitness.description}</p>
+
+              {/* Case & Status */}
+              <section aria-labelledby="witness-case-heading">
+                <h4 id="witness-case-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
+                  Case & Statement Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
+                  <p>
+                    <span className="font-semibold text-slate-700">Case ID:</span>
+                    <span className="text-slate-500 font-mono text-xs">{dialogWitness.caseId || '—'}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Status:</span>
+                    <span>
+                      <Badge
+                        variant={
+                          dialogWitness.status === 'Active' ? 'success'
+                            : dialogWitness.status === 'Pending' ? 'warning'
+                              : 'default'
+                        }
+                        size="sm"
+                      >
+                        {dialogWitness.status || '—'}
+                      </Badge>
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Date Added:</span>
+                    <span className="text-slate-500">{dialogWitness.dateAdded || '—'}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Statement Date:</span>
+                    <span className="text-slate-500">{dialogWitness.statementDate || '—'}</span>
+                  </p>
+                  <p className="sm:col-span-2">
+                    <span className="font-semibold text-slate-700">Statement Recorded By:</span>
+                    <span className="text-slate-500">{dialogWitness.statementRecordedBy || '—'}</span>
+                  </p>
+                </div>
+              </section>
+
+              {/* Witness Statement */}
+              <section aria-labelledby="witness-statement-heading">
+                <h4 id="witness-statement-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
+                  Witness Statement / Description
+                </h4>
+                <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3 whitespace-pre-wrap">
+                  {dialogWitness.description || (
+                    <span className="text-slate-400 italic">No statement on file.</span>
+                  )}
+                </p>
+              </section>
+
+              {/* Privacy & Safety Flags (verbose breakdown for clarity) */}
+              <section aria-labelledby="witness-flags-heading">
+                <h4 id="witness-flags-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
+                  Privacy & Safety
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div className={`p-3 rounded-lg border ${dialogWitness.anonymous
+                    ? 'bg-amber-50 border-amber-200'
+                    : 'bg-slate-50 border-slate-200'}`}>
+                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                      <EyeOff className="h-3 w-3" /> Anonymous
+                    </p>
+                    <p className={`text-sm font-semibold mt-1 ${dialogWitness.anonymous ? 'text-amber-700' : 'text-slate-600'}`}>
+                      {dialogWitness.anonymous ? 'Yes — identity hidden' : 'No'}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${dialogWitness.protectionRequired
+                    ? 'bg-red-50 border-red-200'
+                    : 'bg-slate-50 border-slate-200'}`}>
+                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                      <Shield className="h-3 w-3" /> Protection
+                    </p>
+                    <p className={`text-sm font-semibold mt-1 ${dialogWitness.protectionRequired ? 'text-red-700' : 'text-slate-600'}`}>
+                      {dialogWitness.protectionRequired ? 'Required' : 'Not required'}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${dialogWitness.cooperating !== false
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : 'bg-slate-50 border-slate-200'}`}>
+                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3 w-3" /> Cooperation
+                    </p>
+                    <p className={`text-sm font-semibold mt-1 ${dialogWitness.cooperating !== false ? 'text-emerald-700' : 'text-slate-600'}`}>
+                      {dialogWitness.cooperating !== false ? 'Cooperating' : 'Not cooperating'}
+                    </p>
+                  </div>
+                </div>
               </section>
             </div>
-            <div className="sticky bottom-0 bg-slate-50  cursor-pointer border-t border-slate-200 px-6 py-4 flex justify-end">
+
+            {/* ── Sticky footer ────────────────────────────────────────────── */}
+            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end">
               <Button onClick={closeDialog} className={'px-4 py-2'}>
                 Close
               </Button>
@@ -490,6 +562,16 @@ const CaseWitnesses = () => {
           </div>
         </div>
       )}
+      <AddWitnessDialog
+        isOpen={!!updateTarget}
+        onClose={() => setUpdateTarget(null)}
+        caseId="C-2053"
+        initialData={updateTarget}
+        onSubmit={(updated) => {
+          console.log("Updated witness:", updated);
+          setUpdateTarget(null);
+        }}
+      />
     </section>
   );
 };

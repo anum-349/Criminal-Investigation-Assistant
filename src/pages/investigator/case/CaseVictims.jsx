@@ -6,9 +6,12 @@ import {
   Plus,
   Mic,
   Circle,
+  Pencil,
 } from 'lucide-react';
 
 import { Badge } from '../../../components/ui/Badge';
+import AddVictimDialog from './forms/AddVictim';
+import { Button } from '../../../components/ui/Button';
 
 const victimsList = [
   {
@@ -106,6 +109,7 @@ const victimDetailsMap = { 1: victim1Details, 2: victim2Details };
 const CaseVictim = () => {
   const [selectedVictimId, setSelectedVictimId] = useState(1);
   const details = victimDetailsMap[selectedVictimId] || victim1Details;
+  const [updateTarget, setUpdateTarget] = useState(null);
 
   return (
     <section
@@ -181,21 +185,24 @@ const CaseVictim = () => {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3 items-center">
-          {details.cooperative && (
-            <Badge variant="success" size="sm" className="inline-flex items-center gap-2 px-4 py-2 border border-forest-teal font-semibold">
-              <CheckCircle2 size={16} className="text-emerald-green" aria-hidden />
-              Cooperative
-            </Badge>
-          )}
-          <button
-            type="button"
-            className="inline-flex cursor-pointer items-center gap-2 bg-emerald-green hover:bg-emerald-700 text-xs border border-emerald-700 px-4 py-2 rounded-full font-semibold transition-colors"
-            aria-label="Add statement"
+        <div className='grid grid-rows-2 gap-2'>
+          <Button
+            variant='default'
+            className={'px-4 py-2 border border-slate-50'}
+            onClick={() => setUpdateTarget(details)}
+            aria-label={`Update victim ${selectedVictimId} details`}
           >
-            <Plus size={16} aria-hidden />
-            Add Statement
-          </button>
+            <Pencil className="h-3.5 w-3.5 mr-3" aria-hidden />
+            Update
+          </Button>
+          <div className="flex flex-wrap gap-3 items-center">
+            {details.cooperative && (
+              <Badge variant="success" size="sm" className="inline-flex items-center gap-2 px-4 py-2 border border-forest-teal font-semibold">
+                <CheckCircle2 size={16} className="text-emerald-green" aria-hidden />
+                Cooperative
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
@@ -344,6 +351,13 @@ const CaseVictim = () => {
           </ul>
         </article>
       </div>
+      <AddVictimDialog
+        isOpen={!!updateTarget}
+        onClose={() => setUpdateTarget(null)}
+        onSubmit={(data) => console.log("updated:", data)}
+        caseId="C-2053"
+        initialData={updateTarget}
+      />
     </section>
   );
 };

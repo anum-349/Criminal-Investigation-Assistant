@@ -46,7 +46,7 @@ function EvidenceCard({ ev, idx, isEditing, onToggleEdit, onRemove, onUpdate, on
                 ? "bg-deep-ocean text-white hover:bg-deep-ocean/90"
                 : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`}
           >
-            {isEditing ? <><Check className="h-3.5 w-3.5" /> Save</> : <><Pencil className="h-3.5 w-3.5" /> Edit</>}
+            {isEditing ? <><Check className="h-3.5 w-3.5" /> Save</> : <><Pencil className="h-3.5 w-3.5 mr-2" /> Edit</>}
           </button>
           <button type="button" onClick={onRemove}
             className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors cursor-pointer">
