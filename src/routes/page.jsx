@@ -24,44 +24,43 @@ export default function AppRoutes() {
         <Routes>
             <Route path="/" element={<LoginPage />} />
             <Route path="/investigator" element={
-                <ProtectedRoute
-                    allowedRoles={["investigator"]}
-                >
+                <ProtectedRoute requiredRole="investigator">
                     <InvestigatorPage />
-                </ProtectedRoute>} />
+                </ProtectedRoute>
+            } />
 
             <Route path="/investigator/case" element={
-                <ProtectedRoute allowedRoles={["investigator"]}>
+                <ProtectedRoute requiredRole="investigator">
                     <CasePage />
                 </ProtectedRoute>} />
 
             <Route path="/search-case" element={
-                <ProtectedRoute allowedRoles={["investigator"]}>
+                <ProtectedRoute requiredRole="investigator">
                     <CaseSearch />
                 </ProtectedRoute>} />
 
             <Route path="/investigator/cases" element={
-                <ProtectedRoute allowedRoles={["investigator"]}>
+                <ProtectedRoute requiredRole="investigator">
                     <AllCasesPage />
                 </ProtectedRoute>
             } />
             <Route path="/investigator/help" element={
-                <ProtectedRoute allowedRoles={["investigator"]}>
+                <ProtectedRoute requiredRole="investigator">
                     <HelpPage />
                 </ProtectedRoute>
             } />
             <Route path="/investigator/profile" element={
-                <ProtectedRoute allowedRoles={["investigator"]}>
+                <ProtectedRoute requiredRole="investigator">
                     <ProfilePage />
                 </ProtectedRoute>
             } />
             <Route path="/investigator/report" element={
-                <ProtectedRoute allowedRoles={["investigator"]}>
+                <ProtectedRoute requiredRole="investigator">
                     <ReportPage />
                 </ProtectedRoute>
             } />
             <Route path="/investigator/trends" element={
-                <ProtectedRoute allowedRoles={["investigator"]}>
+                <ProtectedRoute requiredRole="investigator">
                     <AnalyticsPage />
                 </ProtectedRoute>
             } />
@@ -92,7 +91,7 @@ export default function AppRoutes() {
             } />
 
             <Route path="/admin" element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute requiredRole="admin">
                     <AdminPage />
                 </ProtectedRoute>} />
             <Route path="*" element={<NotFoundPage />} />

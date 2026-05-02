@@ -1,58 +1,108 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { jwtDecode } from "jwt-decode";
+import axios from "axios";
 
 export const AuthContext = createContext();
 
+const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY;
+const REMEMBER_KEY = import.meta.env.VITE_REMEMBER_KEY;
+const API_URL = import.meta.env.VITE_API_URL;
+
 export const AuthProvider = ({ children }) => {
+    const [user, setUser]       = useState(null);    // full user object or null
+    const [loading, setLoading] = useState(true);    // true until /me resolves
 
-    const [isAuth, setIsAuth] = useState(false);
-    const [userRole, setUserRole] = useState(null);
+    // ─── Helpers ─────────────────────────────────────────────────────────
+    const getStoredToken = () => {
+        const remember = localStorage.getItem(REMEMBER_KEY) === "true";
+        return remember
+            ? localStorage.getItem(TOKEN_KEY)
+            : sessionStorage.getItem(TOKEN_KEY);
+    };
 
-    // Run once when app loads (for refresh support)
+    const clearStoredToken = () => {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(REMEMBER_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        delete axios.defaults.headers.common["Authorization"];
+    };
+
+    const setAxiosAuth = (token) => {
+        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    };
+
+    // ─── App load — validate stored token against server ─────────────────
     useEffect(() => {
-        const token = localStorage.getItem("token") ||
-            sessionStorage.getItem("token");
-        if (token) {
-            try {
-                const decoded = jwtDecode(token);
-                setIsAuth(true);
-                setUserRole(decoded.role);
-                if (decoded.exp * 1000 > Date.now()) {
-                    setIsAuth(true);
-                    setUserRole(decoded.role);
-                } else {
-                    localStorage.removeItem("token");
-                    sessionStorage.removeItem("token");
-                }
-            } catch (err) {
-                localStorage.removeItem("token");
-                sessionStorage.removeItem("token");
-            }
+        const token = getStoredToken();
+        if (!token) {
+            setLoading(false);
+            return;
         }
+
+        // Quick client-side check for obvious expiry (no network needed)
+        try {
+            const decoded = jwtDecode(token);
+            if (decoded.exp * 1000 <= Date.now()) {
+                clearStoredToken();
+                setLoading(false);
+                return;
+            }
+        } catch {
+            clearStoredToken();
+            setLoading(false);
+            return;
+        }
+
+        // Server-side check — confirms token still corresponds to an
+        // active user on the backend (catches revoked/locked accounts).
+        setAxiosAuth(token);
+        axios.get(`${API_URL}/api/auth/me`)
+            .then((res) => setUser(res.data))
+            .catch(() => clearStoredToken())
+            .finally(() => setLoading(false));
     }, []);
 
-    // 🔥 Login function
-    const login = (token, rememberMe = false) => {
-        if (rememberMe) {
-            localStorage.setItem("token", token);
-        } else {
-            sessionStorage.setItem("token", token);
-        }
-        const decoded = jwtDecode(token);
-        setIsAuth(true);
-        setUserRole(decoded.role);
-    };
+    // ─── Login ───────────────────────────────────────────────────────────
+    const login = useCallback(async ({ identifier, password, secret_code, rememberMe = true }) => {
+        const res = await axios.post(`${API_URL}/api/auth/login`, {
+            identifier,
+            password,
+            secret_code: secret_code || undefined,
+        });
 
-    // 🔥 Logout function
-    const logout = () => {
-        localStorage.removeItem("token");
-        sessionStorage.removeItem("token");
-        setIsAuth(false);
-        setUserRole(null);
-    };
+        const { access_token } = res.data;
+
+        // Store token in the right bucket based on rememberMe
+        if (rememberMe) {
+            localStorage.setItem(TOKEN_KEY, access_token);
+            localStorage.setItem(REMEMBER_KEY, "true");
+            sessionStorage.removeItem(TOKEN_KEY);
+        } else {
+            sessionStorage.setItem(TOKEN_KEY, access_token);
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(REMEMBER_KEY);
+        }
+
+        setAxiosAuth(access_token);
+
+        // Fetch the full user object via /me — single source of truth.
+        const me = await axios.get(`${API_URL}/api/auth/me`);
+        setUser(me.data);
+        return me.data;
+    }, []);
+
+    // ─── Logout ──────────────────────────────────────────────────────────
+    const logout = useCallback(() => {
+        clearStoredToken();
+        setUser(null);
+    }, []);
+
+    // ─── Convenience flags (back-compat with old API) ────────────────────
+    const isAuth   = !!user;
+    const userRole = user?.role || null;
 
     return (
-        <AuthContext.Provider value={{ isAuth, userRole, login, logout }}>
+        <AuthContext.Provider value={{ user, isAuth, userRole, loading, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

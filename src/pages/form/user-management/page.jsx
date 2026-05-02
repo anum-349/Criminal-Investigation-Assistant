@@ -438,7 +438,7 @@ export default function UserManagementPage() {
                         </button>
                         <button onClick={() => setModal({ type: "edit", user })} title="Edit"
                           className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer">
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-4 w-4 " />
                         </button>
                         <button onClick={() => setModal({ type: "delete", user })} title="Delete"
                           className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer">
