@@ -4,13 +4,13 @@ import axios from "axios";
 
 export const AuthContext = createContext();
 
-const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY;
+const TOKEN_KEY    = import.meta.env.VITE_TOKEN_KEY;
 const REMEMBER_KEY = import.meta.env.VITE_REMEMBER_KEY;
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL      = import.meta.env.VITE_API_URL;
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser]       = useState(null);    // full user object or null
-    const [loading, setLoading] = useState(true);    // true until /me resolves
+    const [user, setUser]       = useState(null);
+    const [loading, setLoading] = useState(true);
 
     // ─── Helpers ─────────────────────────────────────────────────────────
     const getStoredToken = () => {
@@ -39,7 +39,6 @@ export const AuthProvider = ({ children }) => {
             return;
         }
 
-        // Quick client-side check for obvious expiry (no network needed)
         try {
             const decoded = jwtDecode(token);
             if (decoded.exp * 1000 <= Date.now()) {
@@ -53,8 +52,6 @@ export const AuthProvider = ({ children }) => {
             return;
         }
 
-        // Server-side check — confirms token still corresponds to an
-        // active user on the backend (catches revoked/locked accounts).
         setAxiosAuth(token);
         axios.get(`${API_URL}/api/auth/me`)
             .then((res) => setUser(res.data))
@@ -72,7 +69,6 @@ export const AuthProvider = ({ children }) => {
 
         const { access_token } = res.data;
 
-        // Store token in the right bucket based on rememberMe
         if (rememberMe) {
             localStorage.setItem(TOKEN_KEY, access_token);
             localStorage.setItem(REMEMBER_KEY, "true");
@@ -85,19 +81,31 @@ export const AuthProvider = ({ children }) => {
 
         setAxiosAuth(access_token);
 
-        // Fetch the full user object via /me — single source of truth.
         const me = await axios.get(`${API_URL}/api/auth/me`);
         setUser(me.data);
         return me.data;
     }, []);
 
     // ─── Logout ──────────────────────────────────────────────────────────
-    const logout = useCallback(() => {
-        clearStoredToken();
-        setUser(null);
+    /**
+     * Tells the backend to write the LOGOUT audit row, then clears
+     * client-side state. If the server call fails (network down, token
+     * already expired, etc.), we still clear the token — never trap
+     * the user in a logged-in state.
+     */
+    const logout = useCallback(async () => {
+        try {
+            await axios.post(`${API_URL}/api/auth/logout`);
+        } catch (err) {
+            // Non-fatal: backend audit log won't be written, but frontend
+            // logout proceeds. Could surface a toast in the future.
+            console.warn("Logout audit call failed:", err.message);
+        } finally {
+            clearStoredToken();
+            setUser(null);
+        }
     }, []);
 
-    // ─── Convenience flags (back-compat with old API) ────────────────────
     const isAuth   = !!user;
     const userRole = user?.role || null;
 
