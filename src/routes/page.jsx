@@ -13,11 +13,11 @@ import ReportPage from "../pages/investigator/report/page";
 import AnalyticsPage from "../pages/investigator/analytics/page";
 import RegisterCasePage from "../pages/form/case-forms/register-case/page";
 // import UpdateCasePage from "../pages/form/case-forms/update-case/page";
-import UserManagementPage from "../pages/form/user-management/page";
-import SystemSettingsPage from "../pages/form/system-setting/page";
-import ChangePasswordForm from "../pages/form/change-password/page";
+import UserManagementPage from "../pages/admin/user-management/page";
+import SystemSettingsPage from "../pages/admin/system-setting/page";
+import ChangePasswordForm from "../pages/admin/change-password/page";
 import { InvestigationNotesPage } from "../pages/form/investigation/page";
-import { AuditLogsPage } from "../pages/form/admin-audit/page";
+import { AuditLogsPage } from "../pages/admin/admin-audit/page";
 
 export default function AppRoutes() {
     return (
