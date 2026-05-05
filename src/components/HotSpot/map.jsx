@@ -176,8 +176,8 @@ const LeafletMap = ({
                     radius: cfg.radius,
                     color: cfg.color,
                     fillColor: cfg.fillColor,
-                    fillOpacity: 0.75,
-                    weight: 2,
+                    fillOpacity: 1,
+                    // weight: 2,
                 })
                     .bindPopup(buildHotspotPopup(hotspot))
                     .addTo(map);
@@ -222,6 +222,72 @@ const LeafletMap = ({
             mapInstanceRef.current = null;
         };
     }, []); // intentionally runs once — Leaflet manages its own state
+
+    useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // 🧹 Clear old layers (important)
+    map.eachLayer((layer) => {
+        if (layer instanceof L.CircleMarker) {
+            map.removeLayer(layer);
+        }
+    });
+
+    // ── HOTSPOTS ──
+    if (mode === 'hotspots') {
+        hotspots.forEach(hotspot => {
+            if (!hotspot.lat || !hotspot.lng) return; // safety
+
+            const cfg = SEVERITY_CONFIG[hotspot.severity] || SEVERITY_CONFIG.low;
+
+            L.circleMarker([hotspot.lat, hotspot.lng], {
+                radius: cfg.radius,
+                color: cfg.color,
+                fillColor: cfg.fillColor,
+                fillOpacity: 0.75,
+                weight: 2,
+            })
+                .bindPopup(buildHotspotPopup(hotspot))
+                .addTo(map);
+        });
+    }
+
+    // ── SINGLE MODE ──
+    if (mode === 'single') {
+        nearbyPins.forEach(np => {
+            if (!np.lat || !np.lng) return;
+
+            const cfg = SEVERITY_CONFIG[np.severity?.toLowerCase()] || SEVERITY_CONFIG.nearby;
+
+            L.circleMarker([np.lat, np.lng], {
+                radius: 8,
+                color: SEVERITY_CONFIG.nearby.color,
+                fillColor: cfg.fillColor,
+                fillOpacity: 0.7,
+                weight: 1.5,
+            })
+                .bindPopup(buildNearbyPopup(np))
+                .addTo(map);
+        });
+
+        if (pin?.lat && pin?.lng) {
+            L.circleMarker([pin.lat, pin.lng], {
+                radius: 14,
+                color: '#7f1d1d',
+                fillColor: '#dc2626',
+                fillOpacity: 0.85,
+                weight: 2.5,
+            })
+                .bindPopup(buildSinglePopup(pin))
+                .openPopup()
+                .addTo(map);
+
+            map.setView([pin.lat, pin.lng], initialZoom);
+        }
+    }
+
+}, [hotspots, pin, nearbyPins, mode]);
 
     // ── Render ────────────────────────────────────────────────────────────
     return (
