@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import createCachedTileLayer from '../../utils/CachedTileLayer';
-import { Card } from '../ui/Card';
+import createCachedTileLayer from '@/utils/CachedTileLayer';
+import { Card } from '@/components/ui/Card';
 import { MapPin } from 'lucide-react';
 
 // Fix Leaflet default marker icon issue with bundlers

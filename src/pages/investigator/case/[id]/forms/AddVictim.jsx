@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { Users, Save, X } from "lucide-react";
-import StepSuspects from "../../../form/case-forms/step-suspects/page";
-
-export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "", initialData = null }) {
+import { User, Save, X } from "lucide-react";
+import StepVictims from "@/pages/form/case-forms/step-victim/page";
+export default function AddVictimDialog({
+  isOpen,
+  onClose,
+  onSubmit,
+  caseId = "",
+  initialData = null,
+}) {
   const closeButtonRef = useRef(null);
-  const [formData, setFormData] = useState({ suspects: [] });
+  const [formData, setFormData] = useState({ victims: [] });
   const [submitted, setSubmitted] = useState(false);
 
   const isUpdate = !!initialData;
@@ -14,34 +19,37 @@ export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "
     if (isOpen) {
       setFormData(
         initialData
-          ? { suspects: [{ ...initialData, id: initialData.id ?? crypto.randomUUID() }] }
-          : { suspects: [] }
+          ? { victims: [{ ...initialData, id: initialData.id ?? crypto.randomUUID() }] }
+          : { victims: [] }
       );
       setSubmitted(false);
     }
   }, [isOpen, initialData]);
 
+  // Focus the close button when dialog opens
   useEffect(() => {
     if (isOpen) closeButtonRef.current?.focus();
   }, [isOpen]);
 
+  // Esc to close
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e) => { if (e.key === "Escape") handleClose(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const handleClose = () => {
-    setFormData({ suspects: [] });
+    setFormData({ victims: [] });
     setSubmitted(false);
     onClose();
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.suspects?.length) return;
-    if (onSubmit) onSubmit({ caseId, suspects: formData.suspects });
+    if (!formData.victims?.length) return;
+    if (onSubmit) onSubmit({ caseId, victims: formData.victims });
     setSubmitted(true);
   };
 
@@ -51,7 +59,7 @@ export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="add-suspect-title"
+      aria-labelledby="add-victim-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
@@ -64,11 +72,11 @@ export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "
         <div className="sticky top-0 z-10 bg-[#14374E] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-              <Users className="h-4 w-4 text-white" />
+              <User className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h2 id="add-suspect-title" className="text-base font-semibold text-white">
-                {isUpdate ? "Update Suspect" : "Add Suspect"}
+              <h2 id="add-victim-title" className="text-base font-semibold text-white">
+                {isUpdate ? "Update Victim" : "Add Victim"}
               </h2>
               {caseId && <p className="text-xs text-white/60">Case: {caseId}</p>}
             </div>
@@ -88,21 +96,21 @@ export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "
         {submitted ? (
           <div className="px-6 py-16 text-center space-y-4">
             <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <Users className="h-7 w-7 text-emerald-600" />
+              <User className="h-7 w-7 text-emerald-600" />
             </div>
             <h3 className="text-base font-bold text-slate-800">
-              {isUpdate ? "Suspect Updated" : "Suspect Added"}
+              {isUpdate ? "Victim Updated" : "Victim Added"}
             </h3>
             <p className="text-slate-500 text-sm">
               {isUpdate
-                ? `Suspect ${initialData?.id} has been updated successfully.`
-                : `${formData.suspects.length} suspect(s) linked to case `}
+                ? `Victim ${initialData?.id} has been updated successfully.`
+                : `${formData.victims.length} victim(s) linked to case `}
               {!isUpdate && <span className="font-semibold text-slate-700">{caseId}</span>}
             </p>
             <div className="flex gap-3 justify-center pt-1">
               {!isUpdate && (
                 <button
-                  onClick={() => { setFormData({ suspects: [] }); setSubmitted(false); }}
+                  onClick={() => { setFormData({ victims: [] }); setSubmitted(false); }}
                   className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Add More
@@ -119,10 +127,10 @@ export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="px-6 py-5">
-              <StepSuspects
+              <StepVictims
                 data={formData}
                 setData={setFormData}
-                mode={isUpdate ? "standalone" : "standalone"}
+                mode="standalone"
               />
             </div>
 
@@ -131,7 +139,7 @@ export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "
               <p className="text-xs text-slate-400">
                 {isUpdate
                   ? `Editing: ${initialData?.id}`
-                  : `${formData.suspects?.length || 0} suspect(s) added`}
+                  : `${formData.victims?.length || 0} victim(s) added`}
               </p>
               <div className="flex gap-3">
                 <button
@@ -143,11 +151,11 @@ export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "
                 </button>
                 <button
                   type="submit"
-                  disabled={!formData.suspects?.length}
+                  disabled={!formData.victims?.length}
                   className="flex items-center gap-2 px-5 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-deep-ocean/90 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 >
                   <Save className="h-4 w-4" />
-                  {isUpdate ? "Save Changes" : "Add Suspect"}
+                  {isUpdate ? "Save Changes" : "Add Victim"}
                 </button>
               </div>
             </div>

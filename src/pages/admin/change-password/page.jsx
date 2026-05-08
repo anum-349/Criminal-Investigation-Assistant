@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { Eye, EyeOff, Lock, CheckCircle2, AlertCircle, ShieldCheck, X } from "lucide-react";
-import { Card } from "../../../components/ui/Card";
+import { Card } from "@/components/ui/Card";
 
 // ── Password strength helper ──────────────────────────────────────────────────
 const getStrength = (pwd) => {

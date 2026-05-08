@@ -25,11 +25,11 @@ import {
   defaultVictim, generateVictimId,
   INJURY_TYPES, VICTIM_STATUSES, RELATION_TO_VICTIM,
   THREAT_LEVELS, DECLARED_DEAD_OPTIONS, POSTMORTEM_OPTIONS,
-} from "../CaseFormConstants/page";
+} from "@/pages/form/case-forms/caseFormConstants/page";
 import {
   CheckField, FieldLabel, SectionHeading,
   SelectField, TextareaField, TextField,
-} from "../CaseFormFields/page";
+} from "@/pages/form/case-forms/CaseFormFields/page";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VictimFormFields — every editable field, used by both card variants

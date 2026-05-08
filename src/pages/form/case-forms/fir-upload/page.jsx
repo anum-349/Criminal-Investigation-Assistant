@@ -15,7 +15,7 @@ import {
   Upload, FileText, CheckCircle2, AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { SectionHeading } from "../CaseFormFields/page";
+import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
 
 export default function StepFIRUpload({ data, setData, onExtracted }) {
   const fileRef = useRef(null);

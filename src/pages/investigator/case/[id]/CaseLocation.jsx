@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { MapPin, Building2, AlertTriangle, ExternalLink, Navigation, Clock, Shield } from 'lucide-react';
-import LeafletMap from '../../../components/HotSpot/map';
+import LeafletMap from '@/components/HotSpot/map';
 
 const CASE_LOCATION = {
     address: 'Flat 4B, Block 7, Clifton Apartments',

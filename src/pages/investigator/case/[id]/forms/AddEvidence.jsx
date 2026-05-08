@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, Save, X } from "lucide-react";
-import StepEvidence from "../../../form/case-forms/step-evidence/page";
+import StepEvidence from "@/pages/form/case-forms/step-evidence/page";
 
 export default function AddEvidenceDialog({ isOpen, onClose, onSubmit, caseId = "", initialData = null }) {
     const closeButtonRef = useRef(null);

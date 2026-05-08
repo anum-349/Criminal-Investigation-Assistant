@@ -1,63 +1,46 @@
 import { useState, useRef, useEffect } from "react";
-import { User, Save, X } from "lucide-react";
-import StepWitnesses from "../../../form/case-forms/step-witness/page";
-
-export default function AddWitnessDialog({
-  isOpen,
-  onClose,
-  onSubmit,
-  caseId = "",
-  initialData = null,
-}) {
+import { Users, Save, X } from "lucide-react";
+import StepSuspects from "@/pages/form/case-forms/step-suspects/page";
+export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "", initialData = null }) {
   const closeButtonRef = useRef(null);
-  const [formData, setFormData] = useState({ witnesses: [] });
+  const [formData, setFormData] = useState({ suspects: [] });
   const [submitted, setSubmitted] = useState(false);
 
   const isUpdate = !!initialData;
 
-  // Pre-populate for update, reset for add.
-  // Default the relatedCase / caseId field to the current case when adding.
+  // Pre-populate for update, reset for add
   useEffect(() => {
     if (isOpen) {
       setFormData(
         initialData
-          ? {
-              witnesses: [{
-                ...initialData,
-                id: initialData.id ?? crypto.randomUUID(),
-                caseId: initialData.caseId || caseId,
-              }],
-            }
-          : { witnesses: [] }
+          ? { suspects: [{ ...initialData, id: initialData.id ?? crypto.randomUUID() }] }
+          : { suspects: [] }
       );
       setSubmitted(false);
     }
-  }, [isOpen, initialData, caseId]);
+  }, [isOpen, initialData]);
 
-  // Focus close button when dialog opens
   useEffect(() => {
     if (isOpen) closeButtonRef.current?.focus();
   }, [isOpen]);
 
-  // Esc to close
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e) => { if (e.key === "Escape") handleClose(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const handleClose = () => {
-    setFormData({ witnesses: [] });
+    setFormData({ suspects: [] });
     setSubmitted(false);
     onClose();
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.witnesses?.length) return;
-    if (onSubmit) onSubmit({ caseId, witnesses: formData.witnesses });
+    if (!formData.suspects?.length) return;
+    if (onSubmit) onSubmit({ caseId, suspects: formData.suspects });
     setSubmitted(true);
   };
 
@@ -67,7 +50,7 @@ export default function AddWitnessDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="add-witness-title"
+      aria-labelledby="add-suspect-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
@@ -80,11 +63,11 @@ export default function AddWitnessDialog({
         <div className="sticky top-0 z-10 bg-[#14374E] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-              <User className="h-4 w-4 text-white" />
+              <Users className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h2 id="add-witness-title" className="text-base font-semibold text-white">
-                {isUpdate ? "Update Witness" : "Add Witness"}
+              <h2 id="add-suspect-title" className="text-base font-semibold text-white">
+                {isUpdate ? "Update Suspect" : "Add Suspect"}
               </h2>
               {caseId && <p className="text-xs text-white/60">Case: {caseId}</p>}
             </div>
@@ -104,21 +87,21 @@ export default function AddWitnessDialog({
         {submitted ? (
           <div className="px-6 py-16 text-center space-y-4">
             <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <User className="h-7 w-7 text-emerald-600" />
+              <Users className="h-7 w-7 text-emerald-600" />
             </div>
             <h3 className="text-base font-bold text-slate-800">
-              {isUpdate ? "Witness Updated" : "Witness Added"}
+              {isUpdate ? "Suspect Updated" : "Suspect Added"}
             </h3>
             <p className="text-slate-500 text-sm">
               {isUpdate
-                ? `Witness ${initialData?.id} has been updated successfully.`
-                : `${formData.witnesses.length} witness(es) linked to case `}
+                ? `Suspect ${initialData?.id} has been updated successfully.`
+                : `${formData.suspects.length} suspect(s) linked to case `}
               {!isUpdate && <span className="font-semibold text-slate-700">{caseId}</span>}
             </p>
             <div className="flex gap-3 justify-center pt-1">
               {!isUpdate && (
                 <button
-                  onClick={() => { setFormData({ witnesses: [] }); setSubmitted(false); }}
+                  onClick={() => { setFormData({ suspects: [] }); setSubmitted(false); }}
                   className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Add More
@@ -135,10 +118,10 @@ export default function AddWitnessDialog({
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="px-6 py-5">
-              <StepWitnesses
+              <StepSuspects
                 data={formData}
                 setData={setFormData}
-                mode="standalone"
+                mode={isUpdate ? "standalone" : "standalone"}
               />
             </div>
 
@@ -147,7 +130,7 @@ export default function AddWitnessDialog({
               <p className="text-xs text-slate-400">
                 {isUpdate
                   ? `Editing: ${initialData?.id}`
-                  : `${formData.witnesses?.length || 0} witness(es) added`}
+                  : `${formData.suspects?.length || 0} suspect(s) added`}
               </p>
               <div className="flex gap-3">
                 <button
@@ -159,11 +142,11 @@ export default function AddWitnessDialog({
                 </button>
                 <button
                   type="submit"
-                  disabled={!formData.witnesses?.length}
+                  disabled={!formData.suspects?.length}
                   className="flex items-center gap-2 px-5 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-deep-ocean/90 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 >
                   <Save className="h-4 w-4" />
-                  {isUpdate ? "Save Changes" : "Add Witness"}
+                  {isUpdate ? "Save Changes" : "Add Suspect"}
                 </button>
               </div>
             </div>

@@ -6,8 +6,8 @@ import {
     ArrowLeft, LayoutDashboard, HelpCircle, PlayCircle,
     AlertTriangle, Users, Crosshair
 } from 'lucide-react';
-import Header from '../../../components/Header';
-import { Card } from '../../../components/ui/Card';
+import Header from '@/components/Header';
+import { Card } from '@/components/ui/Card';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 

@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ChevronDown, Calendar, ExternalLink } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
-import { Pagination } from '../../../components/ui/Pagination';
-import { Badge } from '../../../components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Pagination } from '@/components/ui/Pagination';
+import { Badge } from '@/components/ui/Badge';
 
 const PAGE_SIZE = 5;
 const RELATIONS = [

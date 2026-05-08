@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Hash, Plus, Trash2, Users, Pencil, Check } from "lucide-react";
-import { defaultSuspect, generateSuspectId, SUSPECT_STATUSES } from "../CaseFormConstants/page";
-import { CheckField, FieldLabel, SectionHeading, SelectField, TextareaField, TextField } from "../CaseFormFields/page";
+import { defaultSuspect, generateSuspectId, SUSPECT_STATUSES } from "@/pages/form/case-forms/caseFormConstants/page";
+import { CheckField, FieldLabel, SectionHeading, SelectField, TextareaField, TextField } from "@/pages/form/case-forms/CaseFormFields/page";
 
 const RELATION_OPTIONS = [
     "Neighbor", "Colleague", "Family Member", "Acquaintance",

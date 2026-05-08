@@ -13,9 +13,8 @@ import {
   ChevronRight, ChevronLeft, ChevronDown, ShieldAlert, Shield,
   RefreshCw, Download, ToggleLeft, ToggleRight, User
 } from "lucide-react";
-import Header from "../../../components/Header";
-import { Card } from "../../../components/ui/Card";
-import { Badge } from "../../../components/ui/Badge";
+import Header from ".@/components/Header";
+import { Card } from ".@/components/ui/Card";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DEPARTMENTS = [

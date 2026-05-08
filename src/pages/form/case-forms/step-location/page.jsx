@@ -31,9 +31,9 @@
  */
 
 import { MapPin, Sparkles } from "lucide-react";
-import { PROVINCES } from "../CaseFormConstants/page";
-import { SectionHeading, TextField, SelectField, TextareaField } from "../CaseFormFields/page";
-import LocationPicker from "../locationPicker";
+import { PROVINCES } from "@/pages/form/case-forms/caseFormConstants/page";
+import { SectionHeading, TextField, SelectField, TextareaField } from "@/pages/form/case-forms/CaseFormFields/page";
+import LocationPicker from "@/pages/form/case-forms/locationPicker";
 
 // Try to map Nominatim's "state" string to one of our PROVINCES options.
 // Nominatim returns things like "Sindh", "Punjab", "Khyber Pakhtunkhwa" —

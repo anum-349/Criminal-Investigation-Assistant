@@ -20,7 +20,7 @@ const ShortcutHandler = () => {
 
             if (ctrl && e.key === 'n') {
                 e.preventDefault();
-                navigate('/upload-fir');
+                navigate('/register-case');
             }
 
             if (ctrl && e.key === 'd') {

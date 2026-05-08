@@ -4,7 +4,7 @@
  * Place at: src/pages/investigator/case-forms/StepReview.jsx
  */
 import { CheckCircle2, FileText, MapPin, User, Users, Gavel, Camera, Shield } from "lucide-react";
-import { SectionHeading } from "../CaseFormFields/page";
+import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
 
 const ReviewRow = ({ label, value }) =>
   value ? (

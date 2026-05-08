@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Card } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import {
     Table,
     TableBody,
@@ -10,13 +10,13 @@ import {
     TableHeader,
     TableRow,
     TableWrapper,
-} from "../../components/ui/Table";
-import { Badge } from "../../components/ui/Badge";
-import Header from "../../components/Header";
+} from "@/components/ui/Table";
+import { Badge } from "@/components/ui/Badge";
+import Header from "@/components/Header";
 import { useNavigate } from "react-router-dom";
-import LeafletMap from "../../components/HotSpot/map";
 import { ChevronRight, AlertTriangle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import LeafletMap from "@/components/HotSpot/map";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,7 +136,7 @@ const ActiveCasesTable = ({ cases, loading }) => {
                                                 className="h-7 px-6 cursor-pointer rounded-md w-full"
                                                 onClick={() =>
                                                     navigate(
-                                                        `/investigator/case?id=${c.id}`
+                                                        `/investigator/case/${c.id}`
                                                     )
                                                 }
                                             >

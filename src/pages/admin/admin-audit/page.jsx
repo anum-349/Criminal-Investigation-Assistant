@@ -13,9 +13,9 @@ import {
   HardDrive, Zap, RotateCcw, X, AlertCircle, ChevronLeft,
   ChevronDown, Shield, Eye, Calendar
 } from "lucide-react";
-import Header from "../../../components/Header";
-import { Card } from "../../../components/ui/Card";
-import { Badge } from "../../../components/ui/Badge";
+import Header from "@/components/Header";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 const Field = ({ label, children }) => (

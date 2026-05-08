@@ -5,20 +5,20 @@ import {
   Camera, Brain, CheckCircle2, ChevronRight, ChevronLeft,
   LayoutDashboard, FolderOpen, AlertTriangle, Loader2, Plus, Check, File,
 } from "lucide-react";
-import { CASE_STEPS, emptyFormData } from "../CaseFormConstants/page";
+import { CASE_STEPS, emptyFormData } from "@/pages/form/case-forms/caseFormConstants/page";
 
 // ── Step components ───────────────────────────────────────────────────────────
-import StepFIRUpload     from "../fir-upload/page";
-import StepCaseDetails   from "../case-details/page";
-import StepCrimeDetails  from "../crime-details/page";
-import { StepEvidence }  from "../step-evidence/page";
-import StepAIAnalysis    from "../ai-analysis/page";
-import { StepReview }    from "../review/page";
-import Header from "../../../../components/Header";
-import StepSuspects from "../step-suspects/page";
-import StepVictims from "../step-victim/page";
-import StepWitnesses from "../step-witness/page";
-import StepLocation from "../step-location/page";
+import StepFIRUpload     from "@/pages/form/case-forms/fir-upload";
+import StepCaseDetails   from "@/pages/form/case-forms/case-details";
+import StepCrimeDetails  from "@/pages/form/case-forms/crime-details";
+import { StepEvidence }  from "@/pages/form/case-forms/step-evidence";
+import StepAIAnalysis    from "@/pages/form/case-forms/ai-analysis";
+import { StepReview }    from "@/pages/form/case-forms/review";
+import Header from "@/pages/form/case-forms/components/Header";
+import StepSuspects from "@/pages/form/case-forms/step-suspects";
+import StepVictims from "@/pages/form/case-forms/step-victim";
+import StepWitnesses from "@/pages/form/case-forms/step-witness";
+import StepLocation from "@/pages/form/case-forms/step-location";
 
 // ── Icon map (step icons from constants are strings) ─────────────────────────
 const ICON_MAP = { Upload, FileText, MapPin, User, Users, Gavel, Camera, Brain, CheckCircle2, File };

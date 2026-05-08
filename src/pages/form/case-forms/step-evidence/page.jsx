@@ -1,7 +1,7 @@
 import { Camera, Upload, Plus, Trash2, Pencil, Check, Hash, ImageIcon, X } from "lucide-react";
 import { useRef, useState } from "react";
-import { SectionHeading, SelectField, TextField, TextareaField, FieldLabel } from "../CaseFormFields/page";
-import { defaultEvidence, EVIDENCE_TYPES } from "../caseFormConstants/page";
+import { SectionHeading, SelectField, TextField, TextareaField, FieldLabel } from "@/pages/form/case-forms/CaseFormFields/page";
+import { defaultEvidence, EVIDENCE_TYPES } from "@/pages/form/case-forms/caseFormConstants/page";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const generateEvidenceId = () => {

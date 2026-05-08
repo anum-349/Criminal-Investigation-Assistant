@@ -1,23 +1,25 @@
+import { lazy } from "react";
 import { Routes, Route } from "react-router-dom";
-import LoginPage from "../pages/login/page";
-import InvestigatorPage from "../pages/investigator/page";
-import CasePage from "../pages/investigator/case/page";
+const InvestigatorPage = lazy(() => import('@/pages/investigator/page'));
+const CasePage = lazy(() => import('@/pages/investigator/case/[id]/page'));
+const CaseSearch = lazy(() => import('@/pages/investigator/search-result/page'));
+const AdminPage = lazy(() => import('@/pages/admin/page'));
+const NotFoundPage = lazy(() => import('@/pages/404/page'));
+const AllCasesPage = lazy(() => import('@/pages/investigator/all-cases/page'));
+const HelpPage = lazy(() => import('@/pages/investigator/help/page'));
+const ProfilePage = lazy(() => import('@/pages/investigator/profile/page'));
+const ReportPage = lazy(() => import('@/pages/investigator/report/page'));
+const AnalyticsPage = lazy(() => import('@/pages/investigator/analytics/page'));
+const RegisterCasePage = lazy(() => import('@/pages/form/case-forms/register-case/page'));
+// const UpdateCasePage = lazy(() => import('@/pages/form/case-forms/update-case/page'));
+const UserManagementPage = lazy(() => import('@/pages/admin/user-management/page'));
+const SystemSettingsPage = lazy(() => import('@/pages/admin/system-setting/page'));
+const ChangePasswordForm = lazy(() => import('@/pages/admin/change-password/page'));
+// const InvestigationNotesPage = lazy(() => import('@/pages/form/investigation-notes/page'));
+const AuditLogsPage = lazy(() => import('@/pages/admin/admin-audit/page'));
+
+import LoginPage from "@/pages/login/page";
 import ProtectedRoute from "./protected-routes/page";
-import CaseSearch from "../pages/investigator/search-result/page";
-import AdminPage from "../pages/admin/page";
-import NotFoundPage from "../pages/404/page";
-import AllCasesPage from "../pages/investigator/all-cases/page";
-import HelpPage from "../pages/investigator/help/page";
-import ProfilePage from "../pages/investigator/profile/page";
-import ReportPage from "../pages/investigator/report/page";
-import AnalyticsPage from "../pages/investigator/analytics/page";
-import RegisterCasePage from "../pages/form/case-forms/register-case/page";
-// import UpdateCasePage from "../pages/form/case-forms/update-case/page";
-import UserManagementPage from "../pages/admin/user-management/page";
-import SystemSettingsPage from "../pages/admin/system-setting/page";
-import ChangePasswordForm from "../pages/admin/change-password/page";
-import { InvestigationNotesPage } from "../pages/form/investigation/page";
-import { AuditLogsPage } from "../pages/admin/admin-audit/page";
 
 export default function AppRoutes() {
     return (
@@ -29,7 +31,7 @@ export default function AppRoutes() {
                 </ProtectedRoute>
             } />
 
-            <Route path="/investigator/case" element={
+            <Route path="/investigator/case/:id" element={
                 <ProtectedRoute requiredRole="investigator">
                     <CasePage />
                 </ProtectedRoute>} />
@@ -83,9 +85,9 @@ export default function AppRoutes() {
             <Route path="change-password" element={
                 <ChangePasswordForm />
             } />
-            <Route path="investigation-notes" element={
+            {/* <Route path="investigation-notes" element={
                 <InvestigationNotesPage />
-            } />
+            } /> */}
             <Route path="admin-audit" element={
                 <AuditLogsPage />
             } />

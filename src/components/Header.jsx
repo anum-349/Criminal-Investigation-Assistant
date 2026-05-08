@@ -1,5 +1,5 @@
 import { Search, Bell, ChevronDown } from "lucide-react";
-import { Button } from "../components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 

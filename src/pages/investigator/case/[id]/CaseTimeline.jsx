@@ -5,20 +5,10 @@ import {
   ShieldCheck, RefreshCw, FolderOpen, Eye, ClipboardCheck,
   AlertCircle, CheckCircle2, Columns2, AlignJustify,
 } from "lucide-react";
+import { Pagination } from "@/components/ui/Pagination";
 
-import {
-  EVENT_SOURCE,
-  SYSTEM_EVENT,
-  MANUAL_EVENT_COLORS,
-  createSystemEvent,
-  createManualEvent,
-} from "./caseEventConstants";
+import { SYSTEM_EVENT, createManualEvent, createSystemEvent, MANUAL_EVENT_COLORS, EVENT_SOURCE } from "./caseEventConstants";
 import AddTimelineDialog from "./forms/AddTimeline";
-import { Pagination } from "../../../components/ui/Pagination";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 5;
 

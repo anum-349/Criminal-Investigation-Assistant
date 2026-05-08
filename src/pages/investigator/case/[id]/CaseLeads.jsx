@@ -1,37 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import {
   Search, ChevronDown, Calendar, Brain, User, Plus, X,
-  Eye, CheckCircle2, AlertTriangle, ExternalLink, Trash2,
-  Info, Lightbulb,
+  Eye, AlertTriangle, Trash2, Info, Lightbulb,
+  Loader2,
 } from 'lucide-react';
 
-import { Button }     from '../../../components/ui/Button';
-import { Pagination } from '../../../components/ui/Pagination';
-import { Badge }      from '../../../components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Pagination } from '@/components/ui/Pagination';
+import { Badge }      from '@/components/ui/Badge';
 
-
-import {
-  EVENT_SOURCE,
-  LEAD_TYPES         as LEAD_TYPE_OPTIONS,
-  LEAD_STATUSES,
-  LEAD_STATUS_VARIANT,
-  confidenceColor,
-  createAILead,
-  createManualLead,
-} from './caseEventConstants';
-
+import { LEAD_STATUSES, LEAD_TYPES as LEAD_TYPE_OPTIONS, EVENT_SOURCE, LEAD_STATUS_VARIANT, confidenceColor } from './caseEventConstants';
 import AddLeadDialog from './forms/AddLead';
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants local to this view
+// Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 5;
-
-const LEAD_TYPE_FILTER = [
-  { value: '',     label: 'All Lead Types' },
-  ...LEAD_TYPE_OPTIONS.map(t => ({ value: t, label: t })),
-];
 
 const SEVERITY_FILTER = [
   { value: 'all',      label: 'All Severities' },
@@ -47,7 +32,6 @@ const SOURCE_FILTER = [
   { key: 'manual', label: 'Manual' },
 ];
 
-// Status pill colour for the table body
 const getSeverityClass = (s) => {
   if (s === 'Critical') return 'bg-orange-500 text-white';
   if (s === 'High')     return 'bg-rose-800/90 text-white';
@@ -55,93 +39,13 @@ const getSeverityClass = (s) => {
   return 'bg-slate-500 text-white';
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Seed leads — built via the Step-1 factories so shapes are guaranteed
-// ─────────────────────────────────────────────────────────────────────────────
-// The earlier `leadsData` array used a flat shape with no eventSource. Replace
-// it with a mix of AI + manual leads constructed by the factories. The IDs are
-// re-generated each mount; descriptions are kept similar to the originals so
-// the demo still feels familiar.
-
-const buildSeedLeads = (caseId) => [
-  createAILead({
-    caseId,
-    type: 'CCTV Analysis',
-    description: 'Enhancing footage to identify unknown male leaving apartment.',
-    confidence: 78,
-    severity: 'High',
-    nextStep: 'Cross-reference enhanced still with suspect database.',
-    status: 'Under Review',
-  }),
-  createAILead({
-    caseId,
-    type: 'Fingerprint Match',
-    description: 'Compare prints from knife and doorknob with known suspects.',
-    confidence: 91,
-    severity: 'Critical',
-    nextStep: 'Submit for AFIS comparison; expedite due to severity.',
-    status: 'In Progress',
-  }),
-  createAILead({
-    caseId,
-    type: 'Phone / Digital',
-    description: "Extract call logs and messages from victim's phone for timeline.",
-    confidence: 64,
-    severity: 'High',
-    nextStep: "Issue warrant for service-provider records.",
-    status: 'New',
-  }),
-  createAILead({
-    caseId,
-    type: 'Forensic Analysis',
-    description: 'Blood spatter analysis suggests altercation in living room.',
-    confidence: 72,
-    severity: 'Medium',
-    nextStep: 'Re-photograph scene; correlate with body position.',
-    status: 'New',
-  }),
-  // ── Manual lead — investigator-entered, no AI confidence ────────────────
-  createManualLead({
-    type: 'Informant Tip',
-    description:
-      'CI reports suspect was seen in Block 5 area approximately 48 hours before incident. Same description as CCTV figure.',
-    severity: 'High',
-    source: 'Field Intelligence',
-    officerName: 'Insp. Rana Ali Khan',
-    nextStep: 'Task CI for additional details. Cross-check area surveillance for those dates.',
-    status: 'New',
-  }, caseId),
-  createAILead({
-    caseId,
-    type: 'Location Pattern',
-    description: 'CCTV from adjacent building may show suspect approach route.',
-    confidence: 56,
-    severity: 'Critical',
-    nextStep: 'Coordinate with building management for full footage retrieval.',
-    status: 'Under Review',
-  }),
-  createAILead({
-    caseId,
-    type: 'DNA Match',
-    description: 'DNA sample sent to lab; results pending.',
-    confidence: 84,
-    severity: 'High',
-    nextStep: 'Follow up with lab; expected turnaround 5-7 days.',
-    status: 'In Progress',
-  }),
-  createManualLead({
-    type: 'Witness Lead',
-    description: 'Witness statement corroborates time of incident; new lead on getaway vehicle direction.',
-    severity: 'Medium',
-    source: 'Officer Entry',
-    officerName: 'Insp. Rana Ali Khan',
-    nextStep: 'Pull traffic-cam footage along claimed escape route.',
-    status: 'New',
-  }, caseId),
-];
+const getAuthHeader = () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Source badge — small AI/Manual pill for the table
+// SourceBadge
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SourceBadge = ({ lead }) => {
@@ -178,18 +82,17 @@ const SourceBadge = ({ lead }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Status action menu — replaces the dummy Accept/Pending/Reject <select>
+// StatusMenu
 // ─────────────────────────────────────────────────────────────────────────────
 
-const StatusMenu = ({ lead, onChange, onAskDelete }) => {
-  // AI leads: status changes only (preserve audit trail).
-  // Manual leads: status changes + delete option.
+const StatusMenu = ({ lead, onChange, onAskDelete, busy }) => {
   return (
     <div className="relative">
       <select
         value={lead.status}
+        disabled={busy}
         onChange={(e) => onChange(lead.id, e.target.value)}
-        className="appearance-none pl-3 pr-7 py-1.5 border border-slate-300 rounded-md bg-white text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-deep-ocean cursor-pointer min-w-28"
+        className="appearance-none pl-3 pr-7 py-1.5 border border-slate-300 rounded-md bg-white text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-deep-ocean cursor-pointer min-w-28 disabled:opacity-50"
         aria-label={`Update status for lead ${lead.id}`}
       >
         {LEAD_STATUSES.map(s => (
@@ -217,65 +120,76 @@ const StatusMenu = ({ lead, onChange, onAskDelete }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
-  // ── State ───────────────────────────────────────────────────────────────
-  const [leads, setLeads] = useState(() => buildSeedLeads(caseId));
-
-  // Filter inputs
+  // ── Filter inputs (live) ────────────────────────────────────────────────
   const [keyword, setKeyword]               = useState('');
   const [leadTypeFilter, setLeadTypeFilter] = useState('');
   const [dateFilter, setDateFilter]         = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [sourceFilter, setSourceFilter]     = useState('all');
 
+  // Applied filters
   const [appliedFilters, setAppliedFilters] = useState({
     keyword: '', leadType: '', date: '', severity: 'all',
   });
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Add modal
-  const [showAdd, setShowAdd] = useState(false);
+  // Server data
+  const [leads, setLeads]   = useState([]);
+  const [total, setTotal]   = useState(0);
+  const [counts, setCounts] = useState({ all: 0, ai: 0, manual: 0 });
+  const [typeOptions, setTypeOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+  const requestSeq = useRef(0);
 
-  // Detail dialog
+  // UI state
+  const [showAdd, setShowAdd]     = useState(false);
   const [dialogLead, setDialogLead] = useState(null);
   const closeDialogBtnRef = useRef(null);
-
-  // Inline delete confirmation
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [busyLeadId, setBusyLeadId] = useState(null);
 
-  // ── Filtering ───────────────────────────────────────────────────────────
-  const filteredLeads = useMemo(() => leads.filter((lead) => {
-    const kw = (appliedFilters.keyword || '').toLowerCase();
-    if (kw) {
-      const inKw = [lead.id, lead.description, lead.type, lead.source]
-        .filter(Boolean)
-        .some(s => s.toLowerCase().includes(kw));
-      if (!inKw) return false;
+  // ── Fetch ───────────────────────────────────────────────────────────────
+  const fetchLeads = useCallback(async () => {
+    if (!caseId) return;
+    setLoading(true);
+    setError(null);
+    const seq = ++requestSeq.current;
+
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      const res = await axios.get(`${url}/api/investigator/cases/${caseId}/leads`, {
+        headers: getAuthHeader(),
+        params: {
+          keyword: appliedFilters.keyword,
+          lead_type: appliedFilters.leadType,
+          severity: appliedFilters.severity,
+          source: sourceFilter,
+          date_from: appliedFilters.date,
+          page: currentPage,
+          page_size: PAGE_SIZE,
+        },
+      });
+      if (seq !== requestSeq.current) return;
+      setLeads(res.data?.items || []);
+      setTotal(res.data?.total || 0);
+      setCounts(res.data?.counts || { all: 0, ai: 0, manual: 0 });
+      setTypeOptions(res.data?.type_options || []);
+    } catch (err) {
+      if (seq !== requestSeq.current) return;
+      console.error('Failed to load leads:', err);
+      setError(err?.response?.data?.detail || 'Could not load leads.');
+      setLeads([]);
+      setTotal(0);
+    } finally {
+      if (seq === requestSeq.current) setLoading(false);
     }
-    if (appliedFilters.leadType && lead.type !== appliedFilters.leadType) return false;
-    if (appliedFilters.severity !== 'all' && lead.severity !== appliedFilters.severity) return false;
+  }, [caseId, appliedFilters, sourceFilter, currentPage]);
 
-    if (sourceFilter === 'ai'     && lead.eventSource !== EVENT_SOURCE.AI)     return false;
-    if (sourceFilter === 'manual' && lead.eventSource !== EVENT_SOURCE.MANUAL) return false;
+  useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
-    return true;
-  }), [leads, appliedFilters, sourceFilter]);
-
-  // ── Source counts (for the pill badges) ─────────────────────────────────
-  const sourceCounts = useMemo(() => ({
-    all:    leads.length,
-    ai:     leads.filter(l => l.eventSource === EVENT_SOURCE.AI).length,
-    manual: leads.filter(l => l.eventSource === EVENT_SOURCE.MANUAL).length,
-  }), [leads]);
-
-  // ── Pagination math ─────────────────────────────────────────────────────
-  const total      = filteredLeads.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const start      = (currentPage - 1) * PAGE_SIZE;
-  const end        = Math.min(start + PAGE_SIZE, total);
-  const pageLeads  = filteredLeads.slice(start, end);
-
-  // ── Handlers ────────────────────────────────────────────────────────────
+  // ── Filter handlers ─────────────────────────────────────────────────────
   const handleApply = useCallback(() => {
     setAppliedFilters({
       keyword: keyword.trim(),
@@ -296,26 +210,90 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
     setCurrentPage(1);
   }, []);
 
-  // AddLeadModal returns a fully-formed object today. Run through factory if
-  // it ever switches to handing back raw form state, just like CaseTimeline.
-  const handleAddLeadSave = (incoming) => {
-    const isAlreadyLead = !!incoming?.id && !!incoming?.eventSource;
-    const lead = isAlreadyLead ? incoming : createManualLead(incoming, caseId);
-    setLeads(curr => [lead, ...curr]);
-    setShowAdd(false);
-    setCurrentPage(1);
+  // ── Add manual lead ─────────────────────────────────────────────────────
+  // AddLeadDialog calls onSubmit({ caseId, leads: [lead] }).
+  const handleAddLeadSave = async (data) => {
+    const lead = data?.leads?.[0];
+    if (!lead) return;
+
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      await axios.post(
+        `${url}/api/investigator/cases/${caseId}/leads`,
+        {
+          type:             lead.type,
+          severity:         lead.severity,
+          description:      lead.description,
+          nextStep:         lead.nextStep,
+          source:           lead.source,
+          suggestedSuspect: lead.suggestedSuspect,
+          suspectBasis:     lead.suspectBasis,
+          similarCaseId:    lead.similarCaseId,
+          weaponPattern:    lead.weaponPattern,
+          locationArea:     lead.locationArea,
+          confidence:       lead.confidence,
+          status:           lead.status || 'New',
+        },
+        { headers: getAuthHeader() },
+      );
+      setShowAdd(false);
+      setCurrentPage(1);
+      // Refetch so the new lead lands at the top
+      fetchLeads();
+    } catch (err) {
+      console.error('Add lead failed:', err);
+      alert(`Save failed: ${err?.response?.data?.detail || err.message}`);
+    }
   };
 
-  const handleStatusChange = (id, status) => {
-    setLeads(curr => curr.map(l => l.id === id ? { ...l, status } : l));
+  // ── Status change ───────────────────────────────────────────────────────
+  const handleStatusChange = async (leadId, newStatus) => {
+    setBusyLeadId(leadId);
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      const res = await axios.patch(
+        `${url}/api/investigator/cases/${caseId}/leads/${leadId}`,
+        { status: newStatus },
+        { headers: getAuthHeader() },
+      );
+      // Update the row in place
+      setLeads(curr => curr.map(l => l.id === leadId ? res.data : l));
+    } catch (err) {
+      console.error('Status update failed:', err);
+      alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+    } finally {
+      setBusyLeadId(null);
+    }
   };
 
-  const handleDelete = (id) => {
-    setLeads(curr => curr.filter(l => l.id !== id));
-    setConfirmDelete(null);
+  // ── Delete (manual leads) ───────────────────────────────────────────────
+  const handleDelete = async (leadId) => {
+    setBusyLeadId(leadId);
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      await axios.delete(
+        `${url}/api/investigator/cases/${caseId}/leads/${leadId}`,
+        { headers: getAuthHeader() },
+      );
+      // Remove from local state and refresh counts
+      setLeads(curr => curr.filter(l => l.id !== leadId));
+      setCounts(c => ({ ...c, all: c.all - 1, manual: c.manual - 1 }));
+      setTotal(t => Math.max(0, t - 1));
+      setConfirmDelete(null);
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert(`Delete failed: ${err?.response?.data?.detail || err.message}`);
+    } finally {
+      setBusyLeadId(null);
+    }
   };
 
-  // Esc closes detail dialog; focus management
+  // ── Pagination derivations ──────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const start      = (currentPage - 1) * PAGE_SIZE;
+  const end        = Math.min(start + PAGE_SIZE, total);
+
+  // ── Esc closes detail dialog ────────────────────────────────────────────
   useEffect(() => {
     if (!dialogLead) return;
     closeDialogBtnRef.current?.focus();
@@ -324,9 +302,13 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
     return () => document.removeEventListener('keydown', onKey);
   }, [dialogLead]);
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Render
-  // ──────────────────────────────────────────────────────────────────────────
+  // Build the lead-type dropdown options. Use server-provided list when
+  // available, fall back to JS constants.
+  const leadTypeFilterOptions = useMemo(() => ([
+    { value: '', label: 'All Lead Types' },
+    ...((typeOptions.length ? typeOptions : LEAD_TYPE_OPTIONS).map(t => ({ value: t, label: t }))),
+  ]), [typeOptions]);
+
   return (
     <section
       className="bg-white rounded-t-lg border-x border-t border-slate-300 shadow-sm overflow-hidden"
@@ -339,19 +321,26 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
             <Lightbulb className="h-6 w-6 text-deep-ocean" /> Investigation Leads
           </h2>
           <p className="text-sm text-slate-600 mt-1">
-            AI-generated leads and manual entries — {sourceCounts.ai} AI · {sourceCounts.manual} manual
+            AI-generated leads and manual entries — {counts.ai} AI · {counts.manual} manual
           </p>
         </div>
 
-        {/* Add Manual Lead — secondary style; AI is the headline */}
         <Button
-        variant='default'
-        className={'px-4 py-1.5'}
-        onClick={() => setShowAdd(true)}
+          variant="default"
+          className="px-4 py-1.5"
+          onClick={() => setShowAdd(true)}
         >
           <Plus className="h-4 w-4" /> Add Manual Lead
         </Button>
       </header>
+
+      {/* Error banner */}
+      {error && (
+        <div className="mx-6 mt-4 flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+          <AlertTriangle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
 
       {/* Source filter pills */}
       <div className="px-6 pt-4 pb-3 flex flex-wrap items-center gap-2 border-b border-slate-100">
@@ -371,14 +360,14 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
             >
               {opt.label}
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20' : 'bg-white'}`}>
-                {sourceCounts[opt.key]}
+                {counts[opt.key] ?? 0}
               </span>
             </button>
           );
         })}
       </div>
 
-      {/* Existing keyword/type/date/severity filter row */}
+      {/* Keyword/type/date/severity filter row */}
       <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3">
         <label className="sr-only" htmlFor="leads-search">Search leads</label>
         <div className="relative flex-1 min-w-50">
@@ -404,7 +393,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
             className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean min-w-35"
             aria-label="Filter by lead type"
           >
-            {LEAD_TYPE_FILTER.map((opt) => (
+            {leadTypeFilterOptions.map((opt) => (
               <option key={opt.value || 'any'} value={opt.value}>{opt.label}</option>
             ))}
           </select>
@@ -458,12 +447,14 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
           </p>
           <button
             onClick={() => handleDelete(confirmDelete)}
-            className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-3 py-1 rounded-md hover:bg-red-100"
+            disabled={busyLeadId === confirmDelete}
+            className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-3 py-1 rounded-md hover:bg-red-100 disabled:opacity-50"
           >
-            Yes, delete
+            {busyLeadId === confirmDelete ? 'Deleting…' : 'Yes, delete'}
           </button>
           <button
             onClick={() => setConfirmDelete(null)}
+            disabled={busyLeadId === confirmDelete}
             className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-3 py-1 rounded-md hover:bg-slate-100"
           >
             Cancel
@@ -486,14 +477,21 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {pageLeads.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
+                  Loading leads…
+                </td>
+              </tr>
+            ) : leads.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                   No leads match your filters. Try adjusting them or use the Clear button.
                 </td>
               </tr>
             ) : (
-              pageLeads.map((lead) => (
+              leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 font-mono font-semibold text-slate-800 text-nowrap text-xs">
                     {lead.id}
@@ -536,6 +534,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
                         lead={lead}
                         onChange={handleStatusChange}
                         onAskDelete={(id) => setConfirmDelete(id)}
+                        busy={busyLeadId === lead.id}
                       />
                     </div>
                   </td>
@@ -547,7 +546,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       </div>
 
       {/* Pagination */}
-      {total > 0 && (
+      {!loading && total > 0 && (
         <div className="px-6 py-4 border-t border-slate-200">
           <Pagination
             currentPage={currentPage}
@@ -561,20 +560,17 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         </div>
       )}
 
-      {/* ── Add Manual Lead modal ─────────────────────────────────────── */}
+      {/* Add Manual Lead modal */}
       {showAdd && (
         <AddLeadDialog
           isOpen={showAdd}
           onClose={() => setShowAdd(false)}
-          onSubmit={(data) => {
-            const ev = data?.events?.[0];
-            if (ev) handleAddLeadSave(ev);
-          }}
+          onSubmit={handleAddLeadSave}
           caseId={caseId}
         />
       )}
 
-      {/* ── Lead detail dialog ────────────────────────────────────────── */}
+      {/* Lead detail dialog */}
       {dialogLead && (
         <LeadDetailDialog
           lead={dialogLead}
@@ -587,7 +583,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lead detail dialog — shows everything about a single lead
+// Lead detail dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
 function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
@@ -606,7 +602,6 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
         className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
           <div className="flex items-center gap-3 min-w-0">
             <div className={`w-8 h-8 rounded-full ${isAI ? 'bg-purple-600' : 'bg-emerald-600'} text-white flex items-center justify-center text-sm font-bold shrink-0`}>
@@ -630,7 +625,6 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
           </button>
         </div>
 
-        {/* Top chip strip */}
         <div className="px-6 pt-4 flex flex-wrap gap-2">
           <Badge variant={LEAD_STATUS_VARIANT[lead.status] || 'default'}>
             {lead.status}
@@ -649,10 +643,8 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
           )}
         </div>
 
-        {/* Body */}
         <div className="p-6 space-y-6">
 
-          {/* Description */}
           <section>
             <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
               Description
@@ -662,7 +654,6 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
             </p>
           </section>
 
-          {/* Confidence (AI only) */}
           {isAI && typeof lead.confidence === 'number' && (
             <section>
               <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
@@ -686,29 +677,25 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
             </section>
           )}
 
-          {/* Suggested suspect */}
           {lead.suggestedSuspect && (
             <section>
               <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
                 Suggested Suspect
               </h4>
-              {typeof lead.suggestedSuspect === 'string' ? (
-                <p className="text-sm text-slate-700">{lead.suggestedSuspect}</p>
-              ) : (
-                <div className="text-sm text-slate-700 space-y-1">
+              <div className="text-sm text-slate-700 space-y-1">
+                {lead.suggestedSuspect.name && (
                   <p className="font-semibold">{lead.suggestedSuspect.name}</p>
-                  {lead.suggestedSuspect.suspectId && (
-                    <p className="text-xs font-mono text-deep-ocean">{lead.suggestedSuspect.suspectId}</p>
-                  )}
-                  {lead.suggestedSuspect.basis && (
-                    <p className="text-xs text-slate-500">{lead.suggestedSuspect.basis}</p>
-                  )}
-                </div>
-              )}
+                )}
+                {lead.suggestedSuspect.suspectId && (
+                  <p className="text-xs font-mono text-deep-ocean">{lead.suggestedSuspect.suspectId}</p>
+                )}
+                {lead.suggestedSuspect.basis && (
+                  <p className="text-xs text-slate-500">{lead.suggestedSuspect.basis}</p>
+                )}
+              </div>
             </section>
           )}
 
-          {/* Next step */}
           {lead.nextStep && (
             <section>
               <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
@@ -720,7 +707,6 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
             </section>
           )}
 
-          {/* Provenance */}
           <section>
             <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
               Provenance
@@ -750,11 +736,16 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
                 <span className="font-semibold text-slate-700">Case ID:</span>
                 <span className="text-slate-500 font-mono text-xs">{lead.caseId}</span>
               </p>
+              {lead.similarCaseId && (
+                <p>
+                  <span className="font-semibold text-slate-700">Similar Case:</span>
+                  <span className="text-slate-500 font-mono text-xs">{lead.similarCaseId}</span>
+                </p>
+              )}
             </div>
           </section>
         </div>
 
-        {/* Footer */}
         <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end">
           <Button onClick={onClose} className="px-4 py-2">
             Close

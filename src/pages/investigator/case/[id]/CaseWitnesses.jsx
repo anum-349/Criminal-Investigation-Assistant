@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, ChevronDown, Calendar, X, ExternalLink, Pencil, CheckCircle2, Shield, EyeOff, AlertTriangle, User } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
-import { Pagination } from '../../../components/ui/Pagination';
-import { Badge } from '../../../components/ui/Badge';
-import AddWitnessDialog from './forms/AddWitness';
+import { Button } from '@/components/ui/Button';
+import { Pagination } from '@/components/ui/Pagination';
+import { Badge } from '@/components/ui/Badge';
 
+import AddWitnessDialog from './forms/AddWitness';
 const PAGE_SIZE = 5;
 const STATUSES = [
   { value: 'all', label: 'All Statuses' },

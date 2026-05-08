@@ -12,8 +12,8 @@ import {
   ToggleLeft, ToggleRight, Sun, Moon, Bell, Shield,
   AlertTriangle, RefreshCw, X
 } from "lucide-react";
-import Header from "../../../components/Header";
-import { Card } from "../../../components/ui/Card";
+import Header from "@/components/Header";
+import { Card } from "@/components/ui/Card";
 
 const Toggle = ({ label, description, value, onChange, disabled }) => (
   <div className="flex items-start justify-between gap-4 py-4 border-b border-slate-100 last:border-0">

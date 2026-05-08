@@ -11,8 +11,8 @@ import {
     Calendar, RefreshCw, AlertTriangle, CheckCircle2, Clock,
     Zap, ShieldAlert, TrendingDown, Info
 } from 'lucide-react';
-import Header from '../../../components/Header';
-import { Card } from '../../../components/ui/Card';
+import Header from '@/components/Header';
+import { Card } from '@/components/ui/Card';
 
 // ── Theme colors ──────────────────────────────────────────────────────────────
 const COLORS = {

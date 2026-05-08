@@ -1,10 +1,3 @@
-/**
- * caseFormConstants.js
- * All shared constants for case registration / update forms.
- * Import from here — never duplicate in individual step files.
- *
- * Place at: src/pages/investigator/case-forms/caseFormConstants.js
- */
 
 export const PROVINCES = [
   "Punjab", "Sindh", "Khyber Pakhtunkhwa", "Balochistan",

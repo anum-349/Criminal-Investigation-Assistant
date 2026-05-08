@@ -1,5 +1,5 @@
 import { FileText as NoteIcon, TrendingUp, Calendar } from "lucide-react";
-import { FieldLabel, SectionHeading, TextareaField, TextField } from "../CaseFormFields/page";
+import { FieldLabel, SectionHeading, TextareaField, TextField } from "@/pages/form/case-forms/CaseFormFields/page";
 
 export function StepUpdateNotes({ data, setData }) {
   const set = (k) => (e) => setData(d => ({ ...d, [k]: e.target.value }));

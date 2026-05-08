@@ -11,9 +11,9 @@ import {
   Plus, X, Save, Pencil, Trash2, Search, Calendar,
   AlertCircle, ArrowRight, Eye, Clock
 } from "lucide-react";
-import { Card } from "../../../components/ui/Card";
-import { Badge } from "../../../components/ui/Badge";
-import Header from "../../../components/Header";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import Header from "@/components/Header";
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 const Field = ({ label, required, error, hint, children }) => (

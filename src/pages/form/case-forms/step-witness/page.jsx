@@ -1,20 +1,3 @@
-/**
- * StepWitnesses
- * Place at: src/pages/form/case-forms/step-witnesses/page.jsx
- *
- * Mirrors step-suspects/page.jsx and step-victims pattern:
- *   - register mode  → always-expanded card, no Edit toggle
- *   - standalone mode → collapsed summary card with Edit/Save toggle
- *
- * Captures every field used by the CaseWitnesses table + dialog
- * (MOCK_WITNESSES shape):
- *   id (display), name, age, gender, contact, dateAdded, description,
- *   caseId, status, address, statementDate, relationToCase
- *
- * Plus extra fields kept for richness (witnessType, credibility,
- * statementRecordedBy, anonymous, protectionRequired, cooperating)
- * so this form can also replace the older AddWitnessModal.
- */
 import { useState } from "react";
 import {
   Hash, Plus, Trash2, User, Pencil, Check, Shield,
@@ -24,11 +7,11 @@ import {
   defaultWitness, generateWitnessId,
   WITNESS_TYPES, WITNESS_CREDIBILITY, WITNESS_STATUSES,
   WITNESS_RELATIONS,
-} from "../CaseFormConstants/page";
+} from "@/pages/form/case-forms/caseFormConstants/page";
 import {
   CheckField, FieldLabel, SectionHeading,
   SelectField, TextareaField, TextField,
-} from "../CaseFormFields/page";
+} from "@/pages/form/case-forms/CaseFormFields/page";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WitnessFormFields — every editable field, used by both card variants
@@ -64,7 +47,7 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
         <div className={`w-10 h-5 rounded-full transition-all relative shrink-0
           ${isAnonymous ? "bg-amber-400" : "bg-slate-300"}`}>
           <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all
-            ${isAnonymous ? "left-[22px]" : "left-0.5"}`} />
+            ${isAnonymous ? "left-5.5" : "left-0.5"}`} />
         </div>
       </div>
 

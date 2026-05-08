@@ -6,8 +6,8 @@ import {
     AlertTriangle, Clock, Users, MapPin, Brain,
     Loader2, Printer, FileDown, X
 } from 'lucide-react';
-import Header from '../../../components/Header';
-import { Card } from '../../../components/ui/Card';
+import Header from '@/components/Header';
+import { Card } from '@/components/ui/Card';
 
 // ── Install: npm install jspdf html2canvas ────────────────────────────────────
 import jsPDF from 'jspdf';

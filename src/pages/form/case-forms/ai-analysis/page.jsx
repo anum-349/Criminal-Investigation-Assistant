@@ -1,14 +1,8 @@
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * StepAIAnalysis.jsx  —  Step 8
- * Place at: src/pages/investigator/case-forms/StepAIAnalysis.jsx
- */
 import { Brain, AlertTriangle } from "lucide-react";
-import { SectionHeading } from "../CaseFormFields/page";
-import { Card } from "../../../../components/ui/Card";
-import { Badge } from "../../../../components/ui/Badge";
+import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 
 export function StepAIAnalysis({ data }) {
   const entities = data.extractedEntities || { persons: [], locations: [], weapons: [], vehicles: [], dates: [] };

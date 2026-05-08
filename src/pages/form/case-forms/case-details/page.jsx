@@ -1,6 +1,6 @@
 import { Lock } from "lucide-react";
-import { SectionHeading, TextField, SelectField, TextareaField, FieldLabel } from "../CaseFormFields/page";
-import { CASE_TYPES } from "../CaseFormConstants/page";
+import { SectionHeading, TextField, SelectField, TextareaField, FieldLabel } from "@/pages/form/case-forms/CaseFormFields/page";
+import { CASE_TYPES } from "@/pages/form/case-forms/caseFormConstants/page";
 import { FileText } from "lucide-react";
 
 export default function StepCaseDetails({ data, setData, errors, mode = "register" }) {

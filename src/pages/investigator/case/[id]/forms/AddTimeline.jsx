@@ -1,60 +1,9 @@
-/**
- * AddTimelineDialog
- * Place at: src/pages/investigator/case/forms/AddTimeline.jsx
- *
- * Replaces the older AddTimelineModal in src/pages/form/case-forms/add-timeline/page.jsx.
- *
- * SAME PATTERN AS:
- *   AddSuspect.jsx, AddEvidence.jsx, AddVictim.jsx, AddWitness.jsx, AddLead.jsx
- *
- * WHY THE REWRITE
- * ─────────────────────────────────────────────────────────────────────────────
- * The old modal used the shared Overlay + ModalShell primitives whose Cancel /
- * Close behaviour is unreliable across browsers (event bubbling between the
- * Overlay's click-outside handler and ModalShell's X button). This rewrite
- * uses the same controlled overlay pattern as the rest of the dialog family,
- * so Cancel, Close (X), Esc, and click-outside all work the same way they do
- * everywhere else.
- *
- * ALSO IMPROVED
- *   • Cancel stays clickable during a save (saving disables Submit only).
- *   • handleClose early-returns if saving === true to avoid race conditions.
- *   • Focus moves to the close button on open.
- *   • Submitted success state with "Add Another" / "Done".
- *   • Uses Step-1 catalogs (MANUAL_EVENT_TYPES, MANUAL_EVENT_COLORS, SEVERITIES)
- *     so this modal stays in sync with the rest of the timeline UI.
- *
- * SHAPE COMPATIBILITY
- * ─────────────────────────────────────────────────────────────────────────────
- * Mirrors the AddSuspect/AddEvidence/AddVictim/AddWitness contract:
- *
- *   onSubmit({ caseId, events: [eventObj] })
- *
- * eventObj is built via createManualEvent from caseEventConstants so the
- * shape is guaranteed identical to other manually-created events.
- *
- * If you'd rather call from CaseTimeline directly (without lifting state up),
- * the parent CaseTimeline already accepts BOTH shapes — a single event object
- * or an envelope — and runs anything through createManualEvent if needed.
- */
-
 import { useEffect, useRef, useState } from "react";
 import {
   Clock, Save, X, AlertCircle,
 } from "lucide-react";
 
-import {
-  MANUAL_EVENT_TYPES,
-  MANUAL_EVENT_COLORS,
-  SEVERITIES,
-  createManualEvent,
-} from "../caseEventConstants";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Local form primitives — kept inline so the dialog has no dependency on
-// the shared CaseFormFields shell whose Overlay/ModalShell had the bubbling
-// issues we just walked away from.
-// ─────────────────────────────────────────────────────────────────────────────
+import {MANUAL_EVENT_TYPES, MANUAL_EVENT_COLORS, SEVERITIES} from '../caseEventConstants';
 
 const FieldLabel = ({ label, required, error, hint, className = "", children }) => (
   <label className={`block ${className}`}>

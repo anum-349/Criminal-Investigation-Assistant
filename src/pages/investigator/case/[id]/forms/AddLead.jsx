@@ -3,11 +3,7 @@ import {
   Brain, Save, X, AlertCircle, AlertTriangle,
 } from "lucide-react";
 
-import {
-  LEAD_TYPES,
-  EVENT_SOURCE,
-  generateLeadId,
-} from "../caseEventConstants";
+import { LEAD_TYPES, EVENT_SOURCE } from '../caseEventConstants';
 
 const SOURCES = [
   "Manual Entry",

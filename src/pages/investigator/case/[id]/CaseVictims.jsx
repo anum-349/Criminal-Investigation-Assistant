@@ -9,9 +9,9 @@ import {
   Pencil,
 } from 'lucide-react';
 
-import { Badge } from '../../../components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
 import AddVictimDialog from './forms/AddVictim';
-import { Button } from '../../../components/ui/Button';
+import { Button } from '@/components/ui/Button';
 
 const victimsList = [
   {

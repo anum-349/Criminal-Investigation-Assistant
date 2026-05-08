@@ -8,9 +8,9 @@ import {
     Camera, Check, AlertTriangle, Clock,
     LogOut, Key, ToggleLeft, ToggleRight
 } from 'lucide-react';
-import Header from '../../../components/Header';
-import { Card } from '../../../components/ui/Card';
-import { AuthContext } from '../../../context/AuthContext';
+import Header from '@/components/Header';
+import { Card } from '@/components/ui/Card';
+import { AuthContext } from '@/context/AuthContext';
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 const TABS = [

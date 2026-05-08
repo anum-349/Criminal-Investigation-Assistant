@@ -1,10 +1,3 @@
-/**
- * CaseFormFields.jsx
- * Reusable primitive UI components shared by every case-form step.
- * Never duplicate these — import from here.
- *
- * Place at: src/pages/investigator/case-for../CaseFormFields/page.jsx
- */
 import { HelpCircle, AlertCircle, X } from "lucide-react";
 import { useEffect } from "react";
 

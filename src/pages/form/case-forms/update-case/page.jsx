@@ -5,8 +5,8 @@
 //   Camera, Brain, CheckCircle2, ChevronRight, ChevronLeft,
 //   LayoutDashboard, FolderOpen, AlertTriangle, Loader2, Check, Save,
 // } from "lucide-react";
-// import Header from "../../../../components/Header";
-// import { emptyFormData } from "../CaseFormConstants/page";
+// import Header from "@/components/Header";
+// import { emptyFormData } from "@/pages/form/case-forms/caseFormConstants/page";
 
 // // ── Step components ───────────────────────────────────────────────────────────
 // import { StepUpdateNotes } from "../notes/page";
