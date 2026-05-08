@@ -51,8 +51,8 @@ function Toast({ message, onClose }) {
 const getSeverityBadgeVariant = (label) => {
     const s = (label || '').toLowerCase();
     if (s === 'critical') return 'destructive';
-    if (s === 'high')     return 'warning';
-    if (s === 'medium')   return 'default';
+    if (s === 'high') return 'warning';
+    if (s === 'medium') return 'default';
     return 'default';
 };
 
@@ -70,11 +70,10 @@ const getStatusPillClass = (label) => {
 const CasePage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-console.log('CasePage params:', { id });
-const caseId = id; // For easier logging and potential future transformations
+    const caseId = id; // For easier logging and potential future transformations
     // ── Loaded data ────────────────────────────────────────────────────────
     const [header, setHeader] = useState(null);
-    const [stats, setStats]   = useState(null);
+    const [stats, setStats] = useState(null);
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
@@ -84,14 +83,12 @@ const caseId = id; // For easier logging and potential future transformations
 
     // ── Dialog visibility ──────────────────────────────────────────────────
     const [showAddEvidence, setShowAddEvidence] = useState(false);
-    const [showAddSuspect,  setShowAddSuspect]  = useState(false);
-    const [showAddVictim,   setShowAddVictim]   = useState(false);
-    const [showAddWitness,  setShowAddWitness]  = useState(false);
-console.log('CasePage rendered with caseId:', caseId);
+    const [showAddSuspect, setShowAddSuspect] = useState(false);
+    const [showAddVictim, setShowAddVictim] = useState(false);
+    const [showAddWitness, setShowAddWitness] = useState(false);
     // ── Toast ──────────────────────────────────────────────────────────────
     const [toast, setToast] = useState(null);
     useEffect(() => {
-        console.log('Toast set:', toast);
         if (!toast) return;
         const t = setTimeout(() => setToast(null), 3500);
         return () => clearTimeout(t);
@@ -102,15 +99,10 @@ console.log('CasePage rendered with caseId:', caseId);
         if (!caseId) return;
 
         const fetchCase = async () => {
-            console.log('Loading case', caseId);
             setLoading(true);
-            console.time('fetchCase');
             setLoadError(null);
-            console.timeEnd('fetchCase');
             try {
-                console.log('Fetching case data from API...');
                 const url = import.meta.env.VITE_API_URL;
-                console.time('axios.get case data');
                 const res = await axios.get(
                     `${url}/api/investigator/cases/${caseId}`,
                     { headers: getAuthHeader() }
@@ -137,13 +129,67 @@ console.log('CasePage rendered with caseId:', caseId);
     // Direct add for manual events coming from CaseTimeline's modal (kept
     // local — manual timeline events aren't yet round-tripped through the
     // backend; that endpoint is a separate addition).
-    const handleAddTimelineEvent = useCallback((ev) => {
-        setEvents(curr => [ev, ...curr]);
-    }, []);
-
-    const handleDeleteTimelineEvent = useCallback((id) => {
+  const handleAddTimelineEvent = useCallback(async (ev) => {
+    try {
+        const url = import.meta.env.VITE_API_URL;
+        // Strip frontend-only fields (id, createdAt, eventSource) — backend
+        // generates its own canonical row. Send only the form payload.
+        const body = {
+            eventType:        ev.eventType,
+            title:            ev.title,
+            description:      ev.description,
+            date:             ev.date,
+            time:             ev.time,
+            location:         ev.location || null,
+            officerName:      ev.officerName || null,
+            outcome:          ev.outcome || null,
+            severity:         ev.severity || "Normal",
+            attachmentNote:   ev.attachmentNote || null,
+            followUpRequired: !!ev.followUpRequired,
+            followUpDate:     ev.followUpDate || null,
+        };
+ 
+        const res = await axios.post(
+            `${url}/api/investigator/cases/${caseId}/timeline`,
+            body,
+            { headers: getAuthHeader() },
+        );
+ 
+        const created = res.data;
+        if (created?.id) {
+            setEvents(curr => [created, ...curr]);
+        }
+        setToast(`Timeline event added to ${caseId}`);
+        return created;
+    } catch (err) {
+        console.error('Add timeline failed:', err);
+        const detail = err?.response?.data?.detail || err.message || 'Failed to save event.';
+        setToast(`Save failed: ${detail}`);
+        // Rethrow so AddTimelineDialog stays open and shows its own error UI
+        throw err;
+    }
+}, [caseId]);
+ 
+// ── Delete a manual timeline event ──────────────────────────────────────────
+// CaseTimeline awaits this and only closes its inline confirm on success.
+// On failure we show a toast and rethrow so CaseTimeline can keep the row
+// visible.
+const handleDeleteTimelineEvent = useCallback(async (id) => {
+    try {
+        const url = import.meta.env.VITE_API_URL;
+        await axios.delete(
+            `${url}/api/investigator/cases/${caseId}/timeline/${id}`,
+            { headers: getAuthHeader() },
+        );
         setEvents(curr => curr.filter(e => e.id !== id));
-    }, []);
+        setToast(`Timeline event ${id} deleted`);
+    } catch (err) {
+        console.error('Delete timeline failed:', err);
+        const detail = err?.response?.data?.detail || err.message || 'Failed to delete event.';
+        setToast(`Delete failed: ${detail}`);
+        throw err;
+    }
+}, [caseId]);
 
     // ── Generic POST helper ────────────────────────────────────────────────
     // Returns [createdIds, success]. On success, prepends the server's
@@ -166,8 +212,8 @@ console.log('CasePage rendered with caseId:', caseId);
             setStats(curr => curr && ({
                 ...curr,
                 ...(path === 'evidences' ? { evidence_collected: curr.evidence_collected + (data.created_ids?.length || 0) } : {}),
-                ...(path === 'suspects'  ? { suspects:           curr.suspects           + (data.created_ids?.length || 0) } : {}),
-                ...(path === 'victims'   ? { victims:            curr.victims            + (data.created_ids?.length || 0) } : {}),
+                ...(path === 'suspects' ? { suspects: curr.suspects + (data.created_ids?.length || 0) } : {}),
+                ...(path === 'victims' ? { victims: curr.victims + (data.created_ids?.length || 0) } : {}),
             }));
             setToast(toastTitleFn(data.created_ids || []));
             return [data.created_ids || [], true];
@@ -396,21 +442,21 @@ console.log('CasePage rendered with caseId:', caseId);
                 </div>
 
                 {/* Active tab content */}
-                {activeTab === 'timeline'      ? (
+                {activeTab === 'timeline' ? (
                     <CaseTimeline
                         caseId={caseId}
                         events={events}
                         onAddEvent={handleAddTimelineEvent}
                         onDeleteEvent={handleDeleteTimelineEvent}
                     />
-                ) : activeTab === 'victims'     ? <CaseVictim />
-                : activeTab === 'evidences'     ? <CaseEvidence />
-                : activeTab === 'witnesses'     ? <CaseWitnesses />
-                : activeTab === 'suspects'      ? <CaseSuspects />
-                : activeTab === 'leads'         ? <CaseInvestigationLeads caseId={caseId} />
-                : activeTab === 'linked cases'  ? <LinkedCases />
-                : activeTab === 'location'      ? <CaseLocation />
-                : null}
+                ) : activeTab === 'victims' ? <CaseVictim />
+                    : activeTab === 'evidences' ? <CaseEvidence />
+                        : activeTab === 'witnesses' ? <CaseWitnesses />
+                            : activeTab === 'suspects' ? <CaseSuspects />
+                                : activeTab === 'leads' ? <CaseInvestigationLeads caseId={caseId} />
+                                    : activeTab === 'linked cases' ? <LinkedCases />
+                                        : activeTab === 'location' ? <CaseLocation />
+                                            : null}
             </main>
 
             {/* ── Dialogs ──────────────────────────────────────────────── */}

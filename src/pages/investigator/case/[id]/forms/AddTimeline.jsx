@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Clock, Save, X, AlertCircle,
+  Clock, Save, X, AlertCircle, AlertTriangle
 } from "lucide-react";
 
-import {MANUAL_EVENT_TYPES, MANUAL_EVENT_COLORS, SEVERITIES} from '../caseEventConstants';
+import {MANUAL_EVENT_TYPES, MANUAL_EVENT_COLORS, SEVERITIES, createManualEvent} from '../caseEventConstants';
 
 const FieldLabel = ({ label, required, error, hint, className = "", children }) => (
   <label className={`block ${className}`}>
@@ -63,10 +63,6 @@ const Textarea = ({ error, rows = 3, className = "", ...props }) => (
   />
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty form factory
-// ─────────────────────────────────────────────────────────────────────────────
-
 const emptyForm = (caseId) => ({
   caseId,
   eventType: "",
@@ -100,6 +96,7 @@ export default function AddTimelineDialog({
   const [errors, setErrors]       = useState({});
   const [saving, setSaving]       = useState(false);
   const [submitted, setSubmitted] = useState(false);
+const [submitError, setSubmitError] = useState("");
 
   const isUpdate = !!initialData;
 
@@ -128,6 +125,7 @@ export default function AddTimelineDialog({
     setErrors({});
     setSaving(false);
     setSubmitted(false);
+    setSubmitError("");
   }, [isOpen, initialData, caseId]);
 
   // Focus the close button on open
@@ -172,27 +170,41 @@ export default function AddTimelineDialog({
   const handleClose = () => {
     if (saving) return;            // never close mid-save
     setForm(emptyForm(caseId));
-    setErrors({});
-    setSubmitted(false);
-    onClose?.();
+  setErrors({});
+  setSubmitError("");           // ← new
+  setSubmitted(false);
+  onClose?.();
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 500));
-    setSaving(false);
-
-    // Build via Step-1 factory so shape is guaranteed identical to other
-    // manual events in the timeline.
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!validate()) return;
+ 
+  setSaving(true);
+  setSubmitError("");
+ 
+  try {
+    // Build via factory so shape is identical to other manual events.
     const event = createManualEvent(form, caseId);
     if (isUpdate && initialData?.id) event.id = initialData.id;
-
-    onSubmit?.({ caseId, events: [event] });
+ 
+    // Wait for the parent to actually finish the POST. The parent now
+    // returns a Promise (axios call). If it throws, we show the error
+    // and DO NOT flip to the success screen.
+    await onSubmit?.({ caseId, events: [event] });
+ 
     setSubmitted(true);
-  };
+  } catch (err) {
+    // Parent's POST failed. Keep the form open, show the error.
+    const detail =
+      err?.response?.data?.detail ||
+      err?.message ||
+      "Failed to save event. Please try again.";
+    setSubmitError(String(detail));
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (!isOpen) return null;
 
@@ -279,6 +291,26 @@ export default function AddTimelineDialog({
                   System events (FIR filed, evidence added, status changes) are auto-logged.
                 </p>
               </div>
+
+              {submitError && (
+  <div
+    role="alert"
+    className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2"
+  >
+    <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+    <p className="text-xs text-red-700 leading-relaxed flex-1">
+      <strong>Save failed:</strong> {submitError}
+    </p>
+    <button
+      type="button"
+      onClick={() => setSubmitError("")}
+      className="text-red-500 hover:text-red-700 cursor-pointer"
+      aria-label="Dismiss error"
+    >
+      <X className="h-3.5 w-3.5" />
+    </button>
+  </div>
+)}
 
               {/* ── Section 1: Classification ─────────────────────────── */}
               <section>

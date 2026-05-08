@@ -206,9 +206,11 @@ export const NOTE_CATEGORIES = Object.freeze([
 const _ts = () => Date.now().toString(36).toUpperCase();
 const _rand = () => Math.random().toString(36).substring(2, 5).toUpperCase();
 
-export const generateEventId = () => `EVT-${_ts()}-${_rand()}`;
-export const generateLeadId  = () => `LEAD-${_ts()}-${_rand()}`;
-export const generateNoteId  = () => `NOTE-${_ts()}-${_rand()}`;
+const pad = (num) => String(num).padStart(2, '0');
+
+export const generateId = (prefix, caseId, count) => {
+  return `${prefix}-${caseId}-${pad(count + 1)}`;
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // 8. FACTORIES — Timeline Events
@@ -242,7 +244,7 @@ export function createSystemEvent({
   severity    = "Normal",
 } = {}) {
   return {
-    id:           generateEventId(),
+    id:           generateId('EVT', caseId, 10),
     caseId,
     eventSource:  EVENT_SOURCE.SYSTEM,
     eventType,
@@ -268,7 +270,7 @@ export function createSystemEvent({
  */
 export function createManualEvent(form, caseId) {
   return {
-    id:               generateEventId(),
+    id:               generateId('EVT', caseId, 10),
     caseId:           form.caseId || caseId,
     eventSource:      EVENT_SOURCE.MANUAL,
     eventType:        form.eventType,
@@ -310,7 +312,7 @@ export function createAILead({
   status           = "New",
 } = {}) {
   return {
-    id:               generateLeadId(),
+    id:               generateId('LEAD', caseId, 10),
     caseId,
     eventSource:      EVENT_SOURCE.AI,
     type,
@@ -336,7 +338,7 @@ export function createAILead({
  */
 export function createManualLead(form, caseId) {
   return {
-    id:               generateLeadId(),
+    id:               generateId('LEAD', caseId, 10),
     caseId:           form.caseId || caseId,
     eventSource:      EVENT_SOURCE.MANUAL,
     type:             form.type,
@@ -368,7 +370,7 @@ export function createManualLead(form, caseId) {
  */
 export function createNote(form, caseId) {
   return {
-    id:          generateNoteId(),
+    id:          generateId('NOTE', caseId, 10),
     caseId:      form.caseId || caseId,
     officerName: form.officerName,
     date:        form.date || _todayDate(),
