@@ -21,6 +21,8 @@ import AddEvidenceDialog from '@/pages/investigator/case/[id]/forms/AddEvidence'
 import AddSuspectDialog from '@/pages/investigator/case/[id]/forms/AddSuspect';
 import AddVictimDialog from '@/pages/investigator/case/[id]/forms/AddVictim';
 import AddWitnessDialog from '@/pages/investigator/case/[id]/forms/AddWitness';
+import { addEvidencesToCase, formatApiError } from "@/services/evidenceApi";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getAuthHeader = () => {
@@ -129,67 +131,67 @@ const CasePage = () => {
     // Direct add for manual events coming from CaseTimeline's modal (kept
     // local — manual timeline events aren't yet round-tripped through the
     // backend; that endpoint is a separate addition).
-  const handleAddTimelineEvent = useCallback(async (ev) => {
-    try {
-        const url = import.meta.env.VITE_API_URL;
-        // Strip frontend-only fields (id, createdAt, eventSource) — backend
-        // generates its own canonical row. Send only the form payload.
-        const body = {
-            eventType:        ev.eventType,
-            title:            ev.title,
-            description:      ev.description,
-            date:             ev.date,
-            time:             ev.time,
-            location:         ev.location || null,
-            officerName:      ev.officerName || null,
-            outcome:          ev.outcome || null,
-            severity:         ev.severity || "Normal",
-            attachmentNote:   ev.attachmentNote || null,
-            followUpRequired: !!ev.followUpRequired,
-            followUpDate:     ev.followUpDate || null,
-        };
- 
-        const res = await axios.post(
-            `${url}/api/investigator/cases/${caseId}/timeline`,
-            body,
-            { headers: getAuthHeader() },
-        );
- 
-        const created = res.data;
-        if (created?.id) {
-            setEvents(curr => [created, ...curr]);
+    const handleAddTimelineEvent = useCallback(async (ev) => {
+        try {
+            const url = import.meta.env.VITE_API_URL;
+            // Strip frontend-only fields (id, createdAt, eventSource) — backend
+            // generates its own canonical row. Send only the form payload.
+            const body = {
+                eventType: ev.eventType,
+                title: ev.title,
+                description: ev.description,
+                date: ev.date,
+                time: ev.time,
+                location: ev.location || null,
+                officerName: ev.officerName || null,
+                outcome: ev.outcome || null,
+                severity: ev.severity || "Normal",
+                attachmentNote: ev.attachmentNote || null,
+                followUpRequired: !!ev.followUpRequired,
+                followUpDate: ev.followUpDate || null,
+            };
+
+            const res = await axios.post(
+                `${url}/api/investigator/cases/${caseId}/timeline`,
+                body,
+                { headers: getAuthHeader() },
+            );
+
+            const created = res.data;
+            if (created?.id) {
+                setEvents(curr => [created, ...curr]);
+            }
+            setToast(`Timeline event added to ${caseId}`);
+            return created;
+        } catch (err) {
+            console.error('Add timeline failed:', err);
+            const detail = err?.response?.data?.detail || err.message || 'Failed to save event.';
+            setToast(`Save failed: ${detail}`);
+            // Rethrow so AddTimelineDialog stays open and shows its own error UI
+            throw err;
         }
-        setToast(`Timeline event added to ${caseId}`);
-        return created;
-    } catch (err) {
-        console.error('Add timeline failed:', err);
-        const detail = err?.response?.data?.detail || err.message || 'Failed to save event.';
-        setToast(`Save failed: ${detail}`);
-        // Rethrow so AddTimelineDialog stays open and shows its own error UI
-        throw err;
-    }
-}, [caseId]);
- 
-// ── Delete a manual timeline event ──────────────────────────────────────────
-// CaseTimeline awaits this and only closes its inline confirm on success.
-// On failure we show a toast and rethrow so CaseTimeline can keep the row
-// visible.
-const handleDeleteTimelineEvent = useCallback(async (id) => {
-    try {
-        const url = import.meta.env.VITE_API_URL;
-        await axios.delete(
-            `${url}/api/investigator/cases/${caseId}/timeline/${id}`,
-            { headers: getAuthHeader() },
-        );
-        setEvents(curr => curr.filter(e => e.id !== id));
-        setToast(`Timeline event ${id} deleted`);
-    } catch (err) {
-        console.error('Delete timeline failed:', err);
-        const detail = err?.response?.data?.detail || err.message || 'Failed to delete event.';
-        setToast(`Delete failed: ${detail}`);
-        throw err;
-    }
-}, [caseId]);
+    }, [caseId]);
+
+    // ── Delete a manual timeline event ──────────────────────────────────────────
+    // CaseTimeline awaits this and only closes its inline confirm on success.
+    // On failure we show a toast and rethrow so CaseTimeline can keep the row
+    // visible.
+    const handleDeleteTimelineEvent = useCallback(async (id) => {
+        try {
+            const url = import.meta.env.VITE_API_URL;
+            await axios.delete(
+                `${url}/api/investigator/cases/${caseId}/timeline/${id}`,
+                { headers: getAuthHeader() },
+            );
+            setEvents(curr => curr.filter(e => e.id !== id));
+            setToast(`Timeline event ${id} deleted`);
+        } catch (err) {
+            console.error('Delete timeline failed:', err);
+            const detail = err?.response?.data?.detail || err.message || 'Failed to delete event.';
+            setToast(`Delete failed: ${detail}`);
+            throw err;
+        }
+    }, [caseId]);
 
     // ── Generic POST helper ────────────────────────────────────────────────
     // Returns [createdIds, success]. On success, prepends the server's
@@ -235,14 +237,38 @@ const handleDeleteTimelineEvent = useCallback(async (id) => {
         );
     };
 
-    const handleAddEvidenceSubmit = (data) => {
+    const handleAddEvidenceSubmit = async (data) => {
         const list = data?.evidences || [];
-        if (!list.length) return;
-        submitAdd(
-            'evidences',
-            { evidences: list },
-            (ids) => `Added ${ids.length} evidence item${ids.length === 1 ? '' : 's'} to ${caseId}`,
-        );
+        if (!list.length) return { ok: false, error: "No evidence items to submit." };
+
+        try {
+            const result = await addEvidencesToCase(caseId, list);
+
+            // Prepend the new timeline events to local state — same pattern as
+            // submitAdd for suspects/victims, but inlined so we can also pass
+            // photo_failures back to the dialog.
+            if (result.timeline_events?.length) {
+                setEvents(curr => [...result.timeline_events, ...curr]);
+            }
+            setStats(curr => curr && ({
+                ...curr,
+                evidence_collected: curr.evidence_collected + (result.created_ids?.length || 0),
+            }));
+
+            const n = result.created_ids?.length || 0;
+            setToast(`Added ${n} evidence item${n === 1 ? "" : "s"} to ${caseId}`);
+
+            return {
+                ok: true,
+                created_ids: result.created_ids,
+                photo_failures: result.photo_failures,
+            };
+        } catch (err) {
+            console.error("Add evidence failed:", err);
+            const detail = formatApiError(err, "Failed to save evidence.");
+            setToast(`Save failed: ${detail}`);
+            return { ok: false, error: detail };
+        }
     };
 
     const handleAddVictimSubmit = (data) => {

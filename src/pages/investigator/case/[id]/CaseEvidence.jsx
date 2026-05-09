@@ -1,14 +1,22 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import {
     Search, ChevronDown, Calendar, X, ExternalLink, Pencil,
-    Loader2, AlertTriangle,
+    Loader2, AlertTriangle, Download, CheckCircle, Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 import AddEvidenceDialog from './forms/AddEvidence';
+import {
+    listEvidences,
+    updateEvidence,
+    uploadEvidencePhoto,
+    deleteEvidencePhoto,
+    rowToFormShape,
+    formatApiError,
+} from "@/services/evidenceApi";
+
 const PAGE_SIZE = 5;
 const STATUSES = [
     { value: 'CCTV', label: 'CCTV / Video Footage' },
@@ -26,8 +34,13 @@ const STATUSES = [
     { value: 'all', label: 'All Evidences' },
 ];
 
-// Build absolute URL for a photo. Photos saved by the backend come back as
-// "/uploads/..." paths; we prefix them with VITE_API_URL so the <img> resolves.
+const EVIDENCE_STATUSES = [
+    { value: 'Pending Analysis', label: 'Pending Analysis' },
+    { value: 'Analyzed', label: 'Analyzed' },
+];
+
+// Build absolute URL for a file. Paths saved by the backend come back as
+// "/uploads/..." paths; we prefix them with VITE_API_URL so the browser resolves them.
 const photoSrc = (rawUrl) => {
     if (!rawUrl) return '';
     if (rawUrl.startsWith('http')) return rawUrl;
@@ -35,45 +48,40 @@ const photoSrc = (rawUrl) => {
     return rawUrl;
 };
 
-const rowToFormShape = (row) => {
-    if (!row) return null;
-    return {
-        // React key for the EvidenceCard
-        id: row.id,
-        // Form fields
-        evidenceId: row.id,                 // map external ID → form's evidenceId
-        type: row.type || "",
-        dateCollected: row.date || "",         // ← the key fix: date → dateCollected
-        collectedBy: row.collectedBy || "",
-        description: row.description || "",
-        fileName: row.fileName || "",
-        status: row.status,
-        // Existing photos already on the row, in the form's shape.
-        // dataUrl is set to the public URL so <img src> still resolves.
-        photos: (row.photos || []).map((p) => ({
-            existingPhotoId: p.id,             // marks "already on server"
-            name: p.file_name || `photo-${p.id}`,
-            dataUrl: p.url,
-        })),
-    };
+// Derive file type category from MIME type or file name extension.
+const getFileCategory = (mime, fileName) => {
+    if (!mime && !fileName) return 'unknown';
+    const m = (mime || '').toLowerCase();
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+
+    if (m.startsWith('video/') || ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext)) return 'video';
+    if (m === 'application/pdf' || ext === 'pdf') return 'pdf';
+    if (
+        m.includes('word') || m.includes('document') ||
+        ['doc', 'docx', 'odt', 'rtf', 'txt'].includes(ext)
+    ) return 'document';
+    if (
+        ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext) ||
+        m.includes('zip') || m.includes('rar') || m.includes('compressed')
+    ) return 'archive';
+    if (m.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'image';
+    return 'other';
 };
 
-const formShapeToPatchBody = (formItem) => ({
-    type: formItem?.type,
-    description: formItem?.description,
-    dateCollected: formItem?.dateCollected,
-    collectedBy: formItem?.collectedBy,
-    status: formItem?.status,
-});
-
-const getAuthHeader = () => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+// Trigger a browser download for a URL.
+const triggerDownload = (url, fileName) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || 'download';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 };
 
 const CaseEvidence = () => {
     const { id: caseIdFromUrl } = useParams();
-    const caseId = caseIdFromUrl || 'C-2053';   // graceful fallback if mounted outside the dynamic route
+    const caseId = caseIdFromUrl || 'C-2053';
 
     // ── Filter inputs (live state) ────────────────────────────────────────
     const [searchName, setSearchName] = useState('');
@@ -106,7 +114,9 @@ const CaseEvidence = () => {
     const [updateTarget, setUpdateTarget] = useState(null);
     const [uploading, setUploading] = useState(false);
 
-    // ── Fetch ─────────────────────────────────────────────────────────────
+    // ── Status update state ───────────────────────────────────────────────
+    const [statusUpdating, setStatusUpdating] = useState(false);
+
     const fetchEvidences = useCallback(async () => {
         if (!caseId) return;
         setLoading(true);
@@ -114,29 +124,20 @@ const CaseEvidence = () => {
         const seq = ++requestSeq.current;
 
         try {
-            const url = import.meta.env.VITE_API_URL;
-            const res = await axios.get(
-                `${url}/api/investigator/cases/${caseId}/evidences`,
-                {
-                    headers: getAuthHeader(),
-                    params: {
-                        search: appliedFilters.name,
-                        date: appliedFilters.date,
-                        status: appliedFilters.status,
-                        page: currentPage,
-                        page_size: PAGE_SIZE,
-                    },
-                },
-            );
+            const data = await listEvidences(caseId, {
+                search: appliedFilters.name,
+                date: appliedFilters.date,
+                status: appliedFilters.status,
+                page: currentPage,
+                page_size: PAGE_SIZE,
+            });
             if (seq !== requestSeq.current) return;
-            setItems(res.data?.items || []);
-            setTotal(res.data?.total || 0);
+            setItems(data?.items || []);
+            setTotal(data?.total || 0);
         } catch (err) {
             if (seq !== requestSeq.current) return;
-            console.error('Failed to load evidences:', err);
-            setError(err?.response?.data?.detail || 'Could not load evidences.');
-            setItems([]);
-            setTotal(0);
+            console.error("Failed to load evidences:", err);
+            setError(formatApiError(err, "Could not load evidences."));
         } finally {
             if (seq === requestSeq.current) setLoading(false);
         }
@@ -188,126 +189,258 @@ const CaseEvidence = () => {
         };
     }, [dialogEvidence, closeDialog]);
 
-    // ── Photo upload (POST base-64 dataURL) ───────────────────────────────
+    // ── Status update handler ─────────────────────────────────────────────
+    const handleStatusChange = async (newStatus) => {
+        if (!dialogEvidence || statusUpdating) return;
+        setStatusUpdating(true);
+        try {
+            // We send a minimal PATCH payload — only the status field.
+            const { row } = await updateEvidence(caseId, dialogEvidence.id, {
+                status: newStatus,
+            });
+            const updated = row ?? { ...dialogEvidence, status: newStatus };
+            setDialogEvidence(updated);
+            setItems(curr => curr.map(it => (it.id === dialogEvidence.id ? updated : it)));
+        } catch (err) {
+            console.error("Status update failed:", err);
+            alert(`Status update failed: ${formatApiError(err)}`);
+        } finally {
+            setStatusUpdating(false);
+        }
+    };
+
+    // ── Photo upload ──────────────────────────────────────────────────────
     const handlePhotoUpload = async (file) => {
         if (!file || !dialogEvidence) return;
         setUploading(true);
-
         try {
-            // Convert to base64 dataURL the way the old code did
             const dataUrl = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
+                const r = new FileReader();
+                r.onloadend = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(file);
             });
 
-            const url = import.meta.env.VITE_API_URL;
-            const res = await axios.post(
-                `${url}/api/investigator/cases/${caseId}/evidences/${dialogEvidence.id}/photos`,
-                { dataUrl, fileName: file.name },
-                { headers: getAuthHeader() },
-            );
+            const result = await uploadEvidencePhoto(caseId, dialogEvidence.id, {
+                dataUrl,
+                fileName: file.name,
+            });
 
-            // Replace the dialog's photos with the server-returned full list
-            setDialogEvidence((prev) => prev && ({
-                ...prev,
-                photos: res.data?.photos || [],
-            }));
-
-            // Refresh the table row so its photo count matches
+            setDialogEvidence(prev => prev && ({ ...prev, photos: result?.photos || [] }));
             setItems(curr =>
                 curr.map(it =>
-                    it.id === dialogEvidence.id
-                        ? { ...it, photos: res.data?.photos || [] }
-                        : it,
+                    it.id === dialogEvidence.id ? { ...it, photos: result?.photos || [] } : it,
                 ),
             );
         } catch (err) {
-            console.error('Photo upload failed:', err);
-            alert(`Upload failed: ${err?.response?.data?.detail || err.message}`);
+            console.error("Photo upload failed:", err);
+            alert(`Upload failed: ${formatApiError(err)}`);
         } finally {
             setUploading(false);
         }
     };
 
-    // ── Photo delete (DELETE by photo_id) ────────────────────────────────
+    // ── Photo delete ──────────────────────────────────────────────────────
     const handlePhotoDelete = async (photo) => {
         if (!photo?.id || !dialogEvidence) return;
-        if (!confirm('Delete this photo?')) return;
+        if (!confirm("Delete this photo?")) return;
 
         try {
-            const url = import.meta.env.VITE_API_URL;
-            const res = await axios.delete(
-                `${url}/api/investigator/cases/${caseId}/evidences/${dialogEvidence.id}/photos/${photo.id}`,
-                { headers: getAuthHeader() },
-            );
-            setDialogEvidence((prev) => prev && ({
-                ...prev,
-                photos: res.data?.photos || [],
-            }));
+            const result = await deleteEvidencePhoto(caseId, dialogEvidence.id, photo.id);
+            setDialogEvidence(prev => prev && ({ ...prev, photos: result?.photos || [] }));
             setItems(curr =>
                 curr.map(it =>
-                    it.id === dialogEvidence.id
-                        ? { ...it, photos: res.data?.photos || [] }
-                        : it,
+                    it.id === dialogEvidence.id ? { ...it, photos: result?.photos || [] } : it,
                 ),
             );
         } catch (err) {
-            console.error('Photo delete failed:', err);
-            alert(`Delete failed: ${err?.response?.data?.detail || err.message}`);
+            console.error("Photo delete failed:", err);
+            alert(`Delete failed: ${formatApiError(err)}`);
         }
     };
 
     // ── Update dialog submit ──────────────────────────────────────────────
-
-    const handleUpdateSubmit = async (data) => {
+    // KEY FIX: We now also detect if the form has a NEW file attached (no
+    // existingFileId / existingFileName) and pass it through to updateEvidence
+    // so the API actually receives the new file upload.
+    const handleUpdateSubmit = async ({ caseId: cid, evidences, isUpdate, initialId }) => {
+        if (!isUpdate) {
+            return { ok: false, error: "CaseEvidence handles updates only." };
+        }
         const evid = updateTarget?.id;
-        const first = data?.evidences?.[0];
+        const first = evidences?.[0];
         if (!evid || !first) {
             setUpdateTarget(null);
-            return;
+            return { ok: false, error: "Missing evidence reference." };
         }
 
         try {
-            const url = import.meta.env.VITE_API_URL;
-
-            // 1. PATCH the row's editable fields.
-            const res = await axios.patch(
-                `${url}/api/investigator/cases/${caseId}/evidences/${evid}`,
-                formShapeToPatchBody(first),
-                { headers: getAuthHeader() },
+            // Detect deleted photos by comparing against the row we opened.
+            const originalPhotoIds = new Set(
+                (updateTarget.photos || []).map(p => p.id).filter(Boolean),
             );
+            const remainingExistingIds = new Set(
+                (first.photos || [])
+                    .map(p => p.existingPhotoId)
+                    .filter(Boolean),
+            );
+            const deletedIds = [...originalPhotoIds].filter(id => !remainingExistingIds.has(id));
 
-            // 2. Upload any NEW photos (photos without an existingPhotoId
-            //    were added during this editing session).
-            const newPhotos = (first.photos || []).filter((p) => !p.existingPhotoId);
-            let latest = res.data;
-            for (const ph of newPhotos) {
-                if (!ph.dataUrl || !ph.dataUrl.startsWith("data:")) continue;
+            for (const photoId of deletedIds) {
                 try {
-                    const photoRes = await axios.post(
-                        `${url}/api/investigator/cases/${caseId}/evidences/${evid}/photos`,
-                        { dataUrl: ph.dataUrl, fileName: ph.name },
-                        { headers: getAuthHeader() },
-                    );
-                    // Keep the latest photos list so we can patch the row in place.
-                    latest = { ...latest, photos: photoRes.data?.photos || latest.photos };
+                    await deleteEvidencePhoto(cid, evid, photoId);
                 } catch (err) {
-                    console.warn(`Photo upload failed (${ph.name}):`, err);
+                    console.warn(`Failed to delete photo ${photoId}:`, err);
                 }
             }
 
-            // 3. Patch the row in the table without a full refetch.
-            setItems((curr) =>
-                curr.map((it) => (it.id === evid ? latest : it)),
-            );
+            // IMPORTANT: Ensure the form payload includes any new file the user
+            // attached in the update dialog. `first` should already carry it if
+            // AddEvidenceDialog populates `file` / `fileDataUrl` on the evidence
+            // object. We spread it explicitly so nothing is silently dropped.
+            const payload = {
+                ...first,
+                // If there's a brand-new file (not an existing one), make sure
+                // it travels to updateEvidence. The API service reads these keys.
+                ...(first.fileDataUrl && !first.existingFileName
+                    ? { fileDataUrl: first.fileDataUrl, fileName: first.fileName, fileMime: first.fileMime }
+                    : {}),
+            };
+
+            const { row, photo_failures } = await updateEvidence(cid, evid, payload);
+
+            setItems(curr => curr.map(it => (it.id === evid ? row : it)));
+
+            // If the details dialog is open for the same item, refresh it too.
+            if (dialogEvidence?.id === evid) {
+                setDialogEvidence(row);
+            }
+
+            return { ok: true, row, photo_failures };
         } catch (err) {
             console.error("Update failed:", err);
-            alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+            return { ok: false, error: formatApiError(err, "Update failed.") };
         } finally {
-            setUpdateTarget(null);
+            setTimeout(() => setUpdateTarget(null), 0);
         }
+    };
+
+    // ── File action helpers ───────────────────────────────────────────────
+    const renderFileSection = (evidence) => {
+        if (!evidence.fileName) {
+            return <p className="text-sm text-slate-400 italic">No file attached yet.</p>;
+        }
+
+        const fileUrl = photoSrc(evidence.fileName);
+        const category = getFileCategory(evidence.fileMime, evidence.fileName);
+        const baseName = evidence.fileName.split('/').pop();
+
+        const DownloadBtn = ({ label = 'Download' }) => (
+            <button
+                onClick={() => triggerDownload(fileUrl, baseName)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-slate-700 text-white hover:bg-slate-800 transition-colors"
+            >
+                <Download className="h-3.5 w-3.5" />
+                {label}
+            </button>
+        );
+
+        const OpenBtn = ({ label = 'Open' }) => (
+            <button
+                onClick={() => window.open(fileUrl, '_blank')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            >
+                <ExternalLink className="h-3.5 w-3.5" />
+                {label}
+            </button>
+        );
+
+        // ── VIDEO ─────────────────────────────────────────────────────────
+        if (category === 'video') {
+            return (
+                <div className="rounded-xl border border-slate-200 overflow-hidden bg-black">
+                    <video
+                        src={fileUrl}
+                        controls
+                        className="w-full max-h-72 bg-black"
+                        aria-label={`Video file: ${baseName}`}
+                    />
+                    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+                        <p className="text-sm text-slate-600 truncate">{baseName}</p>
+                        <div className="flex gap-2">
+                            <OpenBtn label="Open in tab" />
+                            <DownloadBtn />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ── PDF ───────────────────────────────────────────────────────────
+        if (category === 'pdf') {
+            return (
+                <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                    <div className="h-52 bg-red-50 flex flex-col items-center justify-center gap-2">
+                        <span className="text-6xl" aria-hidden>📄</span>
+                        <p className="text-sm font-medium text-red-700">PDF Document</p>
+                        <p className="text-xs text-slate-500 truncate max-w-xs">{baseName}</p>
+                    </div>
+                    <div className="px-4 py-3 border-t border-slate-200 flex gap-2">
+                        <OpenBtn label="Open PDF" />
+                        <DownloadBtn />
+                    </div>
+                </div>
+            );
+        }
+
+        // ── DOCUMENT (doc, docx, txt, etc.) ───────────────────────────────
+        if (category === 'document') {
+            return (
+                <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                    <div className="h-52 bg-blue-50 flex flex-col items-center justify-center gap-2">
+                        <span className="text-6xl" aria-hidden>📝</span>
+                        <p className="text-sm font-medium text-blue-700">Document</p>
+                        <p className="text-xs text-slate-500 truncate max-w-xs">{baseName}</p>
+                    </div>
+                    <div className="px-4 py-3 border-t border-slate-200 flex gap-2">
+                        <OpenBtn label="Open in new tab" />
+                        <DownloadBtn />
+                    </div>
+                </div>
+            );
+        }
+
+        // ── ARCHIVE (zip, rar, 7z, etc.) ──────────────────────────────────
+        if (category === 'archive') {
+            return (
+                <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                    <div className="h-52 bg-amber-50 flex flex-col items-center justify-center gap-2">
+                        <span className="text-6xl" aria-hidden>🗜️</span>
+                        <p className="text-sm font-medium text-amber-700">Archive File</p>
+                        <p className="text-xs text-slate-500 truncate max-w-xs">{baseName}</p>
+                        <p className="text-xs text-slate-400">Cannot preview — download to extract</p>
+                    </div>
+                    <div className="px-4 py-3 border-t border-slate-200">
+                        <DownloadBtn label="Download Archive" />
+                    </div>
+                </div>
+            );
+        }
+
+        // ── FALLBACK / OTHER ──────────────────────────────────────────────
+        return (
+            <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                <div className="h-52 bg-slate-100 flex flex-col items-center justify-center gap-2">
+                    <span className="text-6xl" aria-hidden>📁</span>
+                    <p className="text-sm font-medium text-slate-600">Attachment</p>
+                    <p className="text-xs text-slate-500 truncate max-w-xs">{baseName}</p>
+                </div>
+                <div className="px-4 py-3 border-t border-slate-200 flex gap-2">
+                    <OpenBtn />
+                    <DownloadBtn />
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -390,6 +523,7 @@ const CaseEvidence = () => {
                                 <th scope="col" className="p-4 font-semibold uppercase text-[11px] tracking-wide">Date</th>
                                 <th scope="col" className="p-4 font-semibold uppercase text-[11px] tracking-wide">Description</th>
                                 <th scope="col" className="p-4 font-semibold uppercase text-[11px] tracking-wide">Collected By</th>
+                                <th scope="col" className="p-4 font-semibold uppercase text-[11px] tracking-wide">Status</th>
                                 <th className="p-4 font-semibold uppercase text-[11px] tracking-wide">Photos</th>
                                 <th scope="col" className="p-4 font-semibold uppercase text-[11px] tracking-wide text-center">Actions</th>
                             </tr>
@@ -397,14 +531,14 @@ const CaseEvidence = () => {
                         <tbody className="divide-y divide-slate-200">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="p-12 text-center text-slate-500">
+                                    <td colSpan={8} className="p-12 text-center text-slate-500">
                                         <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
                                         Loading evidences…
                                     </td>
                                 </tr>
                             ) : items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-slate-500">
+                                    <td colSpan={8} className="p-8 text-center text-slate-500">
                                         No evidence matches your search. Try different filters.
                                     </td>
                                 </tr>
@@ -416,6 +550,14 @@ const CaseEvidence = () => {
                                         <td className="p-4 text-slate-700">{e.date}</td>
                                         <td className="p-4 text-slate-700">{e.description || '—'}</td>
                                         <td className="p-4 text-slate-700">{e.collectedBy || '—'}</td>
+                                        <td className="p-4">
+                                            <Badge variant={e.status === 'Analyzed' ? 'success' : 'warning'}>
+                                                {e.status === 'Analyzed'
+                                                    ? <><CheckCircle className="h-3 w-3 inline mr-1" />Analyzed</>
+                                                    : <><Clock className="h-3 w-3 inline mr-1" />Pending</>
+                                                }
+                                            </Badge>
+                                        </td>
                                         <td className="p-4 text-center">
                                             {e.photos?.length > 0 ? (
                                                 <Badge variant="default">
@@ -437,7 +579,7 @@ const CaseEvidence = () => {
                                             </Button>
                                             <Button
                                                 variant='outline'
-                                                className={'px-4 py-2 '}
+                                                className={'px-4 py-2'}
                                                 onClick={() => setUpdateTarget(e)}
                                                 aria-label={`Update evidence ${e.id}`}
                                             >
@@ -483,6 +625,7 @@ const CaseEvidence = () => {
                         className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200"
                         onClick={(e) => e.stopPropagation()}
                     >
+                        {/* Sticky header */}
                         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
                             <h3 id="evidence-dialog-title" className="text-lg font-bold text-slate-800">
                                 Evidence Details – {dialogEvidence.type} ({dialogEvidence.id})
@@ -497,34 +640,66 @@ const CaseEvidence = () => {
                                 <X className="h-5 w-5" aria-hidden />
                             </button>
                         </div>
+
                         <div id="evidence-dialog-desc" className="p-6 space-y-6">
-                            <section>
+                            {/* Core details */}
+                            <section className="space-y-1.5">
                                 <p><span className="font-semibold">Evidence ID:</span> {dialogEvidence.id}</p>
                                 <p><span className="font-semibold">Type:</span> {dialogEvidence.type}</p>
                                 <p><span className="font-semibold">Collected By:</span> {dialogEvidence.collectedBy || '—'}</p>
                                 <p><span className="font-semibold">Date:</span> {dialogEvidence.date || '—'}</p>
-                                <p>
-                                    <span className="font-semibold">Status:</span>{' '}
-                                    <Badge variant={dialogEvidence.status === 'Analyzed' ? 'success' : 'warning'}>
-                                        {dialogEvidence.status}
-                                    </Badge>
-                                </p>
+
+                                {/* ── Status with inline update ── */}
+                                <div className="flex items-center gap-3 pt-1">
+                                    <span className="font-semibold">Status:</span>
+                                    <div className="flex items-center gap-2">
+                                        {EVIDENCE_STATUSES.map(({ value, label }) => {
+                                            const isActive = dialogEvidence.status === value;
+                                            const isAnalyzed = value === 'Analyzed';
+                                            return (
+                                                <button
+                                                    key={value}
+                                                    disabled={statusUpdating}
+                                                    onClick={() => !isActive && handleStatusChange(value)}
+                                                    className={[
+                                                        'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all',
+                                                        isActive
+                                                            ? isAnalyzed
+                                                                ? 'bg-emerald-100 text-emerald-700 border-emerald-300 cursor-default'
+                                                                : 'bg-amber-100 text-amber-700 border-amber-300 cursor-default'
+                                                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700 cursor-pointer',
+                                                        statusUpdating && !isActive ? 'opacity-50 pointer-events-none' : '',
+                                                    ].join(' ')}
+                                                    aria-pressed={isActive}
+                                                    aria-label={`Set status to ${label}`}
+                                                >
+                                                    {statusUpdating && isActive
+                                                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                                                        : isAnalyzed
+                                                            ? <CheckCircle className="h-3 w-3" />
+                                                            : <Clock className="h-3 w-3" />
+                                                    }
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </section>
 
+                            {/* Description */}
                             <section>
-                                <h4 className="font-semibold mt-4 mb-2">Description</h4>
+                                <h4 className="font-semibold mt-2 mb-2">Description</h4>
                                 <p className="text-slate-700">{dialogEvidence.description || '—'}</p>
                             </section>
 
+                            {/* Photographs */}
                             <section>
-                                <div className="flex justify-between items-center mt-6 mb-3">
-                                    <h4 className="font-semibold text-slate-800">
-                                        Evidence Photographs
-                                    </h4>
-
+                                <div className="flex justify-between items-center mt-2 mb-3">
+                                    <h4 className="font-semibold text-slate-800">Evidence Photographs</h4>
                                     <label className={`cursor-pointer text-sm text-blue-600 hover:underline ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                                         {uploading ? (
-                                            <><Loader2 className="h-3.5 w-3.5 inline animate-spin mr-1" /> Uploading…</>
+                                            <><Loader2 className="h-3.5 w-3.5 inline animate-spin mr-1" />Uploading…</>
                                         ) : (
                                             <>⬆ Upload Photo</>
                                         )}
@@ -547,7 +722,7 @@ const CaseEvidence = () => {
                                         {dialogEvidence.photos.map((photo, index) => (
                                             <div
                                                 key={photo.id ?? index}
-                                                className="relative group rounded-lg overflow-hidden border border-slate-200"
+                                                className="group rounded-lg overflow-hidden border border-slate-200"
                                             >
                                                 <img
                                                     src={photoSrc(photo.url)}
@@ -559,13 +734,22 @@ const CaseEvidence = () => {
                                                         setPosition({ x: 0, y: 0 });
                                                     }}
                                                 />
-                                                <button
-                                                    onClick={() => handlePhotoDelete(photo)}
-                                                    className="absolute top-2 cursor-pointer right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
-                                                    aria-label="Delete photo"
-                                                >
-                                                    🗑
-                                                </button>
+                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                                    <button
+                                                        onClick={() => triggerDownload(photoSrc(photo.url), `photo-${index + 1}`)}
+                                                        className="bg-black/60 text-white text-xs px-2 py-1 rounded"
+                                                        aria-label="Download photo"
+                                                    >
+                                                        <Download className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handlePhotoDelete(photo)}
+                                                        className="bg-black/60 text-white text-xs px-2 py-1 rounded"
+                                                        aria-label="Delete photo"
+                                                    >
+                                                        🗑
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -573,7 +757,15 @@ const CaseEvidence = () => {
                                     <p className="text-sm text-slate-400 italic">No photos attached yet.</p>
                                 )}
                             </section>
+
+                            {/* Attached file — smart rendering by type */}
+                            <section>
+                                <h4 className="font-semibold mt-2 mb-3 text-slate-800">Attached File</h4>
+                                {renderFileSection(dialogEvidence)}
+                            </section>
                         </div>
+
+                        {/* Sticky footer */}
                         <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end">
                             <Button onClick={closeDialog} className={'px-4 py-2'}>
                                 Close
@@ -601,10 +793,15 @@ const CaseEvidence = () => {
                                 className="text-white bg-cool-silver px-2 py-1 hover:bg-cool-silver/80"
                                 onClick={() => setZoom((z) => Math.max(z - 0.2, 1))}>➖</Button>
                             <Button size="sm" variant="outline"
-                                className=" bg-cool-silver px-2 py-1 hover:bg-cool-silver/80"
+                                className="bg-cool-silver px-2 py-1 hover:bg-cool-silver/80"
                                 onClick={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}>Reset</Button>
                             <Button size="sm" variant="outline"
-                                className=" bg-cool-silver px-2 py-1 hover:bg-cool-silver/80"
+                                className="bg-cool-silver px-2 py-1 hover:bg-cool-silver/80"
+                                onClick={() => triggerDownload(selectedImage, 'evidence-photo')}>
+                                <Download className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="outline"
+                                className="bg-cool-silver px-2 py-1 hover:bg-cool-silver/80"
                                 onClick={() => setSelectedImage(null)}>Close</Button>
                         </div>
 
@@ -645,7 +842,7 @@ const CaseEvidence = () => {
                 </div>
             )}
 
-            {/* Update dialog (reuses AddEvidenceDialog with initialData) */}
+            {/* Update dialog */}
             <AddEvidenceDialog
                 isOpen={!!updateTarget}
                 onClose={() => setUpdateTarget(null)}

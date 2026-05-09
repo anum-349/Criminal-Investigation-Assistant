@@ -1,3 +1,30 @@
+/**
+ * src/pages/form/case-forms/step-evidence/page.jsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Evidence step — used in three surfaces:
+ *
+ *   1. RegisterCasePage wizard step 7
+ *   2. AddEvidenceDialog (case detail "Add Evidence")
+ *   3. AddEvidenceDialog (case detail "Update Evidence", initialData given)
+ *
+ * This component is purely a CONTROLLED form. It never calls the API itself.
+ * Submission flows through services/evidenceApi.js — that keeps register-case
+ * (which posts the case first, then the evidences), add-mode (POST to existing
+ * case), and update-mode (PATCH + photo POST/DELETE) on the same code path.
+ *
+ * Photo state shape
+ * ─────────────────
+ * Each photo is one of:
+ *   • New (just added in this session):
+ *       { name, dataUrl: "data:image/...;base64,..." }
+ *   • Existing (loaded from server in update mode):
+ *       { existingPhotoId, name, dataUrl: "https://...uploads/..." }
+ *
+ * The `existingPhotoId` flag is what evidenceApi uses to decide whether to
+ * skip a photo (already saved) or POST it (net-new). Don't drop that flag
+ * when round-tripping through this component.
+ */
+
 import { Camera, Upload, Plus, Trash2, Pencil, Check, Hash, ImageIcon, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { SectionHeading, SelectField, TextField, TextareaField, FieldLabel } from "@/pages/form/case-forms/CaseFormFields/page";
@@ -12,13 +39,14 @@ const generateEvidenceId = () => {
 
 export const createDefaultEvidence = () => ({
   ...defaultEvidence(),
-  evidenceId: generateEvidenceId(),
-  type: EVIDENCE_TYPES[0]?.value || "Physical",
+  id:            Date.now() + Math.random(),    // React key (numeric, never sent)
+  evidenceId:    "auto generate",           // display ID (sent to backend)
+  type:          EVIDENCE_TYPES[0] || "Physical Object",
   dateCollected: new Date().toISOString().split("T")[0],
-  collectedBy: "Investigating Officer",
-  description: "",
-  fileName: "",
-  photos: [],
+  collectedBy:   "", // could default to logged-in user if auth is implemented
+  description:   "",
+  fileName:      "",
+  photos:        [],
 });
 
 // ── EvidenceCard ───────────────────────────────────────────────────────────
@@ -106,7 +134,8 @@ function EvidenceCard({ ev, idx, isEditing, onToggleEdit, onRemove, onUpdate, on
               </div>
             </div>
 
-            {/* Type */}
+            {/* Type — uses string-array EVIDENCE_TYPES from constants. SelectField
+                 accepts either string[] or {value,label}[], so we pass strings. */}
             <SelectField label="Type" options={EVIDENCE_TYPES} value={ev.type}
               onChange={e => onUpdate("type", e.target.value)} />
 
@@ -132,7 +161,13 @@ function EvidenceCard({ ev, idx, isEditing, onToggleEdit, onRemove, onUpdate, on
               <FieldLabel>Attach File</FieldLabel>
               <input ref={fileRef} type="file" className="hidden"
                 accept="image/*,.pdf,.mp4,.avi,.mov"
-                onChange={e => { const f = e.target.files[0]; if (f) onUpdate("fileName", f.name); }} />
+                onChange={e => {
+                  const f = e.target.files[0];
+                  if (f) {
+                    onUpdate("fileName", f.name);
+                    onUpdate("fileMime", f.type || "");
+                  }
+                }} />
               <button type="button" onClick={() => fileRef.current?.click()}
                 className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
                 <Upload className="h-4 w-4 shrink-0" />
@@ -159,12 +194,20 @@ function EvidenceCard({ ev, idx, isEditing, onToggleEdit, onRemove, onUpdate, on
             </div>
           </div>
 
-          {/* Photo thumbnails */}
+          {/* Photo thumbnails. The X button only flags the photo as removed
+              from local state — for already-saved photos in update-mode the
+              caller must call deleteEvidencePhoto() separately to actually
+              delete them on the server. AddEvidenceDialog handles that. */}
           {ev.photos?.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {ev.photos.map((ph, pi) => (
                 <div key={pi} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
                   <img src={ph.dataUrl} alt={ph.name} className="w-full h-full object-cover" />
+                  {ph.existingPhotoId && (
+                    <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
+                      saved
+                    </span>
+                  )}
                   <button type="button" onClick={() => onPhotoRemove(pi)}
                     className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
                     <X className="h-4 w-4 text-white" />
@@ -179,7 +222,7 @@ function EvidenceCard({ ev, idx, isEditing, onToggleEdit, onRemove, onUpdate, on
   );
 }
 
-// ── StepEvidence (used in register-case wizard) ────────────────────────────
+// ── StepEvidence (used in register-case wizard + AddEvidenceDialog) ────────
 export function StepEvidence({ data = {}, setData }) {
   const evidences = data.evidences || [];
   const [editingIds, setEditingIds] = useState(new Set());
