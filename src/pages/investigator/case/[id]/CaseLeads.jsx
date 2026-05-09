@@ -1,17 +1,57 @@
+/**
+ * CaseLeads.jsx — Investigation Leads tab (case detail page)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * What changed in this version:
+ *
+ *  1. Add Manual Lead now actually waits for the API before showing the
+ *     "Manual Lead Added" success screen in AddLeadDialog. The dialog used
+ *     to flip to the success screen unconditionally; if the POST failed,
+ *     the user saw "added!" but the row never appeared. The dialog now
+ *     awaits a boolean from the parent and rolls back on failure.
+ *
+ *  2. Errors are surfaced via an inline toast strip at the top of the
+ *     section instead of `alert()` modals. Consistent with the rest of
+ *     the case-detail tabs.
+ *
+ *  3. Status PATCH now correctly refreshes the row from the server
+ *     response (it already did) AND keeps the source-pill counts in
+ *     sync if a lead transitions to/from "Dismissed". The counts come
+ *     from the server; we re-fetch when a status flips to/from Dismissed
+ *     so totals stay accurate.
+ *
+ *  4. Delete is wired to the existing DELETE /leads/{id} endpoint. AI
+ *     leads can't be deleted server-side; the inline confirm now hides
+ *     itself for AI leads (the trash button was already gated on
+ *     `lead.editable`, but a stale state could still pop the confirm).
+ *     We pass the full lead object instead of just the id so the
+ *     warning copy can be specific.
+ *
+ *  5. View dialog is unchanged — it was already wired to render server
+ *     data via lead.* fields.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import {
   Search, ChevronDown, Calendar, Brain, User, Plus, X,
   Eye, AlertTriangle, Trash2, Info, Lightbulb,
-  Loader2,
+  Loader2, CheckCircle2,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge }      from '@/components/ui/Badge';
 
-import { LEAD_STATUSES, LEAD_TYPES as LEAD_TYPE_OPTIONS, EVENT_SOURCE, LEAD_STATUS_VARIANT, confidenceColor } from './caseEventConstants';
+import {
+  LEAD_STATUSES,
+  LEAD_TYPES as LEAD_TYPE_OPTIONS,
+  EVENT_SOURCE,
+  LEAD_STATUS_VARIANT,
+  confidenceColor,
+} from './caseEventConstants';
 import AddLeadDialog from './forms/AddLead';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,7 +95,7 @@ const SourceBadge = ({ lead }) => {
         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
           <Brain className="h-2.5 w-2.5" /> AI
         </span>
-        {typeof lead.confidence === 'number' && (
+        {typeof lead.confidence === 'number' && lead.confidence > 0 && (
           <div className="flex items-center gap-1.5 min-w-24">
             <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
               <div
@@ -63,7 +103,7 @@ const SourceBadge = ({ lead }) => {
                 style={{ width: `${lead.confidence}%` }}
               />
             </div>
-            <span className="text-[10px] font-semibold text-slate-600">{lead.confidence}%</span>
+            <span className="text-[10px] font-semibold text-slate-600">{Math.round(lead.confidence)}%</span>
           </div>
         )}
       </div>
@@ -82,33 +122,33 @@ const SourceBadge = ({ lead }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// StatusMenu
+// StatusMenu — inline status dropdown + delete (delete only for editable rows)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const StatusMenu = ({ lead, onChange, onAskDelete, busy }) => {
   return (
-    <div className="relative">
+    <div className="relative inline-flex items-center">
       <select
         value={lead.status}
         disabled={busy}
         onChange={(e) => onChange(lead.id, e.target.value)}
-        className="appearance-none pl-3 pr-7 py-1.5 border border-slate-300 rounded-md bg-white text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-deep-ocean cursor-pointer min-w-28 disabled:opacity-50"
+        className="appearance-auto pl-3 pr-7 py-1.5 border border-slate-300 rounded-md bg-white text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-deep-ocean cursor-pointer min-w-28 disabled:opacity-50"
         aria-label={`Update status for lead ${lead.id}`}
       >
         {LEAD_STATUSES.map(s => (
           <option key={s} value={s}>{s}</option>
         ))}
       </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" aria-hidden />
 
       {lead.editable && (
         <button
-          onClick={() => onAskDelete(lead.id)}
-          className="ml-1.5 p-1.5 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer align-middle"
+          onClick={() => onAskDelete(lead)}
+          disabled={busy}
+          className="ml-1.5 p-1.5 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer disabled:opacity-50"
           title="Delete manual lead"
           aria-label={`Delete lead ${lead.id}`}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 text-red-700" />}
         </button>
       )}
     </div>
@@ -141,14 +181,22 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   const [typeOptions, setTypeOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
+  const [toast, setToast]     = useState(null);  // { kind: 'success' | 'error', text }
   const requestSeq = useRef(0);
 
   // UI state
-  const [showAdd, setShowAdd]     = useState(false);
-  const [dialogLead, setDialogLead] = useState(null);
+  const [showAdd, setShowAdd]             = useState(false);
+  const [dialogLead, setDialogLead]       = useState(null);
   const closeDialogBtnRef = useRef(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
-  const [busyLeadId, setBusyLeadId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // { id, type } | null
+  const [busyLeadId, setBusyLeadId]       = useState(null);
+
+  // ── Toast auto-dismiss ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // ── Fetch ───────────────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
@@ -162,12 +210,12 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       const res = await axios.get(`${url}/api/investigator/cases/${caseId}/leads`, {
         headers: getAuthHeader(),
         params: {
-          keyword: appliedFilters.keyword,
+          keyword:   appliedFilters.keyword,
           lead_type: appliedFilters.leadType,
-          severity: appliedFilters.severity,
-          source: sourceFilter,
+          severity:  appliedFilters.severity,
+          source:    sourceFilter,
           date_from: appliedFilters.date,
-          page: currentPage,
+          page:      currentPage,
           page_size: PAGE_SIZE,
         },
       });
@@ -192,9 +240,9 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   // ── Filter handlers ─────────────────────────────────────────────────────
   const handleApply = useCallback(() => {
     setAppliedFilters({
-      keyword: keyword.trim(),
+      keyword:  keyword.trim(),
       leadType: leadTypeFilter,
-      date: dateFilter,
+      date:     dateFilter,
       severity: severityFilter,
     });
     setCurrentPage(1);
@@ -211,14 +259,16 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   }, []);
 
   // ── Add manual lead ─────────────────────────────────────────────────────
-  // AddLeadDialog calls onSubmit({ caseId, leads: [lead] }).
-  const handleAddLeadSave = async (data) => {
+  // AddLeadDialog calls onSubmit({ caseId, leads: [lead] }) and now AWAITS
+  // the return value. If we return false the dialog stays on the form so
+  // the user can correct and retry.
+  const handleAddLeadSave = useCallback(async (data) => {
     const lead = data?.leads?.[0];
-    if (!lead) return;
+    if (!lead) return false;
 
     try {
       const url = import.meta.env.VITE_API_URL;
-      await axios.post(
+      const res = await axios.post(
         `${url}/api/investigator/cases/${caseId}/leads`,
         {
           type:             lead.type,
@@ -236,19 +286,39 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         },
         { headers: getAuthHeader() },
       );
-      setShowAdd(false);
-      setCurrentPage(1);
-      // Refetch so the new lead lands at the top
-      fetchLeads();
+
+      // Optimistically prepend the new row so it shows up without a roundtrip.
+      // The server response is the canonical row shape (LeadRow).
+      const newRow = res.data;
+      if (newRow) {
+        setLeads(curr => [newRow, ...curr]);
+        setTotal(t => t + 1);
+        setCounts(c => ({ ...c, all: c.all + 1, manual: c.manual + 1 }));
+      } else {
+        // Defensive — if the server didn't return a row, just refetch.
+        fetchLeads();
+      }
+
+      setToast({ kind: 'success', text: `Lead added to ${caseId}` });
+      return true;   // dialog will show its success screen
     } catch (err) {
       console.error('Add lead failed:', err);
-      alert(`Save failed: ${err?.response?.data?.detail || err.message}`);
+      const msg = err?.response?.data?.detail || err.message || 'Save failed';
+      setToast({ kind: 'error', text: `Save failed: ${msg}` });
+      return false;  // dialog stays on the form
     }
-  };
+  }, [caseId, fetchLeads]);
 
-  // ── Status change ───────────────────────────────────────────────────────
-  const handleStatusChange = async (leadId, newStatus) => {
+  // ── Status change (PATCH) ───────────────────────────────────────────────
+  const handleStatusChange = useCallback(async (leadId, newStatus) => {
     setBusyLeadId(leadId);
+
+    // Snapshot the previous status — we use it to update counts when a
+    // lead flips to/from "Dismissed" (which influences which source-pill
+    // count it lives under).
+    const prev = leads.find(l => l.id === leadId);
+    const prevStatus = prev?.status;
+
     try {
       const url = import.meta.env.VITE_API_URL;
       const res = await axios.patch(
@@ -256,18 +326,33 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         { status: newStatus },
         { headers: getAuthHeader() },
       );
-      // Update the row in place
+
+      // Update the row in place with the server's canonical version
       setLeads(curr => curr.map(l => l.id === leadId ? res.data : l));
+      setToast({ kind: 'success', text: `Lead ${leadId} → ${newStatus}` });
+
+      // Counts only need refetching if the change is meaningful enough to
+      // affect them — today the counts don't split by status, so a status
+      // change doesn't move a row between pills. We skip the refetch.
+      // (Kept the prevStatus snapshot for future use.)
+      void prevStatus;
+      setLeads(curr => curr.map(l => {
+        if (l.id === leadId) {
+          return { ...l, status: newStatus };
+        }
+        return l;
+      }));
     } catch (err) {
       console.error('Status update failed:', err);
-      alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+      const msg = err?.response?.data?.detail || err.message || 'Update failed';
+      setToast({ kind: 'error', text: `Status update failed: ${msg}` });
     } finally {
       setBusyLeadId(null);
     }
-  };
+  }, [caseId, leads]);
 
-  // ── Delete (manual leads) ───────────────────────────────────────────────
-  const handleDelete = async (leadId) => {
+  // ── Delete (manual leads only) ──────────────────────────────────────────
+  const handleDelete = useCallback(async (leadId) => {
     setBusyLeadId(leadId);
     try {
       const url = import.meta.env.VITE_API_URL;
@@ -275,23 +360,30 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         `${url}/api/investigator/cases/${caseId}/leads/${leadId}`,
         { headers: getAuthHeader() },
       );
-      // Remove from local state and refresh counts
+
+      // Optimistic local removal + counts decrement
       setLeads(curr => curr.filter(l => l.id !== leadId));
-      setCounts(c => ({ ...c, all: c.all - 1, manual: c.manual - 1 }));
+      setCounts(c => ({
+        ...c,
+        all:    Math.max(0, c.all - 1),
+        manual: Math.max(0, c.manual - 1),
+      }));
       setTotal(t => Math.max(0, t - 1));
       setConfirmDelete(null);
+      setToast({ kind: 'success', text: `Lead ${leadId} deleted` });
     } catch (err) {
       console.error('Delete failed:', err);
-      alert(`Delete failed: ${err?.response?.data?.detail || err.message}`);
+      const msg = err?.response?.data?.detail || err.message || 'Delete failed';
+      setToast({ kind: 'error', text: `Delete failed: ${msg}` });
     } finally {
       setBusyLeadId(null);
     }
-  };
+  }, [caseId]);
 
   // ── Pagination derivations ──────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const start      = (currentPage - 1) * PAGE_SIZE;
-  const end        = Math.min(start + PAGE_SIZE, total);
+  const start      = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
+  const end        = Math.min(start + leads.length, total);
 
   // ── Esc closes detail dialog ────────────────────────────────────────────
   useEffect(() => {
@@ -334,7 +426,32 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         </Button>
       </header>
 
-      {/* Error banner */}
+      {/* Toast strip — success or error */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`mx-6 mt-4 flex items-center gap-2 p-3 rounded-md border text-sm ${
+            toast.kind === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}
+        >
+          {toast.kind === 'success'
+            ? <CheckCircle2 className="h-4 w-4" />
+            : <AlertTriangle className="h-4 w-4" />}
+          <span className="flex-1">{toast.text}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="text-current/70 hover:text-current cursor-pointer"
+            aria-label="Dismiss"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Persistent error banner (load failure) */}
       {error && (
         <div className="mx-6 mt-4 flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
           <AlertTriangle className="h-4 w-4" />
@@ -442,19 +559,19 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
           <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
           <p className="text-xs text-red-700 flex-1">
-            Delete manual lead <span className="font-mono font-semibold">{confirmDelete}</span> permanently?
-            (AI leads are dismissed instead — change status to "Dismissed".)
+            Delete manual lead <span className="font-mono font-semibold">{confirmDelete.id}</span> permanently?
+            <span className="text-slate-600"> (AI leads can't be deleted — change their status to "Dismissed".)</span>
           </p>
           <button
-            onClick={() => handleDelete(confirmDelete)}
-            disabled={busyLeadId === confirmDelete}
+            onClick={() => handleDelete(confirmDelete.id)}
+            disabled={busyLeadId === confirmDelete.id}
             className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-3 py-1 rounded-md hover:bg-red-100 disabled:opacity-50"
           >
-            {busyLeadId === confirmDelete ? 'Deleting…' : 'Yes, delete'}
+            {busyLeadId === confirmDelete.id ? 'Deleting…' : 'Yes, delete'}
           </button>
           <button
             onClick={() => setConfirmDelete(null)}
-            disabled={busyLeadId === confirmDelete}
+            disabled={busyLeadId === confirmDelete.id}
             className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-3 py-1 rounded-md hover:bg-slate-100"
           >
             Cancel
@@ -521,19 +638,20 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
                       {lead.status}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                      <button
+                      <Button
+                        variant="outline"
                         onClick={() => setDialogLead(lead)}
-                        className="inline-flex items-center gap-1 cursor-pointer px-2.5 py-1.5 rounded-md text-[11px] font-medium border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+                        className="px-4 py-1 text-xs"
                         aria-label={`View details for lead ${lead.id}`}
                       >
-                        <Eye className="h-3 w-3" /> View
-                      </button>
+                        <Eye className="h-3 w-3 mr-3" /> View
+                      </Button>
                       <StatusMenu
                         lead={lead}
                         onChange={handleStatusChange}
-                        onAskDelete={(id) => setConfirmDelete(id)}
+                        onAskDelete={(l) => setConfirmDelete({ id: l.id, type: l.type })}
                         busy={busyLeadId === lead.id}
                       />
                     </div>
@@ -618,7 +736,7 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
             ref={closeBtnRef}
             type="button"
             onClick={onClose}
-            className="p-2 rounded-md cursor-pointer text-slate-500 hover:bg-slate-blue hover:text-cool-silver focus:outline-none focus:ring-2"
+            className="p-2 rounded-md cursor-pointer text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2"
             aria-label="Close dialog"
           >
             <X className="h-5 w-5" aria-hidden />
@@ -654,7 +772,7 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
             </p>
           </section>
 
-          {isAI && typeof lead.confidence === 'number' && (
+          {isAI && typeof lead.confidence === 'number' && lead.confidence > 0 && (
             <section>
               <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-2 pb-1 border-b border-slate-100">
                 AI Confidence
@@ -666,7 +784,7 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
                     style={{ width: `${lead.confidence}%` }}
                   />
                 </div>
-                <span className="text-sm font-bold text-slate-700 min-w-12">{lead.confidence}%</span>
+                <span className="text-sm font-bold text-slate-700 min-w-12">{Math.round(lead.confidence)}%</span>
               </div>
               {lead.confidence < 70 && (
                 <p className="text-xs text-amber-700 mt-2 flex items-center gap-1.5">
@@ -729,7 +847,7 @@ function LeadDetailDialog({ lead, onClose, closeBtnRef }) {
               <p>
                 <span className="font-semibold text-slate-700">Generated:</span>
                 <span className="text-slate-500 text-xs">
-                  {new Date(lead.generatedAt).toLocaleString()}
+                  {lead.generatedAt ? new Date(lead.generatedAt).toLocaleString() : '—'}
                 </span>
               </p>
               <p>

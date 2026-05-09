@@ -1,9 +1,32 @@
+/**
+ * AddLeadDialog — modal for creating (or, when initialData is given,
+ * updating) a manual lead.
+ *
+ * Important contract change in this version
+ * ─────────────────────────────────────────
+ * `onSubmit({ caseId, leads: [lead] })` is now AWAITED and the dialog
+ * checks the resolved value:
+ *   • truthy  → dialog flips to its "Manual Lead Added" success screen.
+ *   • falsy   → dialog stays on the form and shows an inline error so the
+ *              investigator can fix and retry without losing their input.
+ *
+ * The previous version called `onSubmit?.(...)` synchronously and
+ * unconditionally rendered the success screen, which meant a failed
+ * POST still looked successful to the user.
+ *
+ * Place at: src/pages/investigator/case/[id]/forms/AddLead.jsx
+ */
+
 import { useState, useRef, useEffect } from "react";
 import {
-  Brain, Save, X, AlertCircle, AlertTriangle,
+  Brain, Save, X, AlertCircle, AlertTriangle, Loader2,
 } from "lucide-react";
 
-import { LEAD_TYPES, EVENT_SOURCE } from '../caseEventConstants';
+import {
+  LEAD_TYPES,
+  EVENT_SOURCE,
+  generateId,    // <-- proper import; was implicit before
+} from '../caseEventConstants';
 
 const SOURCES = [
   "Manual Entry",
@@ -31,34 +54,30 @@ const emptyForm = () => ({
   confidence: "50",
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Build a manual-lead object on submit
-// ─────────────────────────────────────────────────────────────────────────────
-// Kept local because this modal is the only producer. If you'd rather centralise
-// it in caseEventConstants, you can replace the body with:
-//   return createManualLead({ ...form, ... }, caseId);
-
+// Build a manual-lead object on submit. Same shape as before — the parent
+// translates this into the POST body for /leads.
 const buildLead = (form, caseId, initialId) => ({
-  id: initialId || generateLeadId(),
+  id: initialId || generateId("LEAD",caseId, "10"),
   caseId,
   eventSource: EVENT_SOURCE.MANUAL,
   type: form.type,
   severity: form.severity,
   description: form.description,
   suggestedSuspect: form.suggestedSuspect || null,
-  suspectBasis: form.suspectBasis || "",
-  similarCaseId: form.similarCaseId || "",
-  weaponPattern: form.weaponPattern || "",
-  locationArea: form.locationArea || "",
-  nextStep: form.nextStep,
-  source: form.source || "Manual Entry",
-  confidence: Number(form.confidence) || null,
-  status: "New",
-  editable: true,
-  dismissable: true,
-  generatedAt: new Date().toISOString(),
+  suspectBasis:     form.suspectBasis || "",
+  similarCaseId:    form.similarCaseId || "",
+  weaponPattern:    form.weaponPattern || "",
+  locationArea:     form.locationArea || "",
+  nextStep:         form.nextStep,
+  source:           form.source || "Manual Entry",
+  confidence:       Number(form.confidence) || null,
+  status:           "New",
+  editable:         true,
+  dismissable:      true,
+  generatedAt:      new Date().toISOString(),
 });
 
+// ─── Field primitives ──────────────────────────────────────────────────────
 
 const FieldLabel = ({ label, required, error, hint, className = "", children }) => (
   <label className={`block ${className}`}>
@@ -118,6 +137,8 @@ const Textarea = ({ error, rows = 3, className = "", ...props }) => (
   />
 );
 
+// ─── Component ─────────────────────────────────────────────────────────────
+
 export default function AddLeadDialog({
   isOpen,
   onClose,
@@ -131,6 +152,7 @@ export default function AddLeadDialog({
   const [errors, setErrors]     = useState({});
   const [saving, setSaving]     = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const isUpdate = !!initialData;
 
@@ -142,8 +164,17 @@ export default function AddLeadDialog({
         type:             initialData.type             || "",
         severity:         initialData.severity         || "",
         description:      initialData.description      || "",
-        suggestedSuspect: initialData.suggestedSuspect || "",
-        suspectBasis:     initialData.suspectBasis     || "",
+        suggestedSuspect:
+          // initialData.suggestedSuspect can be either a string (legacy) or
+          // a {name, suspectId, basis} object (server response). Normalize
+          // to a string for the form input.
+          (typeof initialData.suggestedSuspect === "object" && initialData.suggestedSuspect)
+            ? (initialData.suggestedSuspect.suspectId || initialData.suggestedSuspect.name || "")
+            : (initialData.suggestedSuspect || ""),
+        suspectBasis:
+          (typeof initialData.suggestedSuspect === "object" && initialData.suggestedSuspect?.basis)
+            ? initialData.suggestedSuspect.basis
+            : (initialData.suspectBasis || ""),
         similarCaseId:    initialData.similarCaseId    || "",
         weaponPattern:    initialData.weaponPattern    || "",
         locationArea:     initialData.locationArea     || "",
@@ -157,6 +188,7 @@ export default function AddLeadDialog({
     setErrors({});
     setSaving(false);
     setSubmitted(false);
+    setSubmitError(null);
   }, [isOpen, initialData]);
 
   // Focus the close button on open
@@ -178,6 +210,7 @@ export default function AddLeadDialog({
   const setField = (k) => (e) => {
     setForm(f => ({ ...f, [k]: e.target.value }));
     setErrors(er => ({ ...er, [k]: "" }));
+    if (submitError) setSubmitError(null);
   };
 
   const validate = () => {
@@ -195,21 +228,39 @@ export default function AddLeadDialog({
     setForm(emptyForm());
     setErrors({});
     setSubmitted(false);
+    setSubmitError(null);
     onClose?.();
   };
 
+  // Now AWAITS the parent and inspects the return value.
+  // - true  → flip to success screen.
+  // - false → stay on the form and show submitError.
+  // - undefined (legacy parent) → assume success to keep backward compat.
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
     setSaving(true);
-    // Tiny delay so the spinner is visible — kept consistent with other dialogs
-    await new Promise((r) => setTimeout(r, 500));
-    setSaving(false);
+    setSubmitError(null);
 
-    const lead = buildLead(form, caseId, initialData?.id);
-    onSubmit?.({ caseId, leads: [lead] });
-    setSubmitted(true);
+    try {
+      const lead = buildLead(form, caseId, initialData?.id);
+      const result = await onSubmit?.({ caseId, leads: [lead] });
+
+      // If the parent returns false explicitly, we treat it as a failure.
+      // Anything else (true, undefined, the response object) → success.
+      if (result === false) {
+        setSubmitError("Save failed. Please try again or check the toast for details.");
+        return;
+      }
+      setSubmitted(true);
+    } catch (err) {
+      // Defensive — parent shouldn't throw, but if it does, surface it.
+      console.error("AddLead submit error:", err);
+      setSubmitError(err?.message || "Save failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const confidenceNum = Number(form.confidence);
@@ -251,7 +302,8 @@ export default function AddLeadDialog({
             ref={closeButtonRef}
             type="button"
             onClick={handleClose}
-            className="p-2 rounded-md text-white/70 hover:text-white hover:bg-white/10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white transition-colors"
+            disabled={saving}
+            className="p-2 rounded-md text-white/70 hover:text-white hover:bg-white/10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white transition-colors disabled:opacity-50"
             aria-label="Close dialog"
           >
             <X className="h-5 w-5" aria-hidden />
@@ -269,14 +321,18 @@ export default function AddLeadDialog({
             </h3>
             <p className="text-slate-500 text-sm">
               {isUpdate
-                ? `Lead ${initialData?.id} has been updated successfully.`
+                ? <>Lead {initialData?.id} has been updated successfully.</>
                 : <>Linked to case <span className="font-semibold text-slate-700">{caseId}</span>.</>}
             </p>
             <div className="flex gap-3 justify-center pt-1">
               {!isUpdate && (
                 <button
                   type="button"
-                  onClick={() => { setForm(emptyForm()); setSubmitted(false); }}
+                  onClick={() => {
+                    setForm(emptyForm());
+                    setSubmitted(false);
+                    setSubmitError(null);
+                  }}
                   className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Add More
@@ -305,184 +361,162 @@ export default function AddLeadDialog({
                 </p>
               </div>
 
-              {/* ── Section 1: Classification ─────────────────────────── */}
-              <section>
-                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100">
-                  Classification
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FieldLabel label="Case ID" required>
-                    <div className="px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-500 font-mono SelectField-all">
-                      {caseId || "—"}
-                    </div>
-                  </FieldLabel>
-                  <FieldLabel label="Lead Source">
-                    <Select
-                      options={SOURCES}
-                      value={form.source}
-                      onChange={setField("source")}
-                    />
-                  </FieldLabel>
-                  <FieldLabel label="Lead Type" required error={errors.type}>
-                    <Select
-                      options={LEAD_TYPES}
-                      value={form.type}
-                      onChange={setField("type")}
-                      error={errors.type}
-                    />
-                  </FieldLabel>
-                  <FieldLabel label="Severity" required error={errors.severity}>
-                    <Select
-                      options={SEVERITIES}
-                      value={form.severity}
-                      onChange={setField("severity")}
-                      error={errors.severity}
-                    />
-                  </FieldLabel>
+              {/* Submit error banner */}
+              {submitError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700 leading-relaxed flex-1">
+                    {submitError}
+                  </p>
                 </div>
-              </section>
+              )}
 
-              {/* ── Section 2: Lead detail ────────────────────────────── */}
-              <section>
-                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100">
-                  Lead Detail
-                </h3>
-                <div className="space-y-4">
-                  <FieldLabel label="Description" required error={errors.description}>
-                    <Textarea
-                      value={form.description}
-                      onChange={setField("description")}
-                      rows={3}
-                      maxLength={1000}
-                      placeholder="Describe the lead in detail — what was found, how it was discovered, why it is relevant…"
-                      error={errors.description}
-                    />
-                  </FieldLabel>
+              {/* Type + Severity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FieldLabel label="Lead Type" required error={errors.type}>
+                  <Select
+                    options={LEAD_TYPES}
+                    value={form.type}
+                    onChange={setField("type")}
+                    error={errors.type}
+                    placeholder="Select lead type…"
+                  />
+                </FieldLabel>
+                <FieldLabel label="Severity" required error={errors.severity}>
+                  <Select
+                    options={SEVERITIES}
+                    value={form.severity}
+                    onChange={setField("severity")}
+                    error={errors.severity}
+                    placeholder="Select severity…"
+                  />
+                </FieldLabel>
+              </div>
 
-                  <FieldLabel label="Next Recommended Step" required error={errors.nextStep}>
-                    <Textarea
-                      value={form.nextStep}
-                      onChange={setField("nextStep")}
-                      rows={3}
-                      maxLength={500}
-                      placeholder="What action should the investigator take based on this lead?"
-                      error={errors.nextStep}
-                    />
-                  </FieldLabel>
-                </div>
-              </section>
+              {/* Description */}
+              <FieldLabel label="Description" required error={errors.description}>
+                <Textarea
+                  rows={4}
+                  value={form.description}
+                  onChange={setField("description")}
+                  placeholder="Describe what was observed, learned, or hypothesized…"
+                  error={errors.description}
+                />
+              </FieldLabel>
 
-              {/* ── Section 3: Suspect & Pattern (optional) ────────────── */}
-              <section>
-                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100">
-                  Suspect & Pattern <span className="font-normal italic text-slate-400 normal-case">(optional)</span>
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FieldLabel label="Suggested Suspect">
-                    <Input
-                      value={form.suggestedSuspect}
-                      onChange={setField("suggestedSuspect")}
-                      placeholder="Name or SUS-XXXXX"
-                    />
-                  </FieldLabel>
-                  <FieldLabel label="Similar Past Case ID">
-                    <Input
-                      value={form.similarCaseId}
-                      onChange={setField("similarCaseId")}
-                      placeholder="e.g. C-2040"
-                    />
-                  </FieldLabel>
-                  <FieldLabel label="Basis / Evidence for Suspect" className="sm:col-span-2">
-                    <Input
-                      value={form.suspectBasis}
-                      onChange={setField("suspectBasis")}
-                      placeholder="Why this suspect is linked to the lead…"
-                    />
-                  </FieldLabel>
-                  <FieldLabel label="Weapon / MO Pattern">
-                    <Input
-                      value={form.weaponPattern}
-                      onChange={setField("weaponPattern")}
-                      placeholder="e.g. Pistol, same calibre"
-                    />
-                  </FieldLabel>
-                  <FieldLabel label="Location Area">
-                    <Input
-                      value={form.locationArea}
-                      onChange={setField("locationArea")}
-                      placeholder="e.g. Gulshan-e-Iqbal, 2 km radius"
-                    />
-                  </FieldLabel>
-                </div>
-              </section>
+              {/* Optional context */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FieldLabel label="Suggested Suspect" hint="Free-text or SUS-XXXX id">
+                  <Input
+                    value={form.suggestedSuspect}
+                    onChange={setField("suggestedSuspect")}
+                    placeholder="e.g. Zafar Iqbal or SUS-0041"
+                  />
+                </FieldLabel>
+                <FieldLabel label="Suspect basis" hint="Why this person?">
+                  <Input
+                    value={form.suspectBasis}
+                    onChange={setField("suspectBasis")}
+                    placeholder="e.g. Same MO, same area"
+                  />
+                </FieldLabel>
 
-              {/* ── Section 4: Confidence ─────────────────────────────── */}
-              <section>
-                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100">
-                  Investigator Confidence
-                </h3>
-                <div className="space-y-2.5">
+                <FieldLabel label="Similar Case" hint="Related case ID">
+                  <Input
+                    value={form.similarCaseId}
+                    onChange={setField("similarCaseId")}
+                    placeholder="e.g. C-2040"
+                  />
+                </FieldLabel>
+                <FieldLabel label="Source" hint="Where did this lead come from?">
+                  <Select
+                    options={SOURCES}
+                    value={form.source}
+                    onChange={setField("source")}
+                  />
+                </FieldLabel>
+
+                <FieldLabel label="Weapon / Pattern" hint="Optional">
+                  <Input
+                    value={form.weaponPattern}
+                    onChange={setField("weaponPattern")}
+                    placeholder="e.g. Pistol, similar MO"
+                  />
+                </FieldLabel>
+                <FieldLabel label="Location / Area" hint="Optional">
+                  <Input
+                    value={form.locationArea}
+                    onChange={setField("locationArea")}
+                    placeholder="e.g. Gulshan-e-Iqbal"
+                  />
+                </FieldLabel>
+              </div>
+
+              {/* Next step */}
+              <FieldLabel label="Next Recommended Step" required error={errors.nextStep}>
+                <Textarea
+                  rows={3}
+                  value={form.nextStep}
+                  onChange={setField("nextStep")}
+                  placeholder="What should be done next on this lead?"
+                  error={errors.nextStep}
+                />
+              </FieldLabel>
+
+              {/* Confidence */}
+              <FieldLabel label="Confidence" hint="Investigator-rated (0–100)">
+                <div className="space-y-2">
                   <input
-                    type="range" min="10" max="100" step="5"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
                     value={form.confidence}
                     onChange={setField("confidence")}
-                    className="w-full accent-deep-ocean cursor-pointer"
-                    aria-label="Confidence level"
+                    className="w-full"
                   />
-                  <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>Low (10%)</span>
-                    <span className="font-bold text-deep-ocean text-sm">{form.confidence}%</span>
-                    <span>High (100%)</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${confidenceColor}`}
+                        style={{ width: `${confidenceNum}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-slate-600 w-9 text-right">
+                      {confidenceNum}%
+                    </span>
                   </div>
-                  <div className="w-full bg-slate-200 rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full transition-all ${confidenceColor}`}
-                      style={{ width: `${form.confidence}%` }}
-                    />
-                  </div>
-                  {confidenceNum < 50 && (
-                    <p className="text-xs text-amber-700 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      Low confidence — make sure the description explains why the lead is still worth pursuing.
-                    </p>
-                  )}
                 </div>
-              </section>
+              </FieldLabel>
             </div>
 
-            {/* Sticky footer */}
-            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-3">
-              <p className="text-xs text-slate-400">
-                {isUpdate
-                  ? `Editing: ${initialData?.id || ""}`
-                  : "Saved leads appear at the top of the leads table."}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-deep-ocean/90 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                >
-                  {saving ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      {isUpdate ? "Save Changes" : "Add Lead"}
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Footer actions */}
+            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-white cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-deep-ocean text-white text-sm hover:bg-deep-ocean/90 cursor-pointer disabled:opacity-60"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    {isUpdate ? "Update Lead" : "Save Lead"}
+                  </>
+                )}
+              </button>
             </div>
           </form>
         )}

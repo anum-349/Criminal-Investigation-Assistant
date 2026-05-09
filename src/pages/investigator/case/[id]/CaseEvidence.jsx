@@ -11,9 +11,19 @@ import { Badge } from '@/components/ui/Badge';
 import AddEvidenceDialog from './forms/AddEvidence';
 const PAGE_SIZE = 5;
 const STATUSES = [
+    { value: 'CCTV', label: 'CCTV / Video Footage' },
+    { value: 'PHOTO', label: 'Photograph' },
+    { value: 'FINGERPRINT', label: 'Fingerprint' },
+    { value: 'DNA', label: 'DNA Sample' },
+    { value: 'WEAPON', label: 'Weapon' },
+    { value: 'DOCUMENT', label: 'Document / Paper' },
+    { value: 'DIGITAL', label: 'Digital Evidence' },
+    { value: 'STATEMENT', label: 'Witness Statement' },
+    { value: 'MEDICAL', label: 'Medical Report' },
+    { value: 'FORENSIC', label: 'Forensic Report' },
+    { value: 'PHYSICAL', label: 'Physical Object' },
+    { value: 'OTHER', label: 'Other' },
     { value: 'all', label: 'All Evidences' },
-    { value: 'Analyzed', label: 'Analyzed' },
-    { value: 'Pending Analysis', label: 'Pending Analysis' },
 ];
 
 // Build absolute URL for a photo. Photos saved by the backend come back as

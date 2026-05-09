@@ -1,134 +1,647 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import axios from 'axios';
+import { useParams } from 'react-router-dom';
 import {
-  Shield,
-  Info,
-  CheckCircle2,
-  Plus,
-  Mic,
-  Circle,
-  Pencil,
+  Shield, Info, CheckCircle2, Mic, Circle, Pencil,
+  Loader2, AlertTriangle, User as UserIcon,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/Badge';
-import AddVictimDialog from './forms/AddVictim';
 import { Button } from '@/components/ui/Button';
+import AddVictimDialog from './forms/AddVictim';
 
-const victimsList = [
-  {
-    id: 1,
-    title: 'Victim #1',
-    role: 'IT Professional',
-    status: 'Fatal',
-    statusVariant: 'fatal',
-  },
-  {
-    id: 2,
-    title: 'Victim #2',
-    role: 'Store Owner',
-    status: 'No Injury',
-    statusVariant: 'noInjury',
-  },
-];
+// ─── Case type config ────────────────────────────────────────────────────────
+// Defines which detail sections are relevant per case type.
+// Add new types here — the UI adapts automatically.
 
-const victim1Details = {
-  personal: {
-    name: 'Ahmad Khan',
-    age: 38,
-    contact: '+92 340 4554560',
-    gender: 'Male',
-    occupation: 'IT Professional',
-    cnic: '82101-9796820-8',
+const CASE_TYPE_CONFIG = {
+  // ── Murder / Homicide ──────────────────────────────────────────────────────
+  murder: {
+    label: 'Murder / Homicide',
+    showDeceased: true,   // cause of death, declared dead, postmortem
+    showInjury: true,
+    showForensic: true,
+    showProtection: false,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: false, // victim is deceased — no statement
   },
-  incident: {
-    residentialAddress: 'Apartment #12, Clifton Block 5, Karachi',
-    natureOfInjuries: 'Multiple stab wounds to chest and abdomen',
-    causeOfDeath: 'Excessive blood loss',
-    declaredDead: 'At scene',
-    postmortemAutopsy: 'Conducted, Pending',
+  homicide: {
+    label: 'Homicide',
+    showDeceased: true,
+    showInjury: true,
+    showForensic: true,
+    showProtection: false,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: false,
   },
-  injurySummary: 'Multiple stab wounds to chest and abdomen',
-  injuryRecordedBy: 'Inspector Ali',
-  forensic: [
-    'Blood samples collected from crime scene',
-    'Defensive wounds found on victim\'s hands',
-    'No signs of forced entry',
-    'Time of death estimated between 10:45 PM',
-  ],
-  timeline: [
-    { date: '20 Aug, 2025 5:00 PM', text: 'Victim last contacted sister via phone' },
-    { date: '20 Aug, 2025 5:00 PM', text: 'Neighbors heard loud argument' },
-    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
-    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
-    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
-    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
-    { date: '20 Aug, 2025 5:00 PM', text: 'Victim discovered deceased' },
-  ],
-  protection: {
-    threatLevel: 'Low',
-    protectionAssigned: 'No',
-    notes: 'Victim had recent disagreements with colleague.',
+
+  // ── Assault / Injury ───────────────────────────────────────────────────────
+  assault: {
+    label: 'Assault / Injury',
+    showDeceased: false,
+    showInjury: true,
+    showForensic: true,
+    showProtection: true,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: true,
   },
-  legal: [
-    { label: 'FIR Filed', done: true },
-    { label: 'Case Section: PPC 302 (Murder)', done: true },
-    { label: 'Court Proceedings: Pending', done: false },
-    { label: 'Next Step: Submission of forensic reports', done: false },
-  ],
-  nextFollowUp: '20 Dec 2025',
-  caseType: 'Murder / Homicide',
-  primaryLabel: 'Primary Victim - Murder',
-  cooperative: true,
+
+  // ── Kidnapping / Abduction ─────────────────────────────────────────────────
+  kidnapping: {
+    label: 'Kidnapping / Abduction',
+    showDeceased: false,
+    showInjury: false,
+    showForensic: true,
+    showProtection: true,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: true,
+  },
+  abduction: {
+    label: 'Abduction',
+    showDeceased: false,
+    showInjury: false,
+    showForensic: true,
+    showProtection: true,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: true,
+  },
+
+  // ── Theft / Robbery ────────────────────────────────────────────────────────
+  theft: {
+    label: 'Theft',
+    showDeceased: false,
+    showInjury: false,
+    showForensic: true,
+    showProtection: false,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: true,
+  },
+  robbery: {
+    label: 'Robbery',
+    showDeceased: false,
+    showInjury: true,   // robbery can involve physical harm
+    showForensic: true,
+    showProtection: false,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: true,
+  },
+
+  // ── Sexual Assault ─────────────────────────────────────────────────────────
+  'sexual assault': {
+    label: 'Sexual Assault',
+    showDeceased: false,
+    showInjury: true,
+    showForensic: true,
+    showProtection: true,
+    showLegal: true,
+    showTimeline: true,
+    showStatement: true,
+  },
 };
 
-const victim2Details = {
-  ...victim1Details,
-  personal: {
-    name: 'TBD',
-    age: '—',
-    contact: '—',
-    gender: '—',
-    occupation: 'Store Owner',
-    cnic: '—',
-  },
-  incident: {
-    residentialAddress: '—',
-    natureOfInjuries: 'None',
-    causeOfDeath: 'N/A',
-    declaredDead: 'N/A',
-    postmortemAutopsy: 'N/A',
-  },
-  injurySummary: 'No injury',
-  injuryRecordedBy: '—',
-  forensic: ['Awaiting documentation.'],
-  timeline: [],
-  nextFollowUp: 'TBD',
+// Fallback config for unrecognised / generic case types
+const DEFAULT_CASE_CONFIG = {
+  label: 'General',
+  showDeceased: false,
+  showInjury: true,
+  showForensic: true,
+  showProtection: true,
+  showLegal: true,
+  showTimeline: true,
+  showStatement: true,
 };
 
-const victimDetailsMap = { 1: victim1Details, 2: victim2Details };
+/** Resolve config from a raw caseType string (case-insensitive). */
+const getCaseConfig = (caseType) => {
+  if (!caseType) return DEFAULT_CASE_CONFIG;
+  return CASE_TYPE_CONFIG[caseType.toLowerCase().trim()] ?? DEFAULT_CASE_CONFIG;
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const getAuthHeader = () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+/** Returns up to 2 uppercase initials from a name string. */
+const getInitials = (name) => {
+  if (!name) return '?';
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+};
+
+const detailToFormShape = (d) => {
+  if (!d) return null;
+  return {
+    id:                 d.id,
+    victimId:           d.id,
+    name:               d.personal?.name        || '',
+    cnic:               d.personal?.cnic        || '',
+    age:                d.personal?.age         || '',
+    gender:             d.personal?.gender      || '',
+    contact:            d.personal?.contact     || '',
+    address:            d.incident?.residentialAddress || '',
+    occupation:         d.personal?.occupation  || '',
+    status:             d.status || '',
+    primaryLabel:       d.primaryLabel || '',
+    relation:           d.relation || '',
+    caseType:           d.caseType || '',
+    injuryType:         d.injuryType || '',
+    natureOfInjuries:   d.incident?.natureOfInjuries || '',
+    causeOfDeath:       d.incident?.causeOfDeath    || '',
+    declaredDead:       d.incident?.declaredDead   || '',
+    postmortemAutopsy:  d.incident?.postmortemAutopsy || '',
+    injurySummary:      d.injurySummary || '',
+    injuryRecordedBy:   d.injuryRecordedBy || '',
+    medicalReport:      !!d.medicalReport,
+    postmortem:         !!d.postmortem,
+    protectionRequired: !!d.protectionRequired,
+    cooperative:        d.cooperative !== false,
+    threatLevel:        d.protection?.threatLevel || '',
+    protectionAssigned: d.protection?.protectionAssigned || '',
+    notes:              d.protection?.notes || '',
+    nextFollowUp:       d.nextFollowUp || '',
+    statement:          d.statement || '',
+    forensic:           d.forensic   || [],
+    timeline:           d.timeline   || [],
+    legal:              d.legal      || [],
+  };
+};
+
+const formShapeToPatchBody = (formItem) => ({
+  name:               formItem?.name,
+  cnic:               formItem?.cnic,
+  age:                formItem?.age ? Number(formItem.age) : undefined,
+  gender:             formItem?.gender,
+  contact:            formItem?.contact,
+  address:            formItem?.address,
+  occupation:         formItem?.occupation,
+  status:             formItem?.status,
+  primaryLabel:       formItem?.primaryLabel,
+  relation:           formItem?.relation,
+  caseType:           formItem?.caseType,
+  injuryType:         formItem?.injuryType,
+  natureOfInjuries:   formItem?.natureOfInjuries,
+  causeOfDeath:       formItem?.causeOfDeath,
+  declaredDead:       formItem?.declaredDead,
+  postmortemAutopsy:  formItem?.postmortemAutopsy,
+  injurySummary:      formItem?.injurySummary,
+  injuryRecordedBy:   formItem?.injuryRecordedBy,
+  statement:          formItem?.statement,
+  medicalReport:      formItem?.medicalReport,
+  postmortem:         formItem?.postmortem,
+  protectionRequired: formItem?.protectionRequired,
+  cooperative:        formItem?.cooperative,
+  threatLevel:        formItem?.threatLevel,
+  protectionAssigned: formItem?.protectionAssigned,
+  notes:              formItem?.notes,
+  nextFollowUp:       formItem?.nextFollowUp,
+  forensic:           formItem?.forensic,
+  timeline:           formItem?.timeline,
+  legal:              formItem?.legal,
+});
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+
+const VictimAvatar = ({ name, src }) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const initials = getInitials(name);
+
+  if (!src || imgFailed) {
+    return (
+      <div
+        className="size-18 rounded-full border-2 border-white/20 bg-slate-500 shrink-0
+                   flex items-center justify-center select-none"
+        aria-label={`Avatar for ${name || 'unknown'}`}
+      >
+        <span className="text-white font-bold text-lg leading-none">{initials}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="size-18 rounded-full overflow-hidden border-2 border-white/20 bg-slate-400 shrink-0">
+      <img
+        src={src}
+        alt={`Photo of ${name || 'victim'}`}
+        className="object-cover h-full w-full"
+        onError={() => setImgFailed(true)}
+      />
+    </div>
+  );
+};
+
+// ─── Detail section sub-components ───────────────────────────────────────────
+
+const Row = ({ label, value }) => (
+  <p className="grid gap-1 grid-cols-2 text-sm">
+    <span className="text-slate-700 font-semibold">{label}:</span>
+    <span className="text-slate-600">{value || '—'}</span>
+  </p>
+);
+
+/** Personal Info — always shown */
+const PersonalInfoCard = ({ personal }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="personal-info-heading"
+  >
+    <h3
+      id="personal-info-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4"
+    >
+      Personal Information
+    </h3>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div className="space-y-2">
+        <Row label="Name"       value={personal?.name} />
+        <Row label="Age"        value={personal?.age} />
+        <Row label="Contact"    value={personal?.contact} />
+      </div>
+      <div className="space-y-2">
+        <Row label="Gender"     value={personal?.gender} />
+        <Row label="Occupation" value={personal?.occupation} />
+        <Row label="CNIC"       value={personal?.cnic} />
+      </div>
+    </div>
+  </article>
+);
+
+/**
+ * Incident Details card.
+ * Deceased fields (cause of death, declared dead, postmortem) are only shown
+ * when showDeceased=true (i.e. murder/homicide cases).
+ */
+const IncidentDetailsCard = ({ incident, showDeceased }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="incident-details-heading"
+  >
+    <h3
+      id="incident-details-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4"
+    >
+      Incident Details
+    </h3>
+    <div className="space-y-2">
+      <Row label="Residential Address" value={incident?.residentialAddress} />
+      <Row label="Nature of Injuries"  value={incident?.natureOfInjuries} />
+
+      {/* ── Deceased-only fields ── */}
+      {showDeceased && (
+        <>
+          <Row label="Cause of Death"       value={incident?.causeOfDeath} />
+          <Row label="Declared Dead"        value={incident?.declaredDead} />
+          <Row label="Postmortem / Autopsy" value={incident?.postmortemAutopsy} />
+        </>
+      )}
+    </div>
+  </article>
+);
+
+/** Injury & Medical — shown when showInjury=true */
+const InjuryCard = ({ injurySummary, injuryRecordedBy }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="injury-heading"
+  >
+    <h3
+      id="injury-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4"
+    >
+      Injury &amp; Medical Status
+    </h3>
+    <div className="bg-deep-ocean-500 text-white rounded-md px-4 py-3 mb-3">
+      <p className="font-medium">{injurySummary || '—'}</p>
+    </div>
+    {injuryRecordedBy && (
+      <p className="flex items-center gap-2 text-sm text-slate-600">
+        <Mic size={14} className="shrink-0" aria-hidden />
+        Recorded by {injuryRecordedBy}.&nbsp;
+        <CheckCircle2 size={14} className="inline text-emerald-600" aria-hidden />
+        Verified
+      </p>
+    )}
+  </article>
+);
+
+/** Victim statement — shown when showStatement=true */
+const StatementCard = ({ statement }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="statement-heading"
+  >
+    <h3
+      id="statement-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4"
+    >
+      Victim Statement
+    </h3>
+    {statement ? (
+      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{statement}</p>
+    ) : (
+      <p className="text-sm text-slate-500">No statement recorded yet.</p>
+    )}
+  </article>
+);
+
+/** Forensic Summary — shown when showForensic=true */
+const ForensicCard = ({ forensic }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="forensic-heading"
+  >
+    <h3
+      id="forensic-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4"
+    >
+      Forensic Summary
+    </h3>
+    {forensic?.length ? (
+      <ul className="list-none space-y-2 text-sm text-slate-700">
+        {forensic.map((item, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="text-deep-ocean-900 shrink-0">•</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p className="text-sm text-slate-500">No forensic findings recorded yet.</p>
+    )}
+  </article>
+);
+
+/** Activity Timeline — shown when showTimeline=true */
+const TimelineCard = ({ timeline }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm lg:col-span-2"
+    aria-labelledby="timeline-heading"
+  >
+    <h3
+      id="timeline-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4"
+    >
+      Victim's Activity Timeline
+    </h3>
+    {!timeline?.length ? (
+      <p className="text-sm text-slate-500">No timeline entries yet.</p>
+    ) : (
+      <ul
+        className="relative space-y-0 pl-6 grid-cols-2 grid ml-2"
+        role="list"
+      >
+        {timeline.map((entry, i) => (
+          <li key={i} className="relative pb-4 last:pb-0">
+            <span
+              className="absolute -left-8 top-0.5 w-3 h-3 rounded-full bg-deep-ocean-500 border-2 border-soft-mist shadow"
+              aria-hidden
+            />
+            <p className="text-sm font-medium text-slate-800">{entry.date || '—'}</p>
+            <p className="text-sm text-slate-600">{entry.text}</p>
+          </li>
+        ))}
+      </ul>
+    )}
+  </article>
+);
+
+/** Protection Status — shown when showProtection=true */
+const ProtectionCard = ({ protection }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="protection-heading"
+  >
+    <h3
+      id="protection-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 flex items-center gap-2"
+    >
+      <Shield size={20} className="text-slate-600" aria-hidden />
+      Protection Status
+    </h3>
+    <div className="space-y-2 text-sm">
+      <Row label="Threat Level"        value={protection?.threatLevel} />
+      <Row label="Protection Assigned" value={protection?.protectionAssigned} />
+      <Row label="Notes"               value={protection?.notes} />
+    </div>
+  </article>
+);
+
+/** Legal Status — shown when showLegal=true */
+const LegalCard = ({ legal }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="legal-heading"
+  >
+    <h3
+      id="legal-heading"
+      className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4"
+    >
+      Legal Status
+    </h3>
+    {legal?.length ? (
+      <ul className="space-y-2 text-sm">
+        {legal.map((item, i) => (
+          <li key={i} className="flex items-center gap-2">
+            {item.done ? (
+              <CheckCircle2 size={18} className="text-emerald-green shrink-0" aria-hidden />
+            ) : (
+              <Circle size={18} className="text-slate-300 shrink-0" aria-hidden />
+            )}
+            <span className={item.done ? 'text-slate-800' : 'text-slate-600'}>
+              {item.label}
+            </span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p className="text-sm text-slate-500">No legal milestones recorded yet.</p>
+    )}
+  </article>
+);
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 const CaseVictim = () => {
-  const [selectedVictimId, setSelectedVictimId] = useState(1);
-  const details = victimDetailsMap[selectedVictimId] || victim1Details;
+  const { id: caseIdFromUrl } = useParams();
+  const caseId = caseIdFromUrl || 'C-2053';
+
+  const [victims, setVictims]                   = useState([]);
+  const [selectedVictimId, setSelectedVictimId] = useState(null);
+  const [details, setDetails]                   = useState(null);
+  const [loadingList, setLoadingList]           = useState(true);
+  const [loadingDetails, setLoadingDetails]     = useState(false);
+  const [error, setError]                       = useState(null);
+
   const [updateTarget, setUpdateTarget] = useState(null);
+  const [updating, setUpdating]         = useState(false);
+
+  const detailReqSeq = useRef(0);
+
+  // ── Fetch list ────────────────────────────────────────────────────────────
+  const fetchList = useCallback(async () => {
+    if (!caseId) return;
+    setLoadingList(true);
+    setError(null);
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      const res = await axios.get(
+        `${url}/api/investigator/cases/${caseId}/victims`,
+        { headers: getAuthHeader() },
+      );
+      const items = res.data?.items || [];
+      setVictims(items);
+      if (items.length && !selectedVictimId) {
+        setSelectedVictimId(items[0].id);
+      } else if (!items.length) {
+        setSelectedVictimId(null);
+        setDetails(null);
+      }
+    } catch (err) {
+      console.error('Failed to load victims:', err);
+      setError(err?.response?.data?.detail || 'Could not load victims.');
+      setVictims([]);
+    } finally {
+      setLoadingList(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId]);
+
+  useEffect(() => { fetchList(); }, [fetchList]);
+
+  // ── Fetch detail ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedVictimId || !caseId) { setDetails(null); return; }
+    const seq = ++detailReqSeq.current;
+    setLoadingDetails(true);
+
+    (async () => {
+      try {
+        const url = import.meta.env.VITE_API_URL;
+        const res = await axios.get(
+          `${url}/api/investigator/cases/${caseId}/victims/${selectedVictimId}`,
+          { headers: getAuthHeader() },
+        );
+        if (seq !== detailReqSeq.current) return;
+        setDetails(res.data);
+      } catch (err) {
+        if (seq !== detailReqSeq.current) return;
+        console.error('Failed to load victim detail:', err);
+        setError(err?.response?.data?.detail || 'Could not load victim details.');
+        setDetails(null);
+      } finally {
+        if (seq === detailReqSeq.current) setLoadingDetails(false);
+      }
+    })();
+  }, [selectedVictimId, caseId]);
+
+  // ── Update ────────────────────────────────────────────────────────────────
+  const handleUpdateSubmit = async (data) => {
+    const vid   = updateTarget?.id;
+    const first = data?.victims?.[0];
+    if (!vid || !first) { setUpdateTarget(null); return; }
+
+    setUpdating(true);
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      const res = await axios.patch(
+        `${url}/api/investigator/cases/${caseId}/victims/${vid}`,
+        formShapeToPatchBody(first),
+        { headers: getAuthHeader() },
+      );
+      setDetails(res.data);
+      fetchList();
+    } catch (err) {
+      console.error('Update failed:', err);
+      alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+    } finally {
+      setUpdating(false);
+      setUpdateTarget(null);
+    }
+  };
+
+  // ── Early returns ─────────────────────────────────────────────────────────
+  if (loadingList) {
+    return (
+      <section className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm">
+        <div className="flex items-center justify-center py-20 text-slate-400">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          <span className="text-sm">Loading victims…</span>
+        </div>
+      </section>
+    );
+  }
+
+  if (error && !victims.length) {
+    return (
+      <section className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm">
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-800">Could not load victims</p>
+            <p className="text-xs text-red-700 mt-1">{error}</p>
+          </div>
+          <button
+            onClick={fetchList}
+            className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-2"
+          >
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!victims.length) {
+    return (
+      <section className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm">
+        <header className="mb-6">
+          <h2 className="text-2xl font-bold text-slate-800">Victims</h2>
+          <p className="text-sm text-slate-600 mt-1">View all victims and their case involvement</p>
+        </header>
+        <div className="text-center py-16 text-slate-400">
+          <UserIcon className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm font-medium">No victims linked to this case yet.</p>
+          <p className="text-xs mt-1">Add victims from the case page header.</p>
+        </div>
+      </section>
+    );
+  }
+
+  // Derive the config once the details are loaded
+  const cfg = getCaseConfig(details?.caseType);
+  const victimName = details?.personal?.name || '';
 
   return (
     <section
       className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm"
       aria-label="Victims"
     >
-      {/* Header – HCI: Clear hierarchy and navigation */}
+      {/* ── Header ── */}
       <header className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Victims</h2>
         <p className="text-sm text-slate-600 mt-1">View all victims and their case involvement</p>
       </header>
 
-      {/* Victim selection tabs – HCI: Recognition over recall, clear selected state */}
+      {/* ── Victim tabs ── */}
       <div
         className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
         role="tablist"
         aria-label="Select victim"
       >
-        {victimsList.map((v) => (
+        {victims.map((v) => (
           <button
             key={v.id}
             type="button"
@@ -137,225 +650,147 @@ const CaseVictim = () => {
             aria-controls="victim-details-panel"
             id={`victim-tab-${v.id}`}
             onClick={() => setSelectedVictimId(v.id)}
-            className={`rounded-xl cursor-pointer p-5 text-left transition-all shadow-inner shadow-deep-ocean-900/50 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2 ${selectedVictimId === v.id
-              ? 'bg-slate-blue text-white'
-              : 'bg-cool-silver text-slate-700 hover:bg-deep-ocean hover:text-slate-300 shadow-deep-ocean/30'
+            className={`rounded-xl cursor-pointer p-5 text-left transition-all shadow-inner shadow-deep-ocean-900/50
+              focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2
+              ${selectedVictimId === v.id
+                ? 'bg-slate-blue text-white'
+                : 'bg-cool-silver text-slate-700 hover:bg-deep-ocean hover:text-slate-300 shadow-deep-ocean/30'
               }`}
           >
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-bold">{v.title}</h3>
                 <p className={`text-sm ${selectedVictimId === v.id ? 'opacity-90' : ''}`}>
-                  {v.role}
+                  {v.role || '—'}
                 </p>
               </div>
-              <Badge variant={v.statusVariant === 'fatal' ? 'destructive' : 'success'} size="sm" className="shrink-0 px-4 py-2">
-                {v.statusVariant === 'fatal' ? <Info size={14} aria-hidden className='mr-2' /> : <CheckCircle2 size={14} aria-hidden className='mr-2' />}
-                {v.statusVariant.toLowerCase()
-                  .split(" ")
-                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(" ")}
+              <Badge
+                variant={v.statusVariant === 'fatal' ? 'destructive' : 'success'}
+                size="sm"
+                className="shrink-0 px-4 py-2"
+              >
+                {v.statusVariant === 'fatal'
+                  ? <Info size={14} aria-hidden className="mr-2" />
+                  : <CheckCircle2 size={14} aria-hidden className="mr-2" />}
+                {v.status}
               </Badge>
             </div>
           </button>
         ))}
       </div>
 
-      {/* Primary victim case header – HCI: Visibility of key info and primary action */}
-      <div
-        id="victim-details-panel"
-        role="tabpanel"
-        aria-labelledby={`victim-tab-${selectedVictimId}`}
-        className="from-deep-ocean bg-linear-60 to-slate-blue rounded-lg p-6 shadow-inner shadow-deep-ocean-900/50 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
-      >
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="size-18 rounded-full overflow-hidden border-2 border-white/20 bg-slate-400 shrink-0">
-            <img
-              src="/profile.jpg"
-              alt=""
-              className="object-cover h-full w-full"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold">{details.caseType}</h3>
-            <p className="text-xs uppercase opacity-90">{details.primaryLabel}</p>
-            <p className="text-sm mt-2 opacity-90">
-              Next Follow-Up Date: <strong>{details.nextFollowUp}</strong>
-            </p>
-          </div>
+      {/* ── Detail body ── */}
+      {loadingDetails || !details ? (
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          <span className="text-sm">Loading details…</span>
         </div>
-        <div className='grid grid-rows-2 gap-2'>
-          <Button
-            variant='default'
-            className={'px-4 py-2 border border-slate-50'}
-            onClick={() => setUpdateTarget(details)}
-            aria-label={`Update victim ${selectedVictimId} details`}
+      ) : (
+        <>
+          {/* Hero header */}
+          <div
+            id="victim-details-panel"
+            role="tabpanel"
+            aria-labelledby={`victim-tab-${selectedVictimId}`}
+            className="from-deep-ocean bg-linear-60 to-slate-blue rounded-lg p-6 shadow-inner
+                       shadow-deep-ocean-900/50 text-white flex flex-col md:flex-row
+                       justify-between items-start md:items-center gap-4 mb-8"
           >
-            <Pencil className="h-3.5 w-3.5 mr-3" aria-hidden />
-            Update
-          </Button>
-          <div className="flex flex-wrap gap-3 items-center">
-            {details.cooperative && (
-              <Badge variant="success" size="sm" className="inline-flex items-center gap-2 px-4 py-2 border border-forest-teal font-semibold">
-                <CheckCircle2 size={16} className="text-emerald-green" aria-hidden />
-                Cooperative
-              </Badge>
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Avatar with initials fallback */}
+              <VictimAvatar name={victimName} src={details.photoUrl} />
+
+              <div>
+                <h3 className="text-xl font-bold">{details.caseType || '—'}</h3>
+                <p className="text-xs uppercase opacity-90">{details.primaryLabel || '—'}</p>
+                <p className="text-sm mt-2 opacity-90">
+                  Next Follow-Up Date: <strong>{details.nextFollowUp || '—'}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-rows-2 gap-2">
+              <Button
+                variant="default"
+                className="px-4 py-2 border border-slate-50"
+                onClick={() => setUpdateTarget(detailToFormShape(details))}
+                disabled={updating}
+                aria-label={`Update victim ${selectedVictimId} details`}
+              >
+                {updating
+                  ? <Loader2 className="h-3.5 w-3.5 mr-3 animate-spin" />
+                  : <Pencil className="h-3.5 w-3.5 mr-3" aria-hidden />}
+                Update
+              </Button>
+
+              <div className="flex flex-wrap gap-3 items-center">
+                {details.cooperative && (
+                  <Badge
+                    variant="success"
+                    size="sm"
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-forest-teal font-semibold"
+                  >
+                    <CheckCircle2 size={16} className="text-emerald-green" aria-hidden />
+                    Cooperative
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Detail cards — rendered conditionally per case type ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" aria-label="Victim details">
+
+            {/* Personal Information — always shown */}
+            <PersonalInfoCard personal={details.personal} />
+
+            {/* Incident Details — always shown; deceased sub-fields gated */}
+            <IncidentDetailsCard
+              incident={details.incident}
+              showDeceased={cfg.showDeceased}
+            />
+
+            {/* Injury & Medical — assault, robbery, sexual assault */}
+            {cfg.showInjury && (
+              <InjuryCard
+                injurySummary={details.injurySummary}
+                injuryRecordedBy={details.injuryRecordedBy}
+              />
+            )}
+
+            {/* Victim Statement — living victims only */}
+            {cfg.showStatement && (
+              <StatementCard statement={details.statement} />
+            )}
+
+            {/* Forensic Summary */}
+            {cfg.showForensic && (
+              <ForensicCard forensic={details.forensic} />
+            )}
+
+            {/* Activity Timeline — full width */}
+            {cfg.showTimeline && (
+              <TimelineCard timeline={details.timeline} />
+            )}
+
+            {/* Protection Status — kidnapping, assault, sexual assault */}
+            {cfg.showProtection && (
+              <ProtectionCard protection={details.protection} />
+            )}
+
+            {/* Legal Status */}
+            {cfg.showLegal && (
+              <LegalCard legal={details.legal} />
             )}
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
-      {/* Detail cards grid – HCI: Logical grouping, scannability */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" aria-label="Victim details">
-        {/* Personal Information */}
-        <article
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
-          aria-labelledby="personal-info-heading"
-        >
-          <h3 id="personal-info-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
-            Personal Information
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <div className="space-y-2 *:grid *:gap-1 *:grid-cols-2">
-              <p><span className="text-slate-700 font-semibold">Name:</span> <span className="text-slate-600">{details.personal.name}</span></p>
-              <p><span className="text-slate-700 font-semibold">Age:</span> <span className="text-slate-600">{details.personal.age}</span></p>
-              <p><span className="text-slate-700 font-semibold">Contact:</span> <span className="text-slate-600">{details.personal.contact}</span></p>
-            </div>
-            <div className="space-y-2 *:grid *:gap-1 *:grid-cols-2">
-              <p><span className="text-slate-700 font-semibold">Gender:</span> <span className="text-slate-600">{details.personal.gender}</span></p>
-              <p><span className="text-slate-700 font-semibold">Occupation:</span> <span className="text-slate-600">{details.personal.occupation}</span></p>
-              <p><span className="text-slate-700 font-semibold">CNIC:</span> <span className="text-slate-600">{details.personal.cnic}</span></p>
-            </div>
-          </div>
-        </article>
-
-        {/* Incident Details */}
-        <article
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
-          aria-labelledby="incident-details-heading"
-        >
-          <h3 id="incident-details-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
-            Incident Details
-          </h3>
-          <div className="space-y-2 *:grid *:gap-1 *:grid-cols-2">
-            <p><span className="text-slate-700 font-semibold">Residential Address:</span>
-              <span className="text-slate-600">{details.incident.residentialAddress}</span></p>
-            <p><span className="text-slate-700 font-semibold">Nature of Injuries:</span>
-              <span className="text-slate-600">{details.incident.natureOfInjuries}</span></p>
-            <p><span className="text-slate-700 font-semibold">Cause of Death:</span>
-              <span className="text-slate-600">{details.incident.causeOfDeath}</span></p>
-            <p><span className="text-slate-700 font-semibold">Declared Dead:</span>
-              <span className="text-slate-600">{details.incident.declaredDead}</span></p>
-            <p><span className="text-slate-700 font-semibold">Postmortem, Autopsy:</span>
-              <span className="text-slate-600">{details.incident.postmortemAutopsy}</span></p>
-          </div>
-        </article>
-
-        {/* Injury & Medical Status – HCI: Emphasize key finding, show source/verification */}
-        <article
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
-          aria-labelledby="injury-heading"
-        >
-          <h3 id="injury-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
-            Injury & Medical Status
-          </h3>
-          <div className="bg-deep-ocean-500 text-white rounded-md px-4 py-3 mb-3">
-            <p className="font-medium">{details.injurySummary}</p>
-          </div>
-          <p className="flex items-center gap-2 text-sm text-slate-600">
-            <Mic size={14} className="shrink-0" aria-hidden />
-            Recorded by {details.injuryRecordedBy}. Verified <CheckCircle2 size={14} className="inline text-emerald-600" aria-hidden />
-          </p>
-        </article>
-
-        {/* Forensic Summary */}
-        <article
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
-          aria-labelledby="forensic-heading"
-        >
-          <h3 id="forensic-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
-            Forensic Summary
-          </h3>
-          <ul className="list-none space-y-2 text-sm text-slate-700">
-            {details.forensic.map((item, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-deep-ocean-900 shrink-0">•</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        {/* Victims Activity Timeline – HCI: Chronological clarity */}
-        <article
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm lg:col-span-2"
-          aria-labelledby="timeline-heading"
-        >
-          <h3 id="timeline-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
-            Victims Activity Timeline
-          </h3>
-          {details.timeline.length === 0 ? (
-            <p className="text-sm text-slate-500">No timeline entries yet.</p>
-          ) : (
-            <ul className="relative space-y-0 pl-6 grid-cols-2 grid ml-2" role="list">
-              {details.timeline.map((entry, i) => (
-                <li key={i} className="relative pb-4 last:pb-0">
-                  <span
-                    className="absolute -left-8 top-0.5 w-3 h-3 rounded-full bg-deep-ocean-500 border-2 border-soft-mist shadow"
-                    aria-hidden
-                  />
-                  <p className="text-sm font-medium text-slate-800">{entry.date}</p>
-                  <p className="text-sm text-slate-600">{entry.text}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-
-        {/* Protection Status */}
-        <article
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
-          aria-labelledby="protection-heading"
-        >
-          <h3 id="protection-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 flex items-center gap-2">
-            <Shield size={20} className="text-slate-600" aria-hidden />
-            Protection Status
-          </h3>
-          <div className="space-y-2 text-sm *:grid *:gap-1 *:grid-cols-2">
-            <p><span className="text-slate-700 font-semibold ">Threat Level:</span> <span className="text-slate-600">{details.protection.threatLevel}</span></p>
-            <p><span className="text-slate-700 font-semibold">Protection Assigned:</span> <span className="text-slate-600">{details.protection.protectionAssigned}</span></p>
-            <p className="mt-3"><span className="text-slate-700 font-semibold">Notes:</span><span className="text-slate-600">{details.protection.notes}</span></p>
-          </div>
-        </article>
-
-        {/* Legal Status – HCI: At-a-glance progress with checkmarks */}
-        <article
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
-          aria-labelledby="legal-heading"
-        >
-          <h3 id="legal-heading" className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
-            Legal Status
-          </h3>
-          <ul className="space-y-2 text-sm">
-            {details.legal.map((item, i) => (
-              <li key={i} className="flex items-center gap-2">
-                {item.done ? (
-                  <CheckCircle2 size={18} className="text-emerald-green shrink-0" aria-hidden />
-                ) : (
-                  <Circle size={18} className="text-slate-300 shrink-0" aria-hidden />
-                )}
-                <span className={item.done ? 'text-slate-800' : 'text-slate-600'}>{item.label}</span>
-              </li>
-            ))}
-          </ul>
-        </article>
-      </div>
       <AddVictimDialog
         isOpen={!!updateTarget}
         onClose={() => setUpdateTarget(null)}
-        onSubmit={(data) => console.log("updated:", data)}
-        caseId="C-2053"
+        onSubmit={handleUpdateSubmit}
+        caseId={caseId}
         initialData={updateTarget}
       />
     </section>

@@ -1,118 +1,180 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Calendar, X, ExternalLink, Pencil, CheckCircle2, Shield, EyeOff, AlertTriangle, User } from 'lucide-react';
+import axios from 'axios';
+import { useParams } from 'react-router-dom';
+import {
+  Search, ChevronDown, Calendar, X, ExternalLink, Pencil,
+  CheckCircle2, Shield, EyeOff, AlertTriangle, User,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 
 import AddWitnessDialog from './forms/AddWitness';
+
 const PAGE_SIZE = 5;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const getAuthHeader = () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+// Adapt a row from GET /witnesses → the shape StepWitnesses expects.
+// StepWitnesses uses these flat field names directly, so the mapping is
+// mostly identity. The dialog also reads `caseId` to display in its header.
+const rowToFormShape = (row) => {
+  if (!row) return null;
+  return {
+    id: row.id,
+    witnessId: row.id,
+    caseId: row.caseId || '',
+
+    // Person
+    name: row.name || '',
+    cnic: row.cnic || '',
+    age: row.age || '',
+    gender: row.gender || '',
+    contact: row.contact || '',
+    address: row.address || '',
+
+    // Classification
+    witnessType: row.witnessType || '',
+    relationToCase: row.relationToCase || '',
+    credibility: row.credibility || '',
+
+    // Statement
+    statementDate: row.statementDate || '',
+    statementRecordedBy: row.statementRecordedBy || '',
+    description: row.description || '',
+
+    // Status & flags
+    status: row.status || 'Active',
+    anonymous: !!row.anonymous,
+    protectionRequired: !!row.protectionRequired,
+    cooperating: row.cooperating !== false,
+
+    // Read-only display fields (StepWitnesses ignores extras)
+    dateAdded: row.dateAdded || '',
+  };
+};
+
+// Pick only the fields the PATCH endpoint accepts.
+const formShapeToPatchBody = (formItem) => ({
+  // Person
+  name: formItem?.name,
+  cnic: formItem?.cnic,
+  age: formItem?.age ? Number(formItem.age) : undefined,
+  gender: formItem?.gender,
+  contact: formItem?.contact,
+  address: formItem?.address,
+
+  // Classification
+  witnessType: formItem?.witnessType,
+  relationToCase: formItem?.relationToCase,
+  credibility: formItem?.credibility,
+
+  // Statement
+  statementDate: formItem?.statementDate,
+  statementRecordedBy: formItem?.statementRecordedBy,
+  description: formItem?.description,
+
+  // Status & flags
+  status: formItem?.status,
+  anonymous: formItem?.anonymous,
+  protectionRequired: formItem?.protectionRequired,
+  cooperating: formItem?.cooperating,
+});
+
+// Pretty-print YYYY-MM-DD for the table column.
+const fmtDate = (s) => {
+  if (!s) return '';
+  // ISO date passed straight through; the backend already formats it.
+  return s;
+};
+
 const STATUSES = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'active', label: 'Active' },
-  { value: 'closed', label: 'Closed' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'all', label: 'All Witnesses' },
+  { value: 'EYEWITNESS', label: 'Eyewitness' },
+  { value: 'EARWITNESS', label: 'Earwitness' },
+  { value: 'CHARACTER', label: 'Character Witness' },
+  { value: 'EXPERT', label: 'Expert Witness' },
+  { value: 'VICTIM_WITNESS', label: 'Victim-Witness' },
+  { value: 'HEARSAY', label: 'Hearsay Witness' },
+  { value: 'OTHER', label: 'Other' },
 ];
 
-const MOCK_WITNESSES = [
-  {
-    id: 'W-10046',
-    name: 'Farooq Sheikh',
-    age: 40,
-    gender: 'Male',
-    contact: '+93 456 7867654',
-    dateAdded: '11 / 23 / 2026',
-    description: "Heard a loud argument from the victim's apartment at approximately 10:30 PM; did not visually see the suspect.",
-    caseId: 'C-2053',
-    status: 'Active',
-    address: 'Block 5, Clifton, Karachi',
-    statementDate: '23 Nov 2026',
-    relationToCase: 'Neighbor',
-  },
-  {
-    id: 'W-10047',
-    name: 'Ayesha Noor',
-    age: 27,
-    gender: 'Female',
-    contact: '+92 300 1234567',
-    dateAdded: '11 / 24 / 2026',
-    description: 'Saw a person leaving the building around 10:45 PM; could not identify facial features.',
-    caseId: 'C-2053',
-    status: 'Active',
-    address: 'Apartment 8, Same building, Clifton',
-    statementDate: '24 Nov 2026',
-    relationToCase: 'Resident',
-  },
-  {
-    id: 'W-10048',
-    name: 'Saima Raza',
-    age: 34,
-    gender: 'Female',
-    contact: '+92 321 9876543',
-    dateAdded: '11 / 25 / 2026',
-    description: 'Provided timeline of victim\'s movements on the day of incident; cooperative with investigation.',
-    caseId: 'C-2053',
-    status: 'Closed',
-    address: 'DHA Phase 5, Karachi',
-    statementDate: '25 Nov 2026',
-    relationToCase: 'Colleague',
-  },
-  {
-    id: 'W-10049',
-    name: 'Imran Khan',
-    age: 45,
-    gender: 'Male',
-    contact: '+92 333 5551234',
-    dateAdded: '11 / 26 / 2026',
-    description: 'Security guard; reported unusual activity in the lobby that evening.',
-    caseId: 'C-2053',
-    status: 'Pending',
-    address: 'Security post, Building lobby',
-    statementDate: '26 Nov 2026',
-    relationToCase: 'Security',
-  },
-  {
-    id: 'W-10050',
-    name: 'Zainab Ali',
-    age: 29,
-    gender: 'Female',
-    contact: '+92 304 7778899',
-    dateAdded: '11 / 27 / 2026',
-    description: 'Friend of victim; last phone call with victim at 9:00 PM.',
-    caseId: 'C-2053',
-    status: 'Active',
-    address: 'Gulshan-e-Iqbal, Karachi',
-    statementDate: '27 Nov 2026',
-    relationToCase: 'Friend',
-  },
-];
+// ─── Component ──────────────────────────────────────────────────────────────
 
 const CaseWitnesses = () => {
+  const { id: caseIdFromUrl } = useParams();
+  const caseId = caseIdFromUrl || 'C-2053';
+
+  // Filter inputs (live)
   const [searchName, setSearchName] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Applied filters (what the server is using right now)
   const [appliedFilters, setAppliedFilters] = useState({
-    name: '',
-    date: '',
-    status: 'all',
+    name: '', date: '', status: 'all',
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [dialogWitness, setDialogWitness] = useState(null);
+
+  // Server data
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const requestSeq = useRef(0);
+
+  // Dialog state
+  const [dialogWitness, setDialogWitness] = useState(null); // View Details dialog
+  const [updateTarget, setUpdateTarget] = useState(null); // pre-filled form data
+  const [updating, setUpdating] = useState(false);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
-  const [updateTarget, setUpdateTarget] = useState(null); // evidence item being updated
 
-  const filteredWitnesses = MOCK_WITNESSES.filter((w) => {
-    const nameMatch = !appliedFilters.name || w.name.toLowerCase().includes(appliedFilters.name.toLowerCase()) || w.id.toLowerCase().includes(appliedFilters.name.toLowerCase());
-    const statusMatch = appliedFilters.status === 'all' || w.status.toLowerCase() === appliedFilters.status;
-    return nameMatch && statusMatch;
-  });
+  // ── Fetch ─────────────────────────────────────────────────────────────
+  const fetchWitnesses = useCallback(async () => {
+    if (!caseId) return;
+    setLoading(true);
+    setError(null);
+    const seq = ++requestSeq.current;
 
-  const total = filteredWitnesses.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const end = Math.min(start + PAGE_SIZE, total);
-  const pageWitnesses = filteredWitnesses.slice(start, end);
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      const res = await axios.get(
+        `${url}/api/investigator/cases/${caseId}/witnesses`,
+        {
+          headers: getAuthHeader(),
+          params: {
+            search: appliedFilters.name,
+            status: appliedFilters.status,
+            date: appliedFilters.date,
+            page: currentPage,
+            page_size: PAGE_SIZE,
+          },
+        },
+      );
+      if (seq !== requestSeq.current) return;
+      setItems(res.data?.items || []);
+      setTotal(res.data?.total || 0);
+    } catch (err) {
+      if (seq !== requestSeq.current) return;
+      console.error('Failed to load witnesses:', err);
+      setError(err?.response?.data?.detail || 'Could not load witnesses.');
+      setItems([]);
+      setTotal(0);
+    } finally {
+      if (seq === requestSeq.current) setLoading(false);
+    }
+  }, [caseId, appliedFilters, currentPage]);
 
+  useEffect(() => { fetchWitnesses(); }, [fetchWitnesses]);
+
+  // ── Filter handlers ──────────────────────────────────────────────────
   const handleApply = useCallback(() => {
     setAppliedFilters({
       name: searchName.trim(),
@@ -130,13 +192,14 @@ const CaseWitnesses = () => {
     setCurrentPage(1);
   }, []);
 
-  const openDialog = (witness) => {
-    setDialogWitness(witness);
-  };
+  // ── Pagination derivations ───────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, total);
 
-  const closeDialog = useCallback(() => {
-    setDialogWitness(null);
-  }, []);
+  // ── View Details dialog ──────────────────────────────────────────────
+  const openDialog = (w) => setDialogWitness(w);
+  const closeDialog = useCallback(() => setDialogWitness(null), []);
 
   useEffect(() => {
     if (!dialogWitness) return;
@@ -144,9 +207,7 @@ const CaseWitnesses = () => {
   }, [dialogWitness]);
 
   useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') closeDialog();
-    };
+    const handleEscape = (e) => { if (e.key === 'Escape') closeDialog(); };
     if (dialogWitness) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
@@ -157,18 +218,47 @@ const CaseWitnesses = () => {
     };
   }, [dialogWitness, closeDialog]);
 
+  // ── Update dialog submit ─────────────────────────────────────────────
+  const handleUpdateSubmit = async (data) => {
+    const wid = updateTarget?.id;
+    const first = data?.witnesses?.[0];
+    if (!wid || !first) {
+      setUpdateTarget(null);
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      const res = await axios.patch(
+        `${url}/api/investigator/cases/${caseId}/witnesses/${wid}`,
+        formShapeToPatchBody(first),
+        { headers: getAuthHeader() },
+      );
+      // Patch the row in place
+      setItems(curr => curr.map(it => it.id === wid ? res.data : it));
+    } catch (err) {
+      console.error('Update failed:', err);
+      alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+    } finally {
+      setUpdating(false);
+      setUpdateTarget(null);
+    }
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────
   return (
     <section
       className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm"
       aria-label="Witnesses"
     >
-      {/* Header – HCI: Clear hierarchy and context */}
+      {/* Header */}
       <header className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Witnesses</h2>
         <p className="text-sm text-slate-600 mt-1">View all witnesses and their case involvement</p>
       </header>
 
-      {/* Search and filters – HCI: User control, explicit Apply */}
+      {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <label className="sr-only" htmlFor="witness-search">Search witness by name</label>
         <div className="relative flex-1 min-w-50">
@@ -176,7 +266,7 @@ const CaseWitnesses = () => {
           <input
             id="witness-search"
             type="search"
-            placeholder="Search witness by name"
+            placeholder="Search witness by name, ID, or statement"
             value={searchName}
             onChange={(e) => setSearchName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleApply()}
@@ -219,7 +309,24 @@ const CaseWitnesses = () => {
         </Button>
       </div>
 
-      {/* Table – HCI: Consistency, scannability */}
+      {/* Error banner */}
+      {error && !loading && (
+        <div className="mb-4 flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-800">Could not load witnesses</p>
+            <p className="text-xs text-red-700 mt-1">{error}</p>
+          </div>
+          <button
+            onClick={fetchWitnesses}
+            className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-2"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Table */}
       <div className="border border-slate-200 rounded-b-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm" role="table" aria-label="Witness list">
@@ -235,39 +342,59 @@ const CaseWitnesses = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {pageWitnesses.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="p-10 text-center">
+                    <Loader2 className="h-5 w-5 animate-spin inline-block mr-2 text-slate-400" />
+                    <span className="text-sm text-slate-500">Loading witnesses…</span>
+                  </td>
+                </tr>
+              ) : items.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-500">
-                    No witnesses match your search. Try different filters.
+                    {appliedFilters.name || appliedFilters.date || appliedFilters.status !== 'all'
+                      ? 'No witnesses match your search. Try different filters.'
+                      : 'No witnesses linked to this case yet.'}
                   </td>
                 </tr>
               ) : (
-                pageWitnesses.map((w) => (
+                items.map((w) => (
                   <tr key={w.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-semibold text-slate-800 text-nowrap">{w.id}</td>
-                    <td className="p-4 text-slate-800">{w.name}</td>
-                    <td className="p-4 text-slate-700">{w.age} / {w.gender}</td>
-                    <td className="p-4">
-                      <a
-                        href={`tel:${w.contact.replace(/\s/g, '')}`}
-                        className="text-deep-ocean-500 hover:underline rounded"
-                      >
-                        {w.contact}
-                      </a>
+                    <td className="p-4 text-slate-800">
+                      {w.anonymous
+                        ? <span className="italic text-slate-400">Anonymous</span>
+                        : (w.name || '—')}
                     </td>
-                    <td className="p-4 text-slate-700">{w.dateAdded}</td>
-                    <td className="p-4 text-slate-700 max-w-xs">{w.description ? (<>
-                      <div>
-                        {w.description.length > 50
-                          ? `${w.description.slice(0, 50)}...`
-                          : w.description}
-                      </div>
-                    </>) : (null
-                    )}</td>
+                    <td className="p-4 text-slate-700">
+                      {(w.age || '—')} / {w.gender || '—'}
+                    </td>
+                    <td className="p-4">
+                      {w.anonymous || !w.contact ? (
+                        <span className="text-slate-400">—</span>
+                      ) : (
+                        <a
+                          href={`tel:${w.contact.replace(/\s/g, '')}`}
+                          className="text-deep-ocean-500 hover:underline rounded"
+                        >
+                          {w.contact}
+                        </a>
+                      )}
+                    </td>
+                    <td className="p-4 text-slate-700">{fmtDate(w.dateAdded)}</td>
+                    <td className="p-4 text-slate-700 max-w-xs">
+                      {w.description ? (
+                        <div>
+                          {w.description.length > 50
+                            ? `${w.description.slice(0, 50)}...`
+                            : w.description}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="p-4 text-center grid grid-rows-2">
                       <Button
-                        variant='default'
-                        className={'px-4 py-2 mb-2'}
+                        variant="default"
+                        className="px-4 py-2 mb-2"
                         onClick={() => openDialog(w)}
                         aria-label={`View full details for ${w.id}`}
                       >
@@ -275,12 +402,17 @@ const CaseWitnesses = () => {
                         View details
                       </Button>
                       <Button
-                        variant='outline'
-                        className={'px-4 py-2 '}
-                        onClick={() => setUpdateTarget(w)}
+                        variant="outline"
+                        className="px-4 py-2"
+                        onClick={() => setUpdateTarget(rowToFormShape(w))}
+                        disabled={updating}
                         aria-label={`Update witness ${w.id}`}
                       >
-                        <Pencil className="h-3.5 w-3.5 mr-3" aria-hidden />
+                        {updating ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-3 animate-spin" />
+                        ) : (
+                          <Pencil className="h-3.5 w-3.5 mr-3" aria-hidden />
+                        )}
                         Update
                       </Button>
                     </td>
@@ -306,7 +438,7 @@ const CaseWitnesses = () => {
         </div>
       )}
 
-      {/* Full witness details dialog – HCI: Focus management, Escape to close */}
+      {/* View Details dialog */}
       {dialogWitness && (
         <div
           ref={dialogRef}
@@ -322,7 +454,6 @@ const CaseWitnesses = () => {
             className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* ── Header ───────────────────────────────────────────────────── */}
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
@@ -335,7 +466,7 @@ const CaseWitnesses = () => {
                       : `Witness Details — ${dialogWitness.name || "Unnamed"}`}
                   </h3>
                   <p className="text-xs text-slate-500 font-mono">
-                    {dialogWitness.witnessId || dialogWitness.id || "—"}
+                    {dialogWitness.id || "—"}
                   </p>
                 </div>
               </div>
@@ -350,7 +481,7 @@ const CaseWitnesses = () => {
               </button>
             </div>
 
-            {/* ── Status / Flag chips strip ────────────────────────────────── */}
+            {/* Status / Flag chips strip */}
             <div className="px-6 pt-4 flex flex-wrap gap-2">
               <Badge
                 variant={
@@ -383,7 +514,6 @@ const CaseWitnesses = () => {
               )}
             </div>
 
-            {/* ── Body ─────────────────────────────────────────────────────── */}
             <div id="witness-dialog-desc" className="p-6 space-y-6">
 
               {/* Personal Information */}
@@ -394,9 +524,7 @@ const CaseWitnesses = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm *:grid *:grid-cols-[1fr_2fr] *:gap-x-4">
                   <p>
                     <span className="font-semibold text-slate-700">Witness ID:</span>
-                    <span className="text-slate-500 font-mono text-xs">
-                      {dialogWitness.witnessId || dialogWitness.id || '—'}
-                    </span>
+                    <span className="text-slate-500 font-mono text-xs">{dialogWitness.id || '—'}</span>
                   </p>
                   <p>
                     <span className="font-semibold text-slate-700">Name:</span>
@@ -461,7 +589,7 @@ const CaseWitnesses = () => {
                 </div>
               </section>
 
-              {/* Case & Status */}
+              {/* Case & Statement Details */}
               <section aria-labelledby="witness-case-heading">
                 <h4 id="witness-case-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
                   Case & Statement Details
@@ -513,7 +641,7 @@ const CaseWitnesses = () => {
                 </p>
               </section>
 
-              {/* Privacy & Safety Flags (verbose breakdown for clarity) */}
+              {/* Privacy & Safety Flags */}
               <section aria-labelledby="witness-flags-heading">
                 <h4 id="witness-flags-heading" className="text-sm font-semibold text-slate-800 uppercase tracking-wide mb-3 pb-1 border-b border-slate-100">
                   Privacy & Safety
@@ -553,24 +681,22 @@ const CaseWitnesses = () => {
               </section>
             </div>
 
-            {/* ── Sticky footer ────────────────────────────────────────────── */}
             <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end">
-              <Button onClick={closeDialog} className={'px-4 py-2'}>
+              <Button onClick={closeDialog} className="px-4 py-2">
                 Close
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Update dialog */}
       <AddWitnessDialog
         isOpen={!!updateTarget}
         onClose={() => setUpdateTarget(null)}
-        caseId="C-2053"
+        caseId={caseId}
         initialData={updateTarget}
-        onSubmit={(updated) => {
-          console.log("Updated witness:", updated);
-          setUpdateTarget(null);
-        }}
+        onSubmit={handleUpdateSubmit}
       />
     </section>
   );

@@ -1,106 +1,111 @@
-import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, ChevronDown, Calendar, ExternalLink } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import axios from 'axios';
+import { Link, useParams } from 'react-router-dom';
+import {
+  Search, ChevronDown, Calendar, ExternalLink,
+  Loader2, AlertTriangle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 
 const PAGE_SIZE = 5;
-const RELATIONS = [
+
+// Fallback dropdown content used until the first API response arrives.
+// The server returns the live lists in `relation_options` / `status_options`.
+const DEFAULT_RELATIONS = [
   { value: '', label: 'Relation', variant: 'default' },
-  { value: 'suspect', label: 'Similar suspect description', variant: 'warning' },
-  { value: 'location', label: 'Same building location', variant: 'success' },
-  { value: 'victim', label: 'Involves victim\'s colleague', variant: 'default' },
-  { value: 'movement', label: 'Possible suspect movement pattern', variant: 'destructive' },
-  { value: 'proximity', label: 'Repeated crime scene proximity', variant: 'warning' },
 ];
-
-const STATUS_OPTIONS = [
+const DEFAULT_STATUSES = [
   { value: 'all', label: 'Status All', variant: 'default' },
-  { value: 'Open', label: 'Open', variant: 'success' },
-  { value: 'Closed', label: 'Closed', variant: 'destructive' },
 ];
 
-const linkedData = [
-  {
-    id: 'C-10046',
-    linkedCaseId: 'C-10046',
-    title: 'Armed Robbery - Clifton Market',
-    investigator: 'Insp. A. Khan',
-    registerDate: '11/23/2026',
-    status: 'Closed',
-    relation: 'Similar suspect description (dark hoodie)',
-  },
-  {
-    id: 'C-10047',
-    linkedCaseId: 'C-10047',
-    title: 'Burglary - Block 5 Apartments',
-    investigator: 'Insp. R. Malik',
-    registerDate: '11/23/2026',
-    status: 'Open',
-    relation: 'Same building location',
-  },
-  {
-    id: 'C-10048',
-    linkedCaseId: 'C-10048',
-    title: 'Assault Report - Tech Solutions Office',
-    investigator: 'Insp. S. Qureshi',
-    registerDate: '11/23/2026',
-    status: 'Closed',
-    relation: 'Involves victim\'s colleague',
-  },
-  {
-    id: 'C-10049',
-    linkedCaseId: 'C-10049',
-    title: 'Missing Person - Clifton Area',
-    investigator: 'Insp. N. Hashmi',
-    registerDate: '11/23/2026',
-    status: 'Closed',
-    relation: 'Possible suspect movement pattern',
-  },
-  {
-    id: 'C-10050',
-    linkedCaseId: 'C-10050',
-    title: 'Theft - Apartment Block 5',
-    investigator: 'Insp. A. Khan',
-    registerDate: '11/23/2026',
-    status: 'Closed',
-    relation: 'Repeated crime scene proximity',
-  },
-];
+const getAuthHeader = () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 const LinkedCases = () => {
+  const { id: caseIdFromUrl } = useParams();
+  const caseId = caseIdFromUrl || 'C-2053'; // graceful fallback if mounted outside the dynamic route
+
+  // ── Filter inputs (live state) ─────────────────────────────────────────
   const [keyword, setKeyword] = useState('');
   const [relationFilter, setRelationFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Applied filters — what the server is actually using right now.
   const [appliedFilters, setAppliedFilters] = useState({
     keyword: '',
     relation: '',
     date: '',
     status: 'all',
   });
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredRows = linkedData.filter((row) => {
-    const kw = (appliedFilters.keyword || '').toLowerCase();
-    if (kw) {
-      const match = row.title.toLowerCase().includes(kw) ||
-        row.id.toLowerCase().includes(kw) ||
-        row.relation.toLowerCase().includes(kw);
-      if (!match) return false;
+  // ── Server data ────────────────────────────────────────────────────────
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [relationOptions, setRelationOptions] = useState(DEFAULT_RELATIONS);
+  const [statusOptions, setStatusOptions] = useState(DEFAULT_STATUSES);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const requestSeq = useRef(0);
+
+  // ── Fetch ──────────────────────────────────────────────────────────────
+  const fetchLinkedCases = useCallback(async () => {
+    if (!caseId) return;
+    setLoading(true);
+    setError(null);
+    const seq = ++requestSeq.current;
+
+    try {
+      const url = import.meta.env.VITE_API_URL;
+      const res = await axios.get(
+        `${url}/api/investigator/cases/${caseId}/linked-cases`,
+        {
+          headers: getAuthHeader(),
+          params: {
+            search: appliedFilters.keyword,
+            relation: appliedFilters.relation,
+            date: appliedFilters.date || undefined,
+            status: appliedFilters.status,
+            page: currentPage,
+            page_size: PAGE_SIZE,
+          },
+        },
+      );
+      if (seq !== requestSeq.current) return;
+
+      setItems(res.data?.items || []);
+      setTotal(res.data?.total || 0);
+
+      // Server is the source of truth for dropdown contents — but we keep
+      // the existing selection if it's still valid; otherwise reset.
+      const newRelations = res.data?.relation_options || DEFAULT_RELATIONS;
+      const newStatuses = res.data?.status_options || DEFAULT_STATUSES;
+      setRelationOptions(newRelations);
+      setStatusOptions(newStatuses);
+    } catch (err) {
+      if (seq !== requestSeq.current) return;
+      console.error('Failed to load linked cases:', err);
+      setError(err?.response?.data?.detail || 'Could not load linked cases.');
+      setItems([]);
+      setTotal(0);
+    } finally {
+      if (seq === requestSeq.current) setLoading(false);
     }
-    if (appliedFilters.relation && !row.relation.toLowerCase().includes(appliedFilters.relation.toLowerCase())) return false;
-    if (appliedFilters.status !== 'all' && row.status !== appliedFilters.status) return false;
-    return true;
-  });
+  }, [caseId, appliedFilters, currentPage]);
 
-  const totalResults = filteredRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const end = Math.min(start + PAGE_SIZE, totalResults);
-  const pageResults = filteredRows.slice(start, end);
+  useEffect(() => { fetchLinkedCases(); }, [fetchLinkedCases]);
 
+  // ── Pagination math (server already paginated; we just compute display) ─
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const start = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
+  const end = Math.min(start + items.length, total);
+
+  // ── Handlers ───────────────────────────────────────────────────────────
   const handleApply = useCallback(() => {
     setAppliedFilters({
       keyword: keyword.trim(),
@@ -120,16 +125,21 @@ const LinkedCases = () => {
     setCurrentPage(1);
   }, []);
 
-  const getStatusVariant = (status) => {
-    const res = STATUS_OPTIONS.find(s => s.value === status)?.variant || "default";
-    console.log(res)
-    return res;
+  // Look up the variant for a status label / relation label from the
+  // server-provided option lists (no more hard-coded label tables).
+  const getStatusVariant = (statusLabel) =>
+    statusOptions.find(s => s.value === statusLabel)?.variant || 'default';
+
+  const getRelationVariant = (relationText, linkType) => {
+    // Try matching by code first (precise), then by label (loose).
+    if (linkType) {
+      const byCode = relationOptions.find(r => r.value === linkType);
+      if (byCode) return byCode.variant;
+    }
+    return relationOptions.find(r => r.label === relationText)?.variant || 'default';
   };
 
-  const getRelationVariant = (relation) => {
-    return RELATIONS.find(r => r.label === relation)?.variant || "default";
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <section
       className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm"
@@ -140,6 +150,7 @@ const LinkedCases = () => {
         <p className="text-sm text-slate-600 mt-1">Visualize relationship between cases</p>
       </header>
 
+      {/* Filter bar — unchanged layout, options now driven by server */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <label className="sr-only" htmlFor="linked-search">Search linked cases</label>
         <div className="relative flex-1 min-w-50">
@@ -165,7 +176,7 @@ const LinkedCases = () => {
             className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean min-w-45"
             aria-label="Filter by relation type"
           >
-            {RELATIONS.map((opt) => (
+            {relationOptions.map((opt) => (
               <option key={opt.value || 'any'} value={opt.value}>{opt.label}</option>
             ))}
           </select>
@@ -194,7 +205,7 @@ const LinkedCases = () => {
             className="appearance-none pl-4 pr-8 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean-500"
             aria-label="Filter by status"
           >
-            {STATUS_OPTIONS.map((opt) => (
+            {statusOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
@@ -204,11 +215,12 @@ const LinkedCases = () => {
         <Button onClick={handleApply} className="px-6 py-2 shadow-inner shadow-deep-ocean-900" aria-label="Apply filters">
           Apply
         </Button>
-        <Button variant="outline" onClick={handleClear} className="px-6 py-2 " aria-label="Clear filters">
+        <Button variant="outline" onClick={handleClear} className="px-6 py-2" aria-label="Clear filters">
           Clear
         </Button>
       </div>
 
+      {/* Table */}
       <div className="border border-slate-200 rounded-b-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse" role="table" aria-label="Linked cases list">
@@ -224,15 +236,33 @@ const LinkedCases = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {pageResults.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      Loading linked cases…
+                    </span>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-red-600">
+                    <span className="inline-flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" aria-hidden />
+                      {error}
+                    </span>
+                  </td>
+                </tr>
+              ) : items.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                     No linked cases match your search. Try different filters.
                   </td>
                 </tr>
               ) : (
-                pageResults.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                items.map((row) => (
+                  <tr key={`${row.id}-${row.linkType || ''}`} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-semibold text-slate-800 text-nowrap">{row.id}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{row.title}</td>
                     <td className="px-6 py-4 text-slate-700">{row.investigator}</td>
@@ -243,13 +273,13 @@ const LinkedCases = () => {
                       </Badge>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant={getRelationVariant(row.relation)}>
+                      <Badge variant={getRelationVariant(row.relation, row.linkType)}>
                         {row.relation}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <Link
-                        to="/investigator/case"
+                        to={`/investigator/case/${encodeURIComponent(row.linkedCaseId)}`}
                         state={{ caseId: row.linkedCaseId, title: row.title }}
                         className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 shadow-inner shadow-black text-white transition-colors focus:outline-none focus:ring-2 focus:ring-deep-ocean-500 focus:ring-offset-2"
                         aria-label={`Open linked case ${row.id} - ${row.title}`}
@@ -266,13 +296,13 @@ const LinkedCases = () => {
         </div>
       </div>
 
-      {totalResults > 0 && (
+      {!loading && !error && total > 0 && (
         <div className="mt-6">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
-            totalItems={totalResults}
+            totalItems={total}
             start={start}
             end={end}
             itemLabel="results"
