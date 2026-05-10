@@ -22,6 +22,7 @@ import AddSuspectDialog from '@/pages/investigator/case/[id]/forms/AddSuspect';
 import AddVictimDialog from '@/pages/investigator/case/[id]/forms/AddVictim';
 import AddWitnessDialog from '@/pages/investigator/case/[id]/forms/AddWitness';
 import { addEvidencesToCase, formatApiError } from "@/services/evidenceApi";
+import { addVictimsToCase } from '@/services/victimApi';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ const CasePage = () => {
         }
     }, [caseId]);
 
+    console.log(header)
     // ── Action handlers ────────────────────────────────────────────────────
     const handleAddSuspectSubmit = (data) => {
         const list = data?.suspects || [];
@@ -244,9 +246,6 @@ const CasePage = () => {
         try {
             const result = await addEvidencesToCase(caseId, list);
 
-            // Prepend the new timeline events to local state — same pattern as
-            // submitAdd for suspects/victims, but inlined so we can also pass
-            // photo_failures back to the dialog.
             if (result.timeline_events?.length) {
                 setEvents(curr => [...result.timeline_events, ...curr]);
             }
@@ -271,14 +270,34 @@ const CasePage = () => {
         }
     };
 
-    const handleAddVictimSubmit = (data) => {
+    const handleAddVictimSubmit = async (data) => {
         const list = data?.victims || [];
-        if (!list.length) return;
-        submitAdd(
-            'victims',
-            { victims: list },
-            (ids) => `Added ${ids.length} victim${ids.length === 1 ? '' : 's'} to ${caseId}`,
-        );
+        if (!list.length) return { ok: false, error: "No victim items to submit." };
+         try {
+            const result = await addVictimsToCase(caseId, list);
+
+            if (result.timeline_events?.length) {
+                setEvents(curr => [...result.timeline_events, ...curr]);
+            }
+            setStats(curr => curr && ({
+                ...curr,
+                victims: curr.victims + (result.created_ids?.length || 0),
+            }));
+
+            const n = result.created_ids?.length || 0;
+            setToast(`Added ${n} Victim item${n === 1 ? "" : "s"} to ${caseId}`);
+
+            return {
+                ok: true,
+                created_ids: result.created_ids,
+                photo_failures: result.photo_failures,
+            };
+        } catch (err) {
+            console.error("Add Victim failed:", err);
+            const detail = formatApiError(err, "Failed to save victim.");
+            setToast(`Save failed: ${detail}`);
+            return { ok: false, error: detail };
+        }
     };
 
     const handleAddWitnessSubmit = (data) => {
@@ -505,6 +524,7 @@ const CasePage = () => {
                 onClose={() => setShowAddVictim(false)}
                 onSubmit={handleAddVictimSubmit}
                 caseId={caseId}
+                caseType={header?.crime_type}
             />
 
             <AddWitnessDialog

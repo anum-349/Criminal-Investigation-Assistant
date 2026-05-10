@@ -25,6 +25,7 @@ export default function AppRoutes() {
     return (
         <Routes>
             <Route path="/" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/investigator" element={
                 <ProtectedRoute requiredRole="investigator">
                     <InvestigatorPage />

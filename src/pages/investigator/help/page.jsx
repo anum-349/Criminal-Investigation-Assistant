@@ -216,7 +216,6 @@ const HelpPage = () => {
     const handleSubmit = () => {
         if (!contactForm.subject.trim() || !contactForm.message.trim()) return;
         // TODO: replace with real API call → POST /api/admin/contact
-        console.log('Contact admin:', contactForm);
         setSubmitted(true);
     };
 

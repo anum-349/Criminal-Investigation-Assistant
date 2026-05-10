@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import {
   Shield, Info, CheckCircle2, Mic, Circle, Pencil,
@@ -9,6 +8,15 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import AddVictimDialog from './forms/AddVictim';
+import {
+  listVictims,
+  getVictim,
+  updateVictim,
+  uploadVictimPhoto,
+  deleteVictimPhoto,
+  detailToFormShape,
+  formatApiError,
+} from '@/services/victimApi';
 
 // ─── Case type config ────────────────────────────────────────────────────────
 // Defines which detail sections are relevant per case type.
@@ -126,10 +134,6 @@ const getCaseConfig = (caseType) => {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 /** Returns up to 2 uppercase initials from a name string. */
 const getInitials = (name) => {
@@ -141,77 +145,6 @@ const getInitials = (name) => {
     .map((w) => w[0].toUpperCase())
     .join('');
 };
-
-const detailToFormShape = (d) => {
-  if (!d) return null;
-  return {
-    id:                 d.id,
-    victimId:           d.id,
-    name:               d.personal?.name        || '',
-    cnic:               d.personal?.cnic        || '',
-    age:                d.personal?.age         || '',
-    gender:             d.personal?.gender      || '',
-    contact:            d.personal?.contact     || '',
-    address:            d.incident?.residentialAddress || '',
-    occupation:         d.personal?.occupation  || '',
-    status:             d.status || '',
-    primaryLabel:       d.primaryLabel || '',
-    relation:           d.relation || '',
-    caseType:           d.caseType || '',
-    injuryType:         d.injuryType || '',
-    natureOfInjuries:   d.incident?.natureOfInjuries || '',
-    causeOfDeath:       d.incident?.causeOfDeath    || '',
-    declaredDead:       d.incident?.declaredDead   || '',
-    postmortemAutopsy:  d.incident?.postmortemAutopsy || '',
-    injurySummary:      d.injurySummary || '',
-    injuryRecordedBy:   d.injuryRecordedBy || '',
-    medicalReport:      !!d.medicalReport,
-    postmortem:         !!d.postmortem,
-    protectionRequired: !!d.protectionRequired,
-    cooperative:        d.cooperative !== false,
-    threatLevel:        d.protection?.threatLevel || '',
-    protectionAssigned: d.protection?.protectionAssigned || '',
-    notes:              d.protection?.notes || '',
-    nextFollowUp:       d.nextFollowUp || '',
-    statement:          d.statement || '',
-    forensic:           d.forensic   || [],
-    timeline:           d.timeline   || [],
-    legal:              d.legal      || [],
-  };
-};
-
-const formShapeToPatchBody = (formItem) => ({
-  name:               formItem?.name,
-  cnic:               formItem?.cnic,
-  age:                formItem?.age ? Number(formItem.age) : undefined,
-  gender:             formItem?.gender,
-  contact:            formItem?.contact,
-  address:            formItem?.address,
-  occupation:         formItem?.occupation,
-  status:             formItem?.status,
-  primaryLabel:       formItem?.primaryLabel,
-  relation:           formItem?.relation,
-  caseType:           formItem?.caseType,
-  injuryType:         formItem?.injuryType,
-  natureOfInjuries:   formItem?.natureOfInjuries,
-  causeOfDeath:       formItem?.causeOfDeath,
-  declaredDead:       formItem?.declaredDead,
-  postmortemAutopsy:  formItem?.postmortemAutopsy,
-  injurySummary:      formItem?.injurySummary,
-  injuryRecordedBy:   formItem?.injuryRecordedBy,
-  statement:          formItem?.statement,
-  medicalReport:      formItem?.medicalReport,
-  postmortem:         formItem?.postmortem,
-  protectionRequired: formItem?.protectionRequired,
-  cooperative:        formItem?.cooperative,
-  threatLevel:        formItem?.threatLevel,
-  protectionAssigned: formItem?.protectionAssigned,
-  notes:              formItem?.notes,
-  nextFollowUp:       formItem?.nextFollowUp,
-  forensic:           formItem?.forensic,
-  timeline:           formItem?.timeline,
-  legal:              formItem?.legal,
-});
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -233,12 +166,11 @@ const VictimAvatar = ({ name, src }) => {
 
   return (
     <div className="size-18 rounded-full overflow-hidden border-2 border-white/20 bg-slate-400 shrink-0">
-      <img
-        src={src}
+      <img src={photoSrc(src)}
         alt={`Photo of ${name || 'victim'}`}
         className="object-cover h-full w-full"
-        onError={() => setImgFailed(true)}
-      />
+        onError={() => setImgFailed(true)}/>
+
     </div>
   );
 };
@@ -266,14 +198,14 @@ const PersonalInfoCard = ({ personal }) => (
     </h3>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
       <div className="space-y-2">
-        <Row label="Name"       value={personal?.name} />
-        <Row label="Age"        value={personal?.age} />
-        <Row label="Contact"    value={personal?.contact} />
+        <Row label="Name" value={personal?.name} />
+        <Row label="Age" value={personal?.age} />
+        <Row label="Contact" value={personal?.contact} />
       </div>
       <div className="space-y-2">
-        <Row label="Gender"     value={personal?.gender} />
+        <Row label="Gender" value={personal?.gender} />
         <Row label="Occupation" value={personal?.occupation} />
-        <Row label="CNIC"       value={personal?.cnic} />
+        <Row label="CNIC" value={personal?.cnic} />
       </div>
     </div>
   </article>
@@ -297,13 +229,13 @@ const IncidentDetailsCard = ({ incident, showDeceased }) => (
     </h3>
     <div className="space-y-2">
       <Row label="Residential Address" value={incident?.residentialAddress} />
-      <Row label="Nature of Injuries"  value={incident?.natureOfInjuries} />
+      <Row label="Nature of Injuries" value={incident?.natureOfInjuries} />
 
       {/* ── Deceased-only fields ── */}
       {showDeceased && (
         <>
-          <Row label="Cause of Death"       value={incident?.causeOfDeath} />
-          <Row label="Declared Dead"        value={incident?.declaredDead} />
+          <Row label="Cause of Death" value={incident?.causeOfDeath} />
+          <Row label="Declared Dead" value={incident?.declaredDead} />
           <Row label="Postmortem / Autopsy" value={incident?.postmortemAutopsy} />
         </>
       )}
@@ -432,12 +364,64 @@ const ProtectionCard = ({ protection }) => (
       Protection Status
     </h3>
     <div className="space-y-2 text-sm">
-      <Row label="Threat Level"        value={protection?.threatLevel} />
+      <Row label="Threat Level" value={protection?.threatLevel} />
       <Row label="Protection Assigned" value={protection?.protectionAssigned} />
-      <Row label="Notes"               value={protection?.notes} />
+      <Row label="Notes" value={protection?.notes} />
     </div>
   </article>
 );
+
+const PhotographsCard = ({ photos, onUpload, onDelete, uploading }) => (
+  <article
+    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    aria-labelledby="photos-heading"
+  >
+    <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
+      <h3 id="photos-heading" className="text-lg font-bold text-slate-800">
+        Photographs
+      </h3>
+      <label className={`cursor-pointer text-sm text-blue-600 hover:underline
+                    ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+        {uploading
+          ? <><Loader2 className="h-3.5 w-3.5 inline animate-spin mr-1" />Uploading…</>
+          : <>⬆ Upload</>}
+        <input type="file" accept="image/*" hidden disabled={uploading}
+          onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }}
+        />
+      </label>
+    </div>
+    {photos.length === 0 ? (
+      <p className="text-sm text-slate-500">No photos on file. Click Upload to add one.</p>
+    ) : (
+      <div className="grid grid-cols-3 gap-3">
+        {photos.map((p) => (
+          <div key={p.id} className="relative group rounded-lg overflow-hidden border border-slate-200">
+            <img src={photoSrc(p.url)} alt={p.file_name || `Photo ${p.id}`}
+              className="w-full aspect-square object-cover" />
+            <button type="button" onClick={() => onDelete(p.id)}
+              className="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-1 rounded
+                                           opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              aria-label="Delete photo">🗑</button>
+          </div>
+        ))}
+      </div>
+    )}
+  </article>
+);
+//photoSrc helper at the top of the file:
+const photoSrc = (rawUrl) => {
+  if (!rawUrl) return '';
+  if (rawUrl.startsWith('http')) return rawUrl;
+  if (rawUrl.startsWith('/uploads')) return `${import.meta.env.VITE_API_URL}${rawUrl}`;
+  return rawUrl;
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGE 6 (optional) — Tab cards: render a tiny photoUrl thumbnail next to
+// the title so the tab is recognizable at a glance. Inside the existing
+// .map((v) => <button …>) replace the inner content with:
+// //
 
 /** Legal Status — shown when showLegal=true */
 const LegalCard = ({ legal }) => (
@@ -478,30 +462,25 @@ const CaseVictim = () => {
   const { id: caseIdFromUrl } = useParams();
   const caseId = caseIdFromUrl || 'C-2053';
 
-  const [victims, setVictims]                   = useState([]);
+  const [victims, setVictims] = useState([]);
   const [selectedVictimId, setSelectedVictimId] = useState(null);
-  const [details, setDetails]                   = useState(null);
-  const [loadingList, setLoadingList]           = useState(true);
-  const [loadingDetails, setLoadingDetails]     = useState(false);
-  const [error, setError]                       = useState(null);
+  const [details, setDetails] = useState(null);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [error, setError] = useState(null);
 
   const [updateTarget, setUpdateTarget] = useState(null);
-  const [updating, setUpdating]         = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   const detailReqSeq = useRef(0);
 
-  // ── Fetch list ────────────────────────────────────────────────────────────
   const fetchList = useCallback(async () => {
     if (!caseId) return;
     setLoadingList(true);
     setError(null);
     try {
-      const url = import.meta.env.VITE_API_URL;
-      const res = await axios.get(
-        `${url}/api/investigator/cases/${caseId}/victims`,
-        { headers: getAuthHeader() },
-      );
-      const items = res.data?.items || [];
+      const data = await listVictims(caseId);
+      const items = data?.items || [];
       setVictims(items);
       if (items.length && !selectedVictimId) {
         setSelectedVictimId(items[0].id);
@@ -511,7 +490,7 @@ const CaseVictim = () => {
       }
     } catch (err) {
       console.error('Failed to load victims:', err);
-      setError(err?.response?.data?.detail || 'Could not load victims.');
+      setError(formatApiError(err, 'Could not load victims.'));
       setVictims([]);
     } finally {
       setLoadingList(false);
@@ -521,7 +500,7 @@ const CaseVictim = () => {
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
-  // ── Fetch detail ──────────────────────────────────────────────────────────
+  // Detail fetch
   useEffect(() => {
     if (!selectedVictimId || !caseId) { setDetails(null); return; }
     const seq = ++detailReqSeq.current;
@@ -529,17 +508,13 @@ const CaseVictim = () => {
 
     (async () => {
       try {
-        const url = import.meta.env.VITE_API_URL;
-        const res = await axios.get(
-          `${url}/api/investigator/cases/${caseId}/victims/${selectedVictimId}`,
-          { headers: getAuthHeader() },
-        );
+        const data = await getVictim(caseId, selectedVictimId);
         if (seq !== detailReqSeq.current) return;
-        setDetails(res.data);
+        setDetails(data);
       } catch (err) {
         if (seq !== detailReqSeq.current) return;
         console.error('Failed to load victim detail:', err);
-        setError(err?.response?.data?.detail || 'Could not load victim details.');
+        setError(formatApiError(err, 'Could not load victim details.'));
         setDetails(null);
       } finally {
         if (seq === detailReqSeq.current) setLoadingDetails(false);
@@ -547,28 +522,107 @@ const CaseVictim = () => {
     })();
   }, [selectedVictimId, caseId]);
 
-  // ── Update ────────────────────────────────────────────────────────────────
-  const handleUpdateSubmit = async (data) => {
-    const vid   = updateTarget?.id;
-    const first = data?.victims?.[0];
-    if (!vid || !first) { setUpdateTarget(null); return; }
+
+  const handleUpdateSubmit = async ({ caseId: cid, victims, isUpdate }) => {
+    if (!isUpdate) {
+      return { ok: false, error: 'CaseVictims only handles updates here.' };
+    }
+    const vid = updateTarget?.id;
+    const first = victims?.[0];
+    if (!vid || !first) {
+      setUpdateTarget(null);
+      return { ok: false, error: 'Missing victim reference.' };
+    }
 
     setUpdating(true);
     try {
-      const url = import.meta.env.VITE_API_URL;
-      const res = await axios.patch(
-        `${url}/api/investigator/cases/${caseId}/victims/${vid}`,
-        formShapeToPatchBody(first),
-        { headers: getAuthHeader() },
+      // 1. Diff deleted photos (in original detail, missing from form)
+      const originalPhotoIds = new Set(
+        (details?.photos || []).map(p => p.id).filter(Boolean),
       );
-      setDetails(res.data);
+      const remainingExistingIds = new Set(
+        (first.photos || []).map(p => p.existingPhotoId).filter(Boolean),
+      );
+      const deletedIds = [...originalPhotoIds].filter(id => !remainingExistingIds.has(id));
+
+      for (const photoId of deletedIds) {
+        try {
+          await deleteVictimPhoto(cid, vid, photoId);
+        } catch (err) {
+          console.warn(`Failed to delete photo ${photoId}:`, err);
+        }
+      }
+
+      // 2. PATCH + upload net-new photos
+      const { detail, photo_failures } = await updateVictim(cid, vid, first);
+
+      setDetails(detail);
+      // Refresh the summary list — the row's photoUrl/status may have changed
       fetchList();
+
+      return { ok: true, detail, photo_failures };
     } catch (err) {
       console.error('Update failed:', err);
-      alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+      return { ok: false, error: formatApiError(err, 'Update failed.') };
     } finally {
       setUpdating(false);
-      setUpdateTarget(null);
+      setTimeout(() => setUpdateTarget(null), 0);
+    }
+  };
+
+
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const handleHeroPhotoUpload = async (file) => {
+    if (!file || !selectedVictimId) return;
+    setUploadingPhoto(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      const result = await uploadVictimPhoto(caseId, selectedVictimId, {
+        dataUrl, fileName: file.name,
+      });
+      // Patch local state in place — no full re-fetch needed
+      setDetails(prev => prev && ({
+        ...prev,
+        photos: result?.photos || prev.photos,
+        photoUrl: result?.photoUrl || prev.photoUrl,
+      }));
+      setVictims(curr => curr.map(v =>
+        v.id === selectedVictimId
+          ? { ...v, photoUrl: result?.photoUrl || v.photoUrl }
+          : v,
+      ));
+    } catch (err) {
+      console.error('Photo upload failed:', err);
+      alert(`Upload failed: ${formatApiError(err)}`);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleHeroPhotoDelete = async (photoId) => {
+    if (!photoId || !selectedVictimId) return;
+    if (!confirm('Delete this photo?')) return;
+    try {
+      const result = await deleteVictimPhoto(caseId, selectedVictimId, photoId);
+      setDetails(prev => prev && ({
+        ...prev,
+        photos: result?.photos || [],
+        photoUrl: result?.photoUrl || null,
+      }));
+      setVictims(curr => curr.map(v =>
+        v.id === selectedVictimId
+          ? { ...v, photoUrl: result?.photoUrl || null }
+          : v,
+      ));
+    } catch (err) {
+      console.error('Photo delete failed:', err);
+      alert(`Delete failed: ${formatApiError(err)}`);
     }
   };
 
@@ -698,8 +752,9 @@ const CaseVictim = () => {
           >
             <div className="flex items-center gap-4 flex-wrap">
               {/* Avatar with initials fallback */}
-              <VictimAvatar name={victimName} src={details.photoUrl} />
-
+              <div className="relative group">
+                <VictimAvatar name={victimName} src={details.photoUrl} />
+              </div>
               <div>
                 <h3 className="text-xl font-bold">{details.caseType || '—'}</h3>
                 <p className="text-xs uppercase opacity-90">{details.primaryLabel || '—'}</p>
@@ -750,6 +805,13 @@ const CaseVictim = () => {
               showDeceased={cfg.showDeceased}
             />
 
+            <PhotographsCard
+              photos={details.photos || []}
+              onUpload={handleHeroPhotoUpload}
+              onDelete={handleHeroPhotoDelete}
+              uploading={uploadingPhoto}
+            />
+
             {/* Injury & Medical — assault, robbery, sexual assault */}
             {cfg.showInjury && (
               <InjuryCard
@@ -791,6 +853,7 @@ const CaseVictim = () => {
         onClose={() => setUpdateTarget(null)}
         onSubmit={handleUpdateSubmit}
         caseId={caseId}
+        caseType={details?.caseType || ''}
         initialData={updateTarget}
       />
     </section>

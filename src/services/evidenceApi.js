@@ -3,30 +3,24 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Centralized backend integration for the Evidence flow.
  *
- * Why one file
- * ────────────
- * The Evidence form (step-evidence/page.jsx) is reused in THREE places:
- *
+ * Used by THREE call-sites:
  *   1. Register-case wizard          (POST evidences as part of a brand-new case)
  *   2. AddEvidenceDialog (Add mode)  (POST evidences to an existing case)
- *   3. AddEvidenceDialog (Update)    (PATCH one row + add/remove its photos)
+ *   3. AddEvidenceDialog (Update)    (PATCH one row + add/remove its photos + replace file)
  *
- * Each surface used to roll its own axios calls, with subtle drift —
- * AddEvidenceDialog dropped photos on bulk-add, the wizard submitted
- * nothing at all, etc. Consolidating here so every caller goes through
- * the same code path that:
- *
- *   • strips frontend-only fields the backend rejects
- *   • sends evidences in one POST, then loops photos in follow-up POSTs
- *   • returns a normalized result so the UI can prepend timeline rows
- *     and bump the evidence_collected counter without re-fetching
- *
- * Backend endpoints (all confirmed against existing code):
+ * Backend endpoints (verified against schemas/case_evidence_schema.py +
+ * services/case_evidence_service.py):
  *   POST   /api/investigator/cases/{caseId}/evidences
  *   PATCH  /api/investigator/cases/{caseId}/evidences/{evidenceId}
  *   POST   /api/investigator/cases/{caseId}/evidences/{evidenceId}/photos
  *   DELETE /api/investigator/cases/{caseId}/evidences/{evidenceId}/photos/{photoId}
  *   GET    /api/investigator/cases/{caseId}/evidences
+ *
+ * The backend's UpdateEvidenceRequest accepts:
+ *   type, description, dateCollected, collectedBy, status,
+ *   fileDataUrl, fileName, fileMime
+ *
+ * Status values: "Analyzed" | "Pending Analysis"
  */
 
 import axios from "axios";
@@ -39,48 +33,11 @@ export const getAuthHeader = () => {
 
 const apiBase = () => import.meta.env.VITE_API_URL;
 
-// ── Shape converters ────────────────────────────────────────────────────────
-// The frontend evidence object carries fields the backend doesn't know about
-// (id used as a React key, photos with dataUrl/existingPhotoId markers, …).
-// Strip them down to what AddEvidenceRequest / UpdateEvidenceRequest actually
-// accept (see schemas/case_detail_schema.py and case_evidence_schema.py).
+// ── File utilities ──────────────────────────────────────────────────────────
 
-/** Used by both register-case bulk POST and AddEvidenceDialog Add-mode. */
-export const evidenceToCreatePayload = (ev) => ({
-    evidenceId: ev?.evidenceId || undefined,   // backend will generate if absent
-    type: ev?.type || "Other",
-    description: ev?.description || undefined,
-    dateCollected: ev?.dateCollected || undefined,
-    collectedBy: ev?.collectedBy || undefined,
-    //   fileName:      ev?.fileName || undefined,
-    //   fileMime:      ev?.fileMime || undefined,
-});
-
-/** Used by AddEvidenceDialog Update-mode (PATCH body). */
-export const evidenceToPatchPayload = (ev) => {
-    const payload = {
-        type: ev?.type,
-        description: ev?.description,
-        dateCollected: ev?.dateCollected,
-        collectedBy: ev?.collectedBy,
-        status: ev?.status,
-    };
-    if (item.fileDataUrl && !item.existingFileName) {
-        payload.fileDataUrl = item.fileDataUrl;
-        payload.fileName = item.fileName || null;
-        payload.fileMime = item.fileMime || null;
-    }
-
-    return payload;
-};
-
-/** Photos that are NOT yet on the server have a `dataUrl` starting with
- * "data:" (FileReader output). Photos already saved have `existingPhotoId`
- * and a public URL in `dataUrl`. We only upload the new ones. */
-const isNewPhoto = (p) =>
-    !p?.existingPhotoId && typeof p?.dataUrl === "string" && p.dataUrl.startsWith("data:");
-
-const fileToDataUrl = (file) =>
+/** Convert a File object to a base64 data URL. Used everywhere we need to
+ *  ship a file as part of a JSON body. */
+export const fileToDataUrl = (file) =>
     file
         ? new Promise((resolve, reject) => {
             const r = new FileReader();
@@ -89,20 +46,94 @@ const fileToDataUrl = (file) =>
             r.readAsDataURL(file);
         })
         : Promise.resolve(null);
+
+/** A new file (just picked from disk) has either a `file` File object OR a
+ *  data URL string starting with "data:". An "existing" file is stored as
+ *  a public URL ("/uploads/..." or "https://...") and is NOT re-uploaded. */
+const hasNewFile = (ev) =>
+    (ev?.file instanceof File) ||
+    (typeof ev?.fileDataUrl === "string" && ev.fileDataUrl.startsWith("data:"));
+
+/** Photos that are NOT yet on the server have a `dataUrl` starting with
+ *  "data:" (FileReader output). Photos already saved have `existingPhotoId`
+ *  and a public URL in `dataUrl`. We only upload the new ones. */
+const isNewPhoto = (p) =>
+    !p?.existingPhotoId && typeof p?.dataUrl === "string" && p.dataUrl.startsWith("data:");
+
+/** Normalize an evidence form item so it always has `fileDataUrl` populated
+ *  if a new file was attached. Idempotent — safe to call repeatedly. */
+const ensureFileDataUrl = async (ev) => {
+    if (!ev) return ev;
+    if (ev.fileDataUrl && ev.fileDataUrl.startsWith("data:")) return ev;
+    if (ev.file instanceof File) {
+        const dataUrl = await fileToDataUrl(ev.file);
+        return {
+            ...ev,
+            fileDataUrl: dataUrl,
+            fileName: ev.fileName || ev.file.name,
+            fileMime: ev.fileMime || ev.file.type,
+        };
+    }
+    return ev;
+};
+
+// ── Shape converters ────────────────────────────────────────────────────────
+
+/** POST body for ONE evidence row. Used by both register-case bulk POST and
+ *  AddEvidenceDialog Add-mode. Files are NOT inlined here — the caller
+ *  uploads them via PATCH after the bulk-create returns the new IDs. */
+export const evidenceToCreatePayload = (ev) => ({
+    evidenceId:    ev?.evidenceId || undefined,
+    type:          ev?.type || "Other",
+    description:   ev?.description || undefined,
+    dateCollected: ev?.dateCollected || undefined,
+    collectedBy:   ev?.collectedBy || undefined,
+    fileName:      ev?.fileName || undefined,
+    fileMime:      ev?.fileMime || undefined,
+});
+
+/** PATCH body for one evidence row. Used by AddEvidenceDialog Update-mode
+ *  AND by the in-dialog Status switcher (which only sends `{status}`).
+ *
+ *  Important: only fields that are actually provided are forwarded. The
+ *  backend treats `null` differently from "missing", so we send `undefined`
+ *  for absent keys (axios drops them).
+ *
+ *  If a brand-new file was attached, we include fileDataUrl/Name/Mime.
+ *  An "existing" file (public URL still in `existingFileName`) is NOT
+ *  re-sent — that would round-trip the entire file body for no reason. */
+export const evidenceToPatchPayload = (ev) => {
+    const payload = {};
+    if (ev?.type           !== undefined) payload.type          = ev.type;
+    if (ev?.description    !== undefined) payload.description   = ev.description;
+    if (ev?.dateCollected  !== undefined) payload.dateCollected = ev.dateCollected;
+    if (ev?.collectedBy    !== undefined) payload.collectedBy   = ev.collectedBy;
+    if (ev?.status         !== undefined) payload.status        = ev.status;
+
+    // Attach a NEW file only — never the existing one.
+    if (hasNewFile(ev)) {
+        payload.fileDataUrl = ev.fileDataUrl;        // already a data URL by ensureFileDataUrl
+        payload.fileName    = ev.fileName || null;
+        payload.fileMime    = ev.fileMime || null;
+    }
+    return payload;
+};
+
 // ── 1. Bulk add evidences to a case ─────────────────────────────────────────
-// Used by:
-//   • register-case wizard (after the case itself is created)
-//   • AddEvidenceDialog in Add mode (existing case, multiple new items)
+// Three-step process:
+//   1a. POST the rows (no files in this body — backend doesn't accept them
+//       inline on create).
+//   1b. For each created row, PATCH the file if one was attached.
+//   1c. For each created row, POST every new photo.
 //
 // Returns: {
-//   created_ids:     [string],       // backend-assigned external IDs in input order
-//   timeline_events: [TimelineEventOut],  // ready to prepend to the timeline
+//   created_ids:     [string],
+//   timeline_events: [TimelineEventOut],
 //   photo_failures:  [{evidenceId, photoName, error}],
 // }
 //
-// Photo upload errors are collected, NOT thrown — the evidence rows
-// themselves are already saved at that point, so failing one photo
-// shouldn't unwind the rest. Caller decides whether to surface them.
+// File and photo upload errors are collected, NOT thrown — the rows
+// themselves are already saved at that point.
 export const addEvidencesToCase = async (caseId, evidences) => {
     if (!caseId) throw new Error("caseId is required");
     const list = Array.isArray(evidences) ? evidences : [];
@@ -110,53 +141,53 @@ export const addEvidencesToCase = async (caseId, evidences) => {
         return { created_ids: [], timeline_events: [], photo_failures: [] };
     }
 
-    const url = apiBase();
+    const url     = apiBase();
     const headers = getAuthHeader();
 
-    // 1a. Bulk POST the rows (no photos in this body).
+    // 1a. Bulk POST the rows (metadata only).
     const res = await axios.post(
         `${url}/api/investigator/cases/${caseId}/evidences`,
         { evidences: list.map(evidenceToCreatePayload) },
         { headers },
     );
 
-    const data = res.data || {};
-    const createdIds = data.created_ids || [];
+    const data           = res.data || {};
+    const createdIds     = data.created_ids     || [];
     const timelineEvents = data.timeline_events || [];
 
-    // 1b. Upload photos. created_ids comes back in the SAME order as the
-    //     evidences array we sent, so we can pair them by index. Any item
-    //     without photos is a no-op.
     const photoFailures = [];
+
+    // 1b + 1c. For each evidence: upload its file (if any), then its photos.
     for (let i = 0; i < list.length; i++) {
         const evid = createdIds[i];
-        const item = list[i];
+        let   item = list[i];
         if (!evid) continue;
 
-        const fileDataUrl =
-            item.fileDataUrl ||
-            (item.file instanceof File ? await fileToDataUrl(item.file) : null);
+        // Resolve file → dataUrl if needed.
+        item = await ensureFileDataUrl(item);
 
-        if (fileDataUrl) {
+        // 1b. File upload via PATCH (backend stores it in evidence.file_name).
+        if (hasNewFile(item)) {
             try {
                 await axios.patch(
                     `${url}/api/investigator/cases/${caseId}/evidences/${evid}`,
                     {
-                        fileDataUrl,
-                        fileName: item.fileName || item.file?.name || null,
-                        fileMime: item.fileMime || item.file?.type || null,
+                        fileDataUrl: item.fileDataUrl,
+                        fileName:    item.fileName || null,
+                        fileMime:    item.fileMime || null,
                     },
                     { headers },
                 );
             } catch (err) {
                 photoFailures.push({
                     evidenceId: evid,
-                    photoName: item.fileName || "(file)",
-                    error: err?.response?.data?.detail || err.message || "File upload failed",
+                    photoName:  item.fileName || "(file)",
+                    error:      err?.response?.data?.detail || err.message || "File upload failed",
                 });
             }
         }
 
+        // 1c. Photo uploads.
         const newPhotos = (item.photos || []).filter(isNewPhoto);
         for (const ph of newPhotos) {
             try {
@@ -168,57 +199,52 @@ export const addEvidencesToCase = async (caseId, evidences) => {
             } catch (err) {
                 photoFailures.push({
                     evidenceId: evid,
-                    photoName: ph.name || ph.fileName || "(unnamed)",
-                    error: err?.response?.data?.detail || err.message || "Upload failed",
+                    photoName:  ph.name || ph.fileName || "(unnamed)",
+                    error:      err?.response?.data?.detail || err.message || "Upload failed",
                 });
             }
         }
     }
-    listEvidences(caseId); // fire-and-forget re-fetch to update photos list in the UI    
 
+    listEvidences(caseId)    
     return {
-        created_ids: createdIds,
+        created_ids:     createdIds,
         timeline_events: timelineEvents,
-        photo_failures: photoFailures,
+        photo_failures:  photoFailures,
     };
 };
 
 // ── 2. Update an existing evidence row ──────────────────────────────────────
-// Used by AddEvidenceDialog in Update-mode. Two-stage:
-//   2a. PATCH the editable fields
-//   2b. Upload any newly-added photos (no `existingPhotoId`)
+// Two stages:
+//   2a. PATCH editable fields. If a new file is attached, it goes in this
+//       same PATCH (the backend stores it on receipt).
+//   2b. Upload any net-new photos.
 //
-// We do NOT delete photos here — that's a separate explicit action via
-// deletePhoto() below, since the dialog renders an X button per thumbnail.
+// Photo deletes are NOT done here — that's an explicit separate action via
+// deleteEvidencePhoto() (the dialog renders an X per thumbnail, and
+// CaseEvidence.handleUpdateSubmit diffs which existing IDs disappeared
+// from the form).
 //
 // Returns: { row, photo_failures }
-//   row             — the latest CaseEvidenceRow (with updated photos list)
-//   photo_failures  — same shape as bulk-add
 export const updateEvidence = async (caseId, evidenceId, formItem) => {
     if (!caseId || !evidenceId) throw new Error("caseId and evidenceId are required");
 
-    const url = apiBase();
+    const url     = apiBase();
     const headers = getAuthHeader();
 
-    if (formItem?.file instanceof File && !formItem.fileDataUrl) {
-        formItem = {
-            ...formItem,
-            fileDataUrl: await fileToDataUrl(formItem.file),
-            fileName: formItem.fileName || formItem.file.name,
-            fileMime: formItem.fileMime || formItem.file.type,
-        };
-    }
+    // Resolve any File object to a dataUrl up front.
+    const item = await ensureFileDataUrl(formItem);
 
-    // 2a. PATCH editable fields.
+    // 2a. PATCH editable fields (+ file if new).
     const patchRes = await axios.patch(
         `${url}/api/investigator/cases/${caseId}/evidences/${evidenceId}`,
-        evidenceToPatchPayload(formItem),
+        evidenceToPatchPayload(item),
         { headers },
     );
     let latest = patchRes.data;
 
     // 2b. Upload any net-new photos.
-    const newPhotos = (formItem?.photos || []).filter(isNewPhoto);
+    const newPhotos = (item?.photos || []).filter(isNewPhoto);
     const photoFailures = [];
     for (const ph of newPhotos) {
         try {
@@ -227,24 +253,23 @@ export const updateEvidence = async (caseId, evidenceId, formItem) => {
                 { dataUrl: ph.dataUrl, fileName: ph.name || ph.fileName, caption: ph.caption },
                 { headers },
             );
-            // Each photo POST returns the full updated photos list — keep the
-            // latest one so the caller can patch the row in place without a re-fetch.
             latest = { ...latest, photos: photoRes.data?.photos || latest.photos };
         } catch (err) {
             photoFailures.push({
                 evidenceId,
                 photoName: ph.name || ph.fileName || "(unnamed)",
-                error: err?.response?.data?.detail || err.message || "Upload failed",
+                error:     err?.response?.data?.detail || err.message || "Upload failed",
             });
         }
     }
 
+    listEvidences(caseId)
     return { row: latest, photo_failures: photoFailures };
 };
 
 // ── 3. Photo upload to one existing evidence row ────────────────────────────
-// Used by the inline photo-add control inside CaseEvidence.jsx's view
-// dialog. Returns the server's PhotoUploadResult { photo, photos }.
+// Used by the inline "Upload Photo" control inside CaseEvidence.jsx's
+// view dialog. Returns the server's PhotoUploadResult { photo, photos }.
 export const uploadEvidencePhoto = async (caseId, evidenceId, { dataUrl, fileName, caption }) => {
     if (!caseId || !evidenceId) throw new Error("caseId and evidenceId are required");
     const res = await axios.post(
@@ -264,45 +289,56 @@ export const deleteEvidencePhoto = async (caseId, evidenceId, photoId) => {
         `${apiBase()}/api/investigator/cases/${caseId}/evidences/${evidenceId}/photos/${photoId}`,
         { headers: getAuthHeader() },
     );
+    
     return res.data;
 };
 
 // ── 5. List evidences for a case ────────────────────────────────────────────
-// Used by CaseEvidence.jsx for the table.
 export const listEvidences = async (caseId, { search, date, status, page = 1, page_size = 5 } = {}) => {
     const res = await axios.get(
         `${apiBase()}/api/investigator/cases/${caseId}/evidences`,
         {
             headers: getAuthHeader(),
-            params: { search, date, status, page, page_size },
+            params:  { search, date, status, page, page_size },
         },
     );
     return res.data;
 };
 
 // ── 6. Adapter helpers ──────────────────────────────────────────────────────
-// Used by CaseEvidence.jsx when opening the Update dialog. Converts a
-// server row (CaseEvidenceRow shape) into the form shape StepEvidence
-// expects, preserving photo IDs so we know which ones already exist.
+// Convert a server row (CaseEvidenceRow shape) into the form shape
+// StepEvidence expects, preserving photo IDs so we know which ones already
+// exist on the server.
 export const rowToFormShape = (row) => {
     if (!row) return null;
     return {
-        id: row.id,
-        evidenceId: row.id,
-        type: row.type || "",
-        dateCollected: row.date || "",
-        collectedBy: row.collectedBy || "",
-        description: row.description || "",
+        // React key + ID forwarded back to backend
+        id:               row.id,
+        evidenceId:       row.id,
+
+        // Editable fields
+        type:             row.type || "",
+        dateCollected:    row.date || "",
+        collectedBy:      row.collectedBy || "",
+        description:      row.description || "",
+        status:           row.status,
+
+        // File: row.fileName from backend is a public URL like "/uploads/..."
+        // We split off just the basename for display, and stash the full URL
+        // in `existingFileName` so we know NOT to re-upload it on save.
         existingFileName: row.fileName || null,
-        fileName: row.fileName ? row.fileName.split("/").pop() : null,
-        fileMime: row.fileMime || null,
-        // No fileDataUrl — a new file hasn't been chosen yet.
-        fileDataUrl: null,
-        status: row.status,
+        fileName:         row.fileName ? row.fileName.split("/").pop() : "",
+        fileMime:         row.fileMime || null,
+        // No `fileDataUrl` and no `file` — those are only set when the user
+        // picks a new file from disk.
+        fileDataUrl:      null,
+        file:             null,
+
+        // Photos
         photos: (row.photos || []).map((p) => ({
             existingPhotoId: p.id,
-            name: p.file_name || `photo-${p.id}`,
-            dataUrl: p.url, // public URL — <img> resolves it
+            name:            p.file_name || `photo-${p.id}`,
+            dataUrl:         p.url,
         })),
     };
 };

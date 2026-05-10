@@ -269,7 +269,7 @@ const CaseSearch = () => {
 
     try {
       const url = import.meta.env.VITE_API_URL;
-      const res = await axios.get(`${url}/api/investigator/search`, {
+      const res = await axios.get(`${url}/api/investigator/cases/search`, {
         headers: getAuthHeader(),
         params: { q: appliedQuery },
       });
