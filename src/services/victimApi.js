@@ -61,22 +61,22 @@ const parseAge = (v) => {
 /** Body for one victim in a bulk POST (register-case + AddVictimDialog Add).
  *  Targets case_detail_service.add_victim's SuspectInput-shaped contract. */
 export const victimToCreatePayload = (v) => ({
-    victimId:           v?.victimId || undefined,
-    name:               v?.name || undefined,
-    cnic:               v?.cnic || undefined,
-    age:                parseAge(v?.age),
-    gender:             v?.gender || undefined,
-    contact:            v?.contact || undefined,
-    address:            v?.address || undefined,
-    occupation:         v?.occupation || undefined,
-    status:             v?.status || undefined,
-    primaryLabel:       v?.primaryLabel || undefined,
-    injuryType:         v?.injuryType || undefined,
-    natureOfInjuries:   v?.natureOfInjuries || undefined,
-    causeOfDeath:       v?.causeOfDeath || undefined,
-    declaredDead:       v?.declaredDead || undefined,
-    postmortemAutopsy:  v?.postmortemAutopsy || undefined,
-    statement:          v?.statement || undefined,
+    victimId: v?.victimId || undefined,
+    name: v?.name || undefined,
+    cnic: v?.cnic || undefined,
+    age: parseAge(v?.age),
+    gender: v?.gender || undefined,
+    contact: v?.contact || undefined,
+    address: v?.address || undefined,
+    occupation: v?.occupation || undefined,
+    status: v?.status || undefined,
+    primaryLabel: v?.primaryLabel || undefined,
+    injuryType: v?.injuryType || undefined,
+    natureOfInjuries: v?.natureOfInjuries || undefined,
+    causeOfDeath: v?.causeOfDeath || undefined,
+    declaredDead: v?.declaredDead || undefined,
+    postmortemAutopsy: v?.postmortemAutopsy || undefined,
+    statement: v?.statement || undefined,
 });
 
 /** PATCH body for an update. Only present fields are forwarded — every
@@ -85,45 +85,45 @@ export const victimToPatchPayload = (v) => {
     const payload = {};
     const fwd = (k, val) => { if (val !== undefined) payload[k] = val; };
 
-    fwd("name",                v?.name);
-    fwd("cnic",                v?.cnic);
+    fwd("name", v?.name);
+    fwd("cnic", v?.cnic);
     if (v?.age !== undefined && v?.age !== null && v?.age !== "") {
         payload.age = parseAge(v.age);
     }
-    fwd("gender",              v?.gender);
-    fwd("contact",             v?.contact);
-    fwd("address",             v?.address);
-    fwd("occupation",          v?.occupation);
+    fwd("gender", v?.gender);
+    fwd("contact", v?.contact);
+    fwd("address", v?.address);
+    fwd("occupation", v?.occupation);
 
-    fwd("status",              v?.status);
-    fwd("primaryLabel",        v?.primaryLabel);
-    fwd("relation",            v?.relation);
-    fwd("caseType",            v?.caseType);
-    fwd("injuryType",          v?.injuryType);
-    fwd("natureOfInjuries",    v?.natureOfInjuries);
-    fwd("causeOfDeath",        v?.causeOfDeath);
-    fwd("declaredDead",        v?.declaredDead);
-    fwd("postmortemAutopsy",   v?.postmortemAutopsy);
-    fwd("injurySummary",       v?.injurySummary);
-    fwd("injuryRecordedBy",    v?.injuryRecordedBy);
-    fwd("statement",           v?.statement);
+    fwd("status", v?.status);
+    fwd("primaryLabel", v?.primaryLabel);
+    fwd("relation", v?.relation);
+    fwd("caseType", v?.caseType);
+    fwd("injuryType", v?.injuryType);
+    fwd("natureOfInjuries", v?.natureOfInjuries);
+    fwd("causeOfDeath", v?.causeOfDeath);
+    fwd("declaredDead", v?.declaredDead);
+    fwd("postmortemAutopsy", v?.postmortemAutopsy);
+    fwd("injurySummary", v?.injurySummary);
+    fwd("injuryRecordedBy", v?.injuryRecordedBy);
+    fwd("statement", v?.statement);
 
-    if (v?.medicalReport      !== undefined) payload.medicalReport      = !!v.medicalReport;
-    if (v?.postmortem         !== undefined) payload.postmortem         = !!v.postmortem;
+    if (v?.medicalReport !== undefined) payload.medicalReport = !!v.medicalReport;
+    if (v?.postmortem !== undefined) payload.postmortem = !!v.postmortem;
     if (v?.protectionRequired !== undefined) payload.protectionRequired = !!v.protectionRequired;
-    if (v?.cooperative        !== undefined) payload.cooperative        = !!v.cooperative;
+    if (v?.cooperative !== undefined) payload.cooperative = !!v.cooperative;
 
-    fwd("threatLevel",        v?.threatLevel);
+    fwd("threatLevel", v?.threatLevel);
     fwd("protectionAssigned", v?.protectionAssigned);
-    fwd("notes",              v?.notes);                // → protectionNotes (alias)
+    fwd("notes", v?.notes);                // → protectionNotes (alias)
 
-    fwd("nextFollowUp",       v?.nextFollowUp);
+    fwd("nextFollowUp", v?.nextFollowUp);
 
     // Child arrays: send only when explicitly provided. Empty array means
     // "delete everything"; undefined means "leave alone".
     if (Array.isArray(v?.forensic)) payload.forensic = v.forensic;
     if (Array.isArray(v?.timeline)) payload.timeline = v.timeline;
-    if (Array.isArray(v?.legal))    payload.legal    = v.legal;
+    if (Array.isArray(v?.legal)) payload.legal = v.legal;
 
     return payload;
 };
@@ -161,18 +161,19 @@ export const addVictimsToCase = async (caseId, victims) => {
         const item = list[i];
         if (!vid) continue;
 
-        const newPhotos = (item.photos || []).filter(isNewPhoto);
-        for (const ph of newPhotos) {
+        const photoArr = Array.isArray(formItem?.photoUrl) ? formItem.photoUrl : [];
+        const newPhoto = photoArr.find(isNewPhoto);
+        if (newPhoto) {
             try {
                 await axios.post(
                     `${url}/api/investigator/cases/${caseId}/victims/${vid}/photos`,
-                    { dataUrl: ph.dataUrl, fileName: ph.name || ph.fileName, caption: ph.caption },
+                    { dataUrl: newPhoto.dataUrl, fileName: newPhoto.name || newPhoto.fileName },
                     { headers },
                 );
             } catch (err) {
                 photoFailures.push({
                     victimId: vid,
-                    photoName: ph.name || ph.fileName || "(unnamed)",
+                    photoName: newPhoto.name || newPhoto.fileName || "(unnamed)",
                     error: err?.response?.data?.detail || err.message || "Upload failed",
                 });
             }
@@ -196,6 +197,7 @@ export const addVictimsToCase = async (caseId, victims) => {
 export const updateVictim = async (caseId, victimId, formItem) => {
     if (!caseId || !victimId) throw new Error("caseId and victimId are required");
 
+    console.log("Form ", formItem)
     const url = apiBase();
     const headers = getAuthHeader();
 
@@ -207,29 +209,39 @@ export const updateVictim = async (caseId, victimId, formItem) => {
     );
     let latest = patchRes.data;
 
-    // 2b. Upload any net-new photos.
-    const newPhotos = (formItem?.photos || []).filter(isNewPhoto);
     const photoFailures = [];
-    for (const ph of newPhotos) {
+    const photoArr = Array.isArray(formItem?.photoUrl) ? formItem.photoUrl : [];
+    const newPhoto = photoArr.find(isNewPhoto);
+    const hasPhoto = photoArr.length > 0;
+    if (newPhoto) {
         try {
             const photoRes = await axios.post(
                 `${url}/api/investigator/cases/${caseId}/victims/${victimId}/photos`,
-                { dataUrl: ph.dataUrl, fileName: ph.name || ph.fileName, caption: ph.caption },
+                { dataUrl: newPhoto.dataUrl, fileName: newPhoto.name || newPhoto.fileName },
                 { headers },
             );
-            // Each successful upload returns the latest photos list — keep
-            // patching `latest` in place so the caller doesn't need a re-fetch.
             latest = {
                 ...latest,
-                photos:   photoRes.data?.photos   || latest.photos,
                 photoUrl: photoRes.data?.photoUrl || latest.photoUrl,
             };
         } catch (err) {
             photoFailures.push({
                 victimId,
-                photoName: ph.name || ph.fileName || "(unnamed)",
+                photoName: newPhoto.name || newPhoto.fileName || "(unnamed)",
                 error: err?.response?.data?.detail || err.message || "Upload failed",
             });
+        }
+    }
+
+    // Also handle delete if photo was removed (no photo in form but had one before)
+    const hadPhoto = !!formItem?._hadPhoto;         // flag set by detailToFormShape
+    if (hadPhoto && !hasPhoto) {
+        try {
+            await deleteVictimPhoto(caseId, victimId);
+            latest = { ...latest, photoUrl: null };
+        } catch (err) {
+            // non-fatal — photo may already be gone
+            console.warn("Photo delete during update failed:", err);
         }
     }
 
@@ -249,12 +261,12 @@ export const uploadVictimPhoto = async (caseId, victimId, { dataUrl, fileName, c
 };
 
 // ── 4. Delete one photo ─────────────────────────────────────────────────────
-export const deleteVictimPhoto = async (caseId, victimId, photoId) => {
-    if (!caseId || !victimId || !photoId) {
-        throw new Error("caseId, victimId and photoId are required");
+export const deleteVictimPhoto = async (caseId, victimId) => {
+    if (!caseId || !victimId) {
+        throw new Error("caseId and victimId are required");
     }
     const res = await axios.delete(
-        `${apiBase()}/api/investigator/cases/${caseId}/victims/${victimId}/photos/${photoId}`,
+        `${apiBase()}/api/investigator/cases/${caseId}/victims/${victimId}/photo`,
         { headers: getAuthHeader() },
     );
     return res.data;
@@ -286,61 +298,59 @@ export const getVictim = async (caseId, victimId) => {
 export const detailToFormShape = (d) => {
     if (!d) return null;
     return {
-        id:                 d.id,
-        victimId:           d.id,
+        id: d.id,
+        victimId: d.id,
 
         // Person identity (flattened from `personal`)
-        name:               d.personal?.name        || "",
-        cnic:               d.personal?.cnic        || "",
-        age:                d.personal?.age         || "",
-        gender:             d.personal?.gender      || "",
-        contact:            d.personal?.contact     || "",
-        occupation:         d.personal?.occupation  || "",
+        name: d.personal?.name || "",
+        cnic: d.personal?.cnic || "",
+        age: d.personal?.age || "",
+        gender: d.personal?.gender || "",
+        contact: d.personal?.contact || "",
+        occupation: d.personal?.occupation || "",
         // Address actually lives on `incident.residentialAddress` per existing API
-        address:            d.incident?.residentialAddress || "",
+        address: d.incident?.residentialAddress || "",
 
         // Status / labels
-        status:             d.status || "",
-        primaryLabel:       d.primaryLabel || "",
-        relation:           d.relation || "",
-        caseType:           d.caseType || "",
+        status: d.status || "",
+        primaryLabel: d.primaryLabel || "",
+        relation: d.relation || "",
+        caseType: d.caseType || "",
 
         // Injury / incident
-        injuryType:         d.injuryType || "",
-        natureOfInjuries:   d.incident?.natureOfInjuries  || "",
-        causeOfDeath:       d.incident?.causeOfDeath     || "",
-        declaredDead:       d.incident?.declaredDead    || "",
-        postmortemAutopsy:  d.incident?.postmortemAutopsy || "",
-        injurySummary:      d.injurySummary || "",
-        injuryRecordedBy:   d.injuryRecordedBy || "",
+        injuryType: d.injuryType || "",
+        natureOfInjuries: d.incident?.natureOfInjuries || "",
+        causeOfDeath: d.incident?.causeOfDeath || "",
+        declaredDead: d.incident?.declaredDead || "",
+        postmortemAutopsy: d.incident?.postmortemAutopsy || "",
+        injurySummary: d.injurySummary || "",
+        injuryRecordedBy: d.injuryRecordedBy || "",
 
         // Booleans
-        medicalReport:      !!d.medicalReport,
-        postmortem:         !!d.postmortem,
+        medicalReport: !!d.medicalReport,
+        postmortem: !!d.postmortem,
         protectionRequired: !!d.protectionRequired,
-        cooperative:        d.cooperative !== false,
+        cooperative: d.cooperative !== false,
 
         // Protection (flattened from `protection`)
-        threatLevel:        d.protection?.threatLevel        || "",
+        threatLevel: d.protection?.threatLevel || "",
         protectionAssigned: d.protection?.protectionAssigned || "",
-        notes:              d.protection?.notes              || "",
+        notes: d.protection?.notes || "",
 
         // Other
-        nextFollowUp:       d.nextFollowUp || "",
-        statement:          d.statement || "",
+        nextFollowUp: d.nextFollowUp || "",
+        statement: d.statement || "",
 
         // Child arrays
-        forensic:           d.forensic || [],
-        timeline:           d.timeline || [],
-        legal:              d.legal    || [],
+        forensic: d.forensic || [],
+        timeline: d.timeline || [],
+        legal: d.legal || [],
 
         // Photos — preserve existingPhotoId so the API can skip them on PATCH
-        photos: (d.photos || []).map((p) => ({
-            existingPhotoId: p.id,
-            name:            p.file_name || `photo-${p.id}`,
-            dataUrl:         p.url,
-            caption:         p.caption,
-        })),
+        photoUrl: d.photoUrl
+            ? [{ existingPhotoId: d.photos?.[0]?.id, name: "photo", dataUrl: d.photoUrl }]
+            : null,
+        _hadPhoto: !!d.photoUrl,
     };
 };
 
@@ -350,10 +360,10 @@ export const detailToFormShape = (d) => {
 export const summaryToFormShape = (row) => {
     if (!row) return null;
     return {
-        id:        row.id,
-        victimId:  row.id,
-        name:      "",     // filled in once detail arrives
-        status:    row.status || "",
+        id: row.id,
+        victimId: row.id,
+        name: "",     // filled in once detail arrives
+        status: row.status || "",
     };
 };
 

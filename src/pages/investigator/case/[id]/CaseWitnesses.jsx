@@ -11,6 +11,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 
 import AddWitnessDialog from './forms/AddWitness';
+import { updateWitness, formatApiError } from '@/services/witnessApi';
 
 const PAGE_SIZE = 5;
 
@@ -57,35 +58,12 @@ const rowToFormShape = (row) => {
 
     // Read-only display fields (StepWitnesses ignores extras)
     dateAdded: row.dateAdded || '',
+    photoUrl: row.photoUrl
+      ? [{ existingPhotoId: "server", name: "photo", dataUrl: row.photoUrl }]
+      : null,
+    _hadPhoto: !!row.photoUrl,
   };
 };
-
-// Pick only the fields the PATCH endpoint accepts.
-const formShapeToPatchBody = (formItem) => ({
-  // Person
-  name: formItem?.name,
-  cnic: formItem?.cnic,
-  age: formItem?.age ? Number(formItem.age) : undefined,
-  gender: formItem?.gender,
-  contact: formItem?.contact,
-  address: formItem?.address,
-
-  // Classification
-  witnessType: formItem?.witnessType,
-  relationToCase: formItem?.relationToCase,
-  credibility: formItem?.credibility,
-
-  // Statement
-  statementDate: formItem?.statementDate,
-  statementRecordedBy: formItem?.statementRecordedBy,
-  description: formItem?.description,
-
-  // Status & flags
-  status: formItem?.status,
-  anonymous: formItem?.anonymous,
-  protectionRequired: formItem?.protectionRequired,
-  cooperating: formItem?.cooperating,
-});
 
 // Pretty-print YYYY-MM-DD for the table column.
 const fmtDate = (s) => {
@@ -174,6 +152,7 @@ const CaseWitnesses = () => {
 
   useEffect(() => { fetchWitnesses(); }, [fetchWitnesses]);
 
+  console.log("witness: ", items[0])
   // ── Filter handlers ──────────────────────────────────────────────────
   const handleApply = useCallback(() => {
     setAppliedFilters({
@@ -218,28 +197,24 @@ const CaseWitnesses = () => {
     };
   }, [dialogWitness, closeDialog]);
 
-  // ── Update dialog submit ─────────────────────────────────────────────
   const handleUpdateSubmit = async (data) => {
     const wid = updateTarget?.id;
     const first = data?.witnesses?.[0];
-    if (!wid || !first) {
-      setUpdateTarget(null);
-      return;
-    }
+    if (!wid || !first) { setUpdateTarget(null); return; }
 
     setUpdating(true);
     try {
-      const url = import.meta.env.VITE_API_URL;
-      const res = await axios.patch(
-        `${url}/api/investigator/cases/${caseId}/witnesses/${wid}`,
-        formShapeToPatchBody(first),
-        { headers: getAuthHeader() },
-      );
+      const { detail, photo_failures } = await updateWitness(caseId, wid, first);
+
       // Patch the row in place
-      setItems(curr => curr.map(it => it.id === wid ? res.data : it));
+      setItems(curr => curr.map(it => it.id === wid ? detail : it));
+
+      if (photo_failures?.length) {
+        console.warn('Photo upload failed:', photo_failures);
+      }
     } catch (err) {
       console.error('Update failed:', err);
-      alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+      alert(`Update failed: ${formatApiError(err)}`);
     } finally {
       setUpdating(false);
       setUpdateTarget(null);
@@ -362,9 +337,26 @@ const CaseWitnesses = () => {
                   <tr key={w.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-semibold text-slate-800 text-nowrap">{w.id}</td>
                     <td className="p-4 text-slate-800">
-                      {w.anonymous
-                        ? <span className="italic text-slate-400">Anonymous</span>
-                        : (w.name || '—')}
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        {w.photoUrl ? (
+                          <img
+                            src={w.photoUrl.startsWith('/uploads')
+                              ? `${import.meta.env.VITE_API_URL}${w.photoUrl}`
+                              : w.photoUrl}
+                            alt={w.anonymous ? "Witness" : w.name}
+                            className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                            <User className="h-4 w-4 text-slate-400" />
+                          </div>
+                        )}
+                        {/* Name */}
+                        {w.anonymous
+                          ? <span className="italic text-slate-400">Anonymous</span>
+                          : (w.name || '—')}
+                      </div>
                     </td>
                     <td className="p-4 text-slate-700">
                       {(w.age || '—')} / {w.gender || '—'}
@@ -436,7 +428,7 @@ const CaseWitnesses = () => {
             itemLabel="witnesses"
           />
         </div>
-      )}
+      )}    
 
       {/* View Details dialog */}
       {dialogWitness && (
@@ -456,8 +448,20 @@ const CaseWitnesses = () => {
           >
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                  <User className="h-4 w-4" />
+                <div className="rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                  {dialogWitness.photoUrl ? (
+                    <img
+                      src={dialogWitness.photoUrl.startsWith('/uploads')
+                        ? `${import.meta.env.VITE_API_URL}${dialogWitness.photoUrl}`
+                        : dialogWitness.photoUrl}
+                      alt={dialogWitness.anonymous ? "Witness" : dialogWitness.name}
+                      className="w-20 h-20 rounded-full object-cover border-2 border-slate-200 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                      <User className="h-4 w-4" />
+                    </div>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <h3 id="witness-dialog-title" className="text-lg font-bold text-slate-800 truncate">
@@ -689,6 +693,7 @@ const CaseWitnesses = () => {
           </div>
         </div>
       )}
+
 
       {/* Update dialog */}
       <AddWitnessDialog

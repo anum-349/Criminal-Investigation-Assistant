@@ -23,6 +23,8 @@ import AddVictimDialog from '@/pages/investigator/case/[id]/forms/AddVictim';
 import AddWitnessDialog from '@/pages/investigator/case/[id]/forms/AddWitness';
 import { addEvidencesToCase, formatApiError } from "@/services/evidenceApi";
 import { addVictimsToCase } from '@/services/victimApi';
+import { addWitnessesToCase, formatApiError } from '@/services/witnessApi';
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -273,7 +275,7 @@ const CasePage = () => {
     const handleAddVictimSubmit = async (data) => {
         const list = data?.victims || [];
         if (!list.length) return { ok: false, error: "No victim items to submit." };
-         try {
+        try {
             const result = await addVictimsToCase(caseId, list);
 
             if (result.timeline_events?.length) {
@@ -300,14 +302,27 @@ const CasePage = () => {
         }
     };
 
-    const handleAddWitnessSubmit = (data) => {
+    const handleAddWitnessSubmit = async (data) => {
         const list = data?.witnesses || [];
-        if (!list.length) return;
-        submitAdd(
-            'witnesses',
-            { witnesses: list },
-            (ids) => `Added ${ids.length} witness${ids.length === 1 ? '' : 'es'} to ${caseId}`,
-        );
+        if (!list.length) return { ok: false };
+
+        try {
+            const result = await addWitnessesToCase(caseId, list);
+            const count = result.created_ids?.length || 0;
+
+            // Refresh the list
+            await fetchWitnesses();
+
+            if (result.photo_failures?.length) {
+                const names = result.photo_failures.map(f => f.photoName).join(", ");
+                console.warn(`${count} witness(es) added but photo(s) failed: ${names}`);
+            }
+
+            return { ok: true, ...result };
+        } catch (err) {
+            console.error('Add witnesses failed:', err);
+            return { ok: false, error: formatApiError(err, 'Failed to add witnesses.') };
+        }
     };
 
     // ─── Loading / error states ───────────────────────────────────────────

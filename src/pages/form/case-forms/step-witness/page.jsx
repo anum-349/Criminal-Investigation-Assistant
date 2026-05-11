@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Hash, Plus, Trash2, User, Pencil, Check, Shield,
   CheckCircle2, AlertTriangle, EyeOff,
+  ImageIcon,
+  X,
 } from "lucide-react";
 import {
   defaultWitness, generateWitnessId,
@@ -17,6 +19,7 @@ import {
 // WitnessFormFields — every editable field, used by both card variants
 // ─────────────────────────────────────────────────────────────────────────────
 function WitnessFormFields({ witness, idx, onUpdate }) {
+  const photoRef = useRef(null);
   const u = (k) => (e) => onUpdate(idx, k, e.target.value);
   const isAnonymous = !!witness.anonymous;
 
@@ -108,6 +111,61 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
           disabled={isAnonymous}
           placeholder={isAnonymous ? "Hidden" : "Witness home address"}
         />
+      </div>
+
+      {/* ── Photo ─────────────────────────────────────────────────── */}
+      <div>
+        <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
+          <ImageIcon className="h-3.5 w-3.5" /> Photograph
+        </h5>
+        <input ref={photoRef} type="file" className="hidden" accept="image/*"
+          onChange={e => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+            reader.readAsDataURL(f);
+            e.target.value = "";
+          }}
+        />
+        {!witness.photoUrl ? (
+          <button type="button" onClick={() => photoRef.current?.click()}
+            className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2
+                 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+            <ImageIcon className="h-4 w-4 shrink-0" /> Add photo…
+          </button>
+        ) : (
+          <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
+            <img
+              src={typeof witness.photoUrl === 'string' ? witness.photoUrl : witness.photoUrl?.[0]?.dataUrl}
+              alt={witness.anonymous ? "Witness" : witness.name}
+              className="w-full h-full object-cover"
+            />
+            {witness._hadPhoto && (
+              <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
+                saved
+              </span>
+            )}
+            <label className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center
+                        py-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              Replace
+              <input type="file" accept="image/*" hidden
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const reader = new FileReader();
+                  reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+                  reader.readAsDataURL(f);
+                  e.target.value = "";
+                }} />
+            </label>
+            <button type="button" onClick={() => onUpdate(idx, "photoUrl", null)}
+              className="absolute top-1 right-1 bg-black/60 text-white rounded p-0.5
+                   opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 3. Witness Classification ───────────────────────────────── */}
@@ -276,12 +334,12 @@ function StandaloneWitnessCard({
       {!isEditing && (
         <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
           {[
-            { label: "Name",        value: witness.anonymous ? "Anonymous" : (witness.name || "—") },
-            { label: "Age / Gender",value: `${witness.age || "—"} / ${witness.gender || "—"}` },
-            { label: "Contact",     value: witness.anonymous ? "Hidden" : (witness.contact || "—") },
-            { label: "Type",        value: witness.witnessType || "—" },
-            { label: "Relation",    value: witness.relationToCase || "—" },
-            { label: "Status",      value: witness.status || "—" },
+            { label: "Name", value: witness.anonymous ? "Anonymous" : (witness.name || "—") },
+            { label: "Age / Gender", value: `${witness.age || "—"} / ${witness.gender || "—"}` },
+            { label: "Contact", value: witness.anonymous ? "Hidden" : (witness.contact || "—") },
+            { label: "Type", value: witness.witnessType || "—" },
+            { label: "Relation", value: witness.relationToCase || "—" },
+            { label: "Status", value: witness.status || "—" },
           ].map(({ label, value }) => (
             <div key={label}>
               <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">{label}</span>

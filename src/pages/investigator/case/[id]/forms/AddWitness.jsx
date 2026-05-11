@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { User, Save, X } from "lucide-react";
 import StepWitnesses from "@/pages/form/case-forms/step-witness/page";
+
 export default function AddWitnessDialog({
   isOpen,
   onClose,
@@ -11,6 +12,7 @@ export default function AddWitnessDialog({
   const closeButtonRef = useRef(null);
   const [formData, setFormData] = useState({ witnesses: [] });
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState()
 
   const isUpdate = !!initialData;
 
@@ -21,12 +23,12 @@ export default function AddWitnessDialog({
       setFormData(
         initialData
           ? {
-              witnesses: [{
-                ...initialData,
-                id: initialData.id ?? crypto.randomUUID(),
-                caseId: initialData.caseId || caseId,
-              }],
-            }
+            witnesses: [{
+              ...initialData,
+              id: initialData.id ?? crypto.randomUUID(),
+              caseId: initialData.caseId || caseId,
+            }],
+          }
           : { witnesses: [] }
       );
       setSubmitted(false);
@@ -53,11 +55,43 @@ export default function AddWitnessDialog({
     onClose();
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  // REPLACES handleSubmit in AddWitnessDialog.jsx
+  const handleSubmit = async (e) => {
+    e?.preventDefault?.();
+    if (submitted) return;
     if (!formData.witnesses?.length) return;
-    if (onSubmit) onSubmit({ caseId, witnesses: formData.witnesses });
+
     setSubmitted(true);
+    setError(null);
+
+    try {
+      const result = await onSubmit?.({
+        caseId,
+        witnesses: formData.witnesses,
+        isUpdate,
+        initialId: initialData?.id || null,
+      });
+
+      const ok = result === undefined ? true
+        : typeof result === "object" ? !!result.ok
+          : !!result;
+
+      if (!ok) {
+        setError((result?.error) || "Save failed.");
+        return;
+      }
+
+      if (result?.photo_failures?.length) {
+        const names = result.photo_failures.map(f => f.photoName).join(", ");
+        setWarning(`Saved, but photo(s) failed: ${names}`);
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      setError(err?.message || "Save failed.");
+    } finally {
+      setSubmitted(false);
+    }
   };
 
   if (!isOpen) return null;

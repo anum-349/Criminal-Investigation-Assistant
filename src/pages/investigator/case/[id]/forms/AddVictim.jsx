@@ -1,23 +1,3 @@
-/**
- * src/pages/investigator/case/[id]/forms/AddVictim.jsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Modal that wraps StepVictims. Two modes:
- *
- *   • Add mode    — `initialData` null. Add multiple victims at once;
- *                   submitted in a single bulk-POST, photos uploaded as
- *                   follow-ups.
- *
- *   • Update mode — `initialData` is a victim form-shape (from
- *                   detailToFormShape() in victimApi). The dialog shows
- *                   that one victim pre-populated; on submit we PATCH +
- *                   upload net-new photos.
- *
- * Contract with parent (CaseVictims.jsx):
- *   onSubmit({ caseId, victims, isUpdate, initialId })
- *     → must return Promise<{ ok, error?, photo_failures? }>.
- *   Anything not-`{ ok: false, error }` is treated as success.
- */
-
 import { useState, useRef, useEffect } from "react";
 import { User, Save, X, AlertCircle, Loader2 } from "lucide-react";
 import StepVictims from "@/pages/form/case-forms/step-victim/page";
@@ -33,9 +13,9 @@ export default function AddVictimDialog({
     const closeButtonRef = useRef(null);
     const [formData, setFormData] = useState({ victims: [] });
     const [submitted, setSubmitted] = useState(false);
-    const [saving, setSaving]     = useState(false);
-    const [error, setError]       = useState(null);
-    const [warning, setWarning]   = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null);
+    const [warning, setWarning] = useState(null);
 
     const isUpdate = !!initialData;
 
@@ -50,8 +30,6 @@ export default function AddVictimDialog({
                     caseType,
                     victims: [{
                         ...initialData,
-                        // Inherit incoming caseType too — the row's own value wins
-                        // if it already had one (e.g. populated from the API).
                         caseType: initialData.caseType || caseType,
                         id: initialData.id ?? crypto.randomUUID(),
                     }],
@@ -109,14 +87,14 @@ export default function AddVictimDialog({
         try {
             const result = await onSubmit?.({
                 caseId,
-                victims:   formData.victims,
+                victims: formData.victims,
                 isUpdate,
                 initialId: initialData?.id || null,
             });
 
             const ok = result === undefined ? true
                 : typeof result === "object" && result !== null ? !!result.ok
-                : !!result;
+                    : !!result;
 
             if (!ok) {
                 const detail = (result && typeof result === "object" && result.error) || "Save failed.";

@@ -187,7 +187,7 @@ const Row = ({ label, value }) => (
 /** Personal Info — always shown */
 const PersonalInfoCard = ({ personal }) => (
   <article
-    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
+    className="bg-white col-span-2 border border-slate-200 rounded-lg p-5 shadow-sm"
     aria-labelledby="personal-info-heading"
   >
     <h3
@@ -371,43 +371,6 @@ const ProtectionCard = ({ protection }) => (
   </article>
 );
 
-const PhotographsCard = ({ photos, onUpload, onDelete, uploading }) => (
-  <article
-    className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
-    aria-labelledby="photos-heading"
-  >
-    <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
-      <h3 id="photos-heading" className="text-lg font-bold text-slate-800">
-        Photographs
-      </h3>
-      <label className={`cursor-pointer text-sm text-blue-600 hover:underline
-                    ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-        {uploading
-          ? <><Loader2 className="h-3.5 w-3.5 inline animate-spin mr-1" />Uploading…</>
-          : <>⬆ Upload</>}
-        <input type="file" accept="image/*" hidden disabled={uploading}
-          onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }}
-        />
-      </label>
-    </div>
-    {photos.length === 0 ? (
-      <p className="text-sm text-slate-500">No photos on file. Click Upload to add one.</p>
-    ) : (
-      <div className="grid grid-cols-3 gap-3">
-        {photos.map((p) => (
-          <div key={p.id} className="relative group rounded-lg overflow-hidden border border-slate-200">
-            <img src={photoSrc(p.url)} alt={p.file_name || `Photo ${p.id}`}
-              className="w-full aspect-square object-cover" />
-            <button type="button" onClick={() => onDelete(p.id)}
-              className="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-1 rounded
-                                           opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              aria-label="Delete photo">🗑</button>
-          </div>
-        ))}
-      </div>
-    )}
-  </article>
-);
 //photoSrc helper at the top of the file:
 const photoSrc = (rawUrl) => {
   if (!rawUrl) return '';
@@ -523,6 +486,10 @@ const CaseVictim = () => {
   }, [selectedVictimId, caseId]);
 
 
+  useEffect(()=>{
+    fetchList()
+  }, [updateTarget])
+
   const handleUpdateSubmit = async ({ caseId: cid, victims, isUpdate }) => {
     if (!isUpdate) {
       return { ok: false, error: 'CaseVictims only handles updates here.' };
@@ -536,29 +503,10 @@ const CaseVictim = () => {
 
     setUpdating(true);
     try {
-      // 1. Diff deleted photos (in original detail, missing from form)
-      const originalPhotoIds = new Set(
-        (details?.photos || []).map(p => p.id).filter(Boolean),
-      );
-      const remainingExistingIds = new Set(
-        (first.photos || []).map(p => p.existingPhotoId).filter(Boolean),
-      );
-      const deletedIds = [...originalPhotoIds].filter(id => !remainingExistingIds.has(id));
-
-      for (const photoId of deletedIds) {
-        try {
-          await deleteVictimPhoto(cid, vid, photoId);
-        } catch (err) {
-          console.warn(`Failed to delete photo ${photoId}:`, err);
-        }
-      }
-
-      // 2. PATCH + upload net-new photos
       const { detail, photo_failures } = await updateVictim(cid, vid, first);
 
-      setDetails(detail);
-      // Refresh the summary list — the row's photoUrl/status may have changed
-      fetchList();
+    setDetails(detail);
+    fetchList();
 
       return { ok: true, detail, photo_failures };
     } catch (err) {
@@ -570,61 +518,6 @@ const CaseVictim = () => {
     }
   };
 
-
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
-  const handleHeroPhotoUpload = async (file) => {
-    if (!file || !selectedVictimId) return;
-    setUploadingPhoto(true);
-    try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onloadend = () => resolve(r.result);
-        r.onerror = reject;
-        r.readAsDataURL(file);
-      });
-      const result = await uploadVictimPhoto(caseId, selectedVictimId, {
-        dataUrl, fileName: file.name,
-      });
-      // Patch local state in place — no full re-fetch needed
-      setDetails(prev => prev && ({
-        ...prev,
-        photos: result?.photos || prev.photos,
-        photoUrl: result?.photoUrl || prev.photoUrl,
-      }));
-      setVictims(curr => curr.map(v =>
-        v.id === selectedVictimId
-          ? { ...v, photoUrl: result?.photoUrl || v.photoUrl }
-          : v,
-      ));
-    } catch (err) {
-      console.error('Photo upload failed:', err);
-      alert(`Upload failed: ${formatApiError(err)}`);
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-
-  const handleHeroPhotoDelete = async (photoId) => {
-    if (!photoId || !selectedVictimId) return;
-    if (!confirm('Delete this photo?')) return;
-    try {
-      const result = await deleteVictimPhoto(caseId, selectedVictimId, photoId);
-      setDetails(prev => prev && ({
-        ...prev,
-        photos: result?.photos || [],
-        photoUrl: result?.photoUrl || null,
-      }));
-      setVictims(curr => curr.map(v =>
-        v.id === selectedVictimId
-          ? { ...v, photoUrl: result?.photoUrl || null }
-          : v,
-      ));
-    } catch (err) {
-      console.error('Photo delete failed:', err);
-      alert(`Delete failed: ${formatApiError(err)}`);
-    }
-  };
 
   // ── Early returns ─────────────────────────────────────────────────────────
   if (loadingList) {
@@ -803,13 +696,6 @@ const CaseVictim = () => {
             <IncidentDetailsCard
               incident={details.incident}
               showDeceased={cfg.showDeceased}
-            />
-
-            <PhotographsCard
-              photos={details.photos || []}
-              onUpload={handleHeroPhotoUpload}
-              onDelete={handleHeroPhotoDelete}
-              uploading={uploadingPhoto}
             />
 
             {/* Injury & Medical — assault, robbery, sexual assault */}

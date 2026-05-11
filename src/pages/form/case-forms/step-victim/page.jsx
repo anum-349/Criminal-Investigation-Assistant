@@ -1,32 +1,3 @@
-/**
- * src/pages/form/case-forms/step-victim/page.jsx
- * ─────────────────────────────────────────────────────────────────────────────
- * StepVictims — Step 4 of the register-case wizard, also used by
- * AddVictimDialog (standalone mode).
- *
- * What changed in this version
- * ─────────────────────────────
- *   1. PHOTO upload — each victim now has a Photographs strip with
- *      multi-select picker, "saved" badge for photos already on the
- *      server, and an X overlay to remove.
- *
- *   2. CASE-TYPE-AWARE rendering — sections appear/disappear based on
- *      the case type passed in `data.caseType` (or each victim's
- *      `caseType`). The visibility map mirrors CaseVictims.jsx's
- *      CASE_TYPE_CONFIG so the form and the read-only display stay
- *      in lockstep.
- *
- *      Murder/Homicide       → no protection card, no statement (deceased)
- *      Assault / Robbery     → injury + protection + statement
- *      Kidnapping/Abduction  → no injury, has protection + statement
- *      Theft                 → no injury, no protection, has statement
- *      Sexual Assault        → injury + protection + statement
- *      Default               → everything
- *
- *   3. Photos round-trip through the API service, so existing photos
- *      (loaded in update mode via detailToFormShape) survive a save
- *      without being re-uploaded.
- */
 import { useState, useRef } from "react";
 import {
   Hash, Plus, Trash2, User, Pencil, Check, Shield, ImageIcon, X,
@@ -76,6 +47,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
   const photoRef = useRef(null);
   const u = (k) => (e) => onUpdate(idx, k, e.target.value);
 
+  console.log(victim)
   // Resolve config: explicit `caseType` prop (from the wizard's top-level
   // formData) wins; otherwise per-victim caseType; otherwise full visibility.
   const cfg = getCfg(caseType || victim.caseType);
@@ -91,11 +63,6 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
   const addLegal = () => setArr("legal", arr => [...arr, { label: "", done: false }]);
   const updateLegal = (i, k, v) => setArr("legal", arr => arr.map((x, j) => j === i ? { ...x, [k]: v } : x));
   const removeLegal = (i) => setArr("legal", arr => arr.filter((_, j) => j !== i));
-
-  // Photo helpers — same convention as suspects/evidence
-  const photos = victim.photos || [];
-  const addPhoto = (photo) => setArr("photos", arr => [...arr, photo]);
-  const removePhoto = (pi) => setArr("photos", arr => arr.filter((_, j) => j !== pi));
 
   return (
     <div className="space-y-5">
@@ -140,56 +107,62 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
         />
       </div>
 
-      {/* ── 3. Photographs ────────────────────────────────────────────── */}
-      {/* Always shown — every case type benefits from victim ID photos. */}
       <div>
         <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
-          <ImageIcon className="h-3.5 w-3.5" /> Photographs
-          {photos.length > 0 && (
-            <span className="ml-auto text-[10px] font-normal text-slate-400">
-              {photos.length} attached
-            </span>
-          )}
+          <ImageIcon className="h-3.5 w-3.5" /> Photograph
         </h5>
-        <input
-          ref={photoRef} type="file" className="hidden" accept="image/*" multiple
+        <input ref={photoRef} type="file" className="hidden" accept="image/*"
           onChange={e => {
-            Array.from(e.target.files).forEach(f => {
-              const reader = new FileReader();
-              reader.onload = e2 => addPhoto({ name: f.name, dataUrl: e2.target.result });
-              reader.readAsDataURL(f);
-            });
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = e2 => {
+              onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+            };
+            reader.readAsDataURL(f);
             e.target.value = "";
           }}
         />
-        <button
-          type="button" onClick={() => photoRef.current?.click()}
-          className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-        >
-          <ImageIcon className="h-4 w-4 shrink-0" />
-          {photos.length > 0
-            ? `${photos.length} photo(s) — add more…`
-            : "Add photos…"}
-        </button>
-        {photos.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            {photos.map((ph, pi) => (
-              <div key={pi} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
-                <img src={ph.dataUrl} alt={ph.name} className="w-full h-full object-cover" />
-                {ph.existingPhotoId && (
-                  <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
-                    saved
-                  </span>
-                )}
-                <button
-                  type="button" onClick={() => removePhoto(pi)}
-                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
-                >
-                  <X className="h-4 w-4 text-white" />
-                </button>
-              </div>
-            ))}
+
+        {victim.photoUrl ? (
+          // HAS photo — show thumbnail with replace/remove
+          <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
+            <img
+              src={typeof victim.photoUrl === 'string' ? victim.photoUrl : victim.photoUrl?.[0]?.dataUrl}
+              alt={victim.name}
+              className="w-full h-full object-cover"
+            />
+            {victim._hadPhoto && (
+              <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
+                saved
+              </span>
+            )}
+            <label className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center
+                      py-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              Replace
+              <input type="file" accept="image/*" hidden
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const reader = new FileReader();
+                  reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+                  reader.readAsDataURL(f);
+                  e.target.value = "";
+                }} />
+            </label>
+            <button type="button" onClick={() => onUpdate(idx, "photoUrl", null)}
+              className="absolute top-1 right-1 bg-black/60 text-white rounded p-0.5
+                 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              <X className="h-3 w-3" />
+            </button>
           </div>
+        ) : (
+          // NO photo — show upload button
+          <button type="button" onClick={() => photoRef.current?.click()}
+            className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2
+               text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+            <ImageIcon className="h-4 w-4 shrink-0" /> Add photo…
+          </button>
         )}
       </div>
 
@@ -433,9 +406,9 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
             </button>
           </div>
           <div className="mt-4">
-             <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
-            <Calendar className="h-3.5 w-3.5" /> Next Follow-Up Date
-          </h5>
+            <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
+              <Calendar className="h-3.5 w-3.5" /> Next Follow-Up Date
+            </h5>
             <Input
               type="date"
               label="Next Follow-Up Date"
@@ -501,7 +474,7 @@ function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseTy
 // Standalone-mode card — collapsed summary with Edit/Save toggle
 // ─────────────────────────────────────────────────────────────────────────────
 function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove, caseType }) {
-  const photoCount = (victim.photos || []).length;
+  const photoCount = (victim.photoUrl || []).length;
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -552,13 +525,12 @@ function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit,
             { label: "Gender", value: victim.gender || "—" },
             { label: "Contact", value: victim.contact || "—" },
             { label: "Status", value: victim.status || "—" },
-            { label: "Photos", value: photoCount > 0 ? `${photoCount} attached` : "—" },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">{label}</span>
-              <span className="text-slate-700 font-medium">{value}</span>
-            </div>
-          ))}
+            { label: "Photo", value: victim.photoUrl ? "1 attached" : "—" },].map(({ label, value }) => (
+              <div key={label}>
+                <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">{label}</span>
+                <span className="text-slate-700 font-medium">{value}</span>
+              </div>
+            ))}
           {victim.injurySummary && (
             <div className="col-span-2 sm:col-span-3">
               <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">Injury Summary</span>
@@ -572,11 +544,9 @@ function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit,
             </div>
           )}
           {photoCount > 0 && (
-            <div className="col-span-2 sm:col-span-3 flex flex-wrap gap-2 mt-1">
-              {(victim.photos || []).slice(0, 6).map((ph, pi) => (
-                <img key={pi} src={ph.dataUrl} alt={ph.name}
-                  className="w-12 h-12 object-cover rounded-md border border-slate-200" />
-              ))}
+            <div className="col-span-2 sm:col-span-3 mt-1">
+              <img src={victim.photoUrl} alt="victim photo"
+                className="w-12 h-12 object-cover rounded-md border border-slate-200" />
             </div>
           )}
         </div>
