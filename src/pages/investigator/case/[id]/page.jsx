@@ -23,7 +23,8 @@ import AddVictimDialog from '@/pages/investigator/case/[id]/forms/AddVictim';
 import AddWitnessDialog from '@/pages/investigator/case/[id]/forms/AddWitness';
 import { addEvidencesToCase, formatApiError } from "@/services/evidenceApi";
 import { addVictimsToCase } from '@/services/victimApi';
-import { addWitnessesToCase, formatApiError } from '@/services/witnessApi';
+import { addWitnessesToCase } from '@/services/witnessApi';
+import { addSuspectsToCase } from "@/services/suspectApi";
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -196,50 +197,33 @@ const CasePage = () => {
         }
     }, [caseId]);
 
-    // ── Generic POST helper ────────────────────────────────────────────────
-    // Returns [createdIds, success]. On success, prepends the server's
-    // timeline_events to the local state and pops a toast.
-    const submitAdd = useCallback(async (path, body, toastTitleFn) => {
+    const handleAddSuspectSubmit = async (data) => {
+        const list = data?.suspects || [];
+        if (!list.length) return { ok: false, error: "No suspect items to submit." };
         try {
-            const url = import.meta.env.VITE_API_URL;
-            const res = await axios.post(
-                `${url}/api/investigator/cases/${caseId}/${path}`,
-                body,
-                { headers: getAuthHeader() },
-            );
-            const data = res.data || {};
-            const newEvents = data.timeline_events || [];
-            if (newEvents.length) {
-                setEvents(curr => [...newEvents, ...curr]);
+            const result = await addSuspectsToCase(caseId, list);
+            const count = result.created_ids?.length || 0;
+            if (result.timeline_events?.length) {
+                setEvents(curr => [...result.timeline_events, ...curr]);
             }
-            // Stats need a refresh to reflect the new count. Cheap incremental
-            // bump; full re-fetch happens next time the user lands on the page.
+            setToast(`Added ${count} suspects item${count === 1 ? "" : "s"} to ${caseId}`);
+
             setStats(curr => curr && ({
                 ...curr,
-                ...(path === 'evidences' ? { evidence_collected: curr.evidence_collected + (data.created_ids?.length || 0) } : {}),
-                ...(path === 'suspects' ? { suspects: curr.suspects + (data.created_ids?.length || 0) } : {}),
-                ...(path === 'victims' ? { victims: curr.victims + (data.created_ids?.length || 0) } : {}),
+                suspects: curr.suspects + (result.created_ids?.length || 0),
             }));
-            setToast(toastTitleFn(data.created_ids || []));
-            return [data.created_ids || [], true];
-        } catch (err) {
-            console.error('Add failed:', err);
-            setToast(`Save failed: ${err?.response?.data?.detail || err.message}`);
-            return [[], false];
-        }
-    }, [caseId]);
+            if (result.photo_failures?.length) {
+                console.warn("Photo(s) failed:", result.photo_failures);
+            }
 
-    console.log(header)
-    // ── Action handlers ────────────────────────────────────────────────────
-    const handleAddSuspectSubmit = (data) => {
-        const list = data?.suspects || [];
-        if (!list.length) return;
-        submitAdd(
-            'suspects',
-            { suspects: list },
-            (ids) => `Added ${ids.length} suspect${ids.length === 1 ? '' : 's'} to ${caseId}`,
-        );
+            setShowAddSuspect(false)
+            return { ok: true, ...result };
+        } catch (err) {
+            console.error("Add suspects failed:", err);
+            return { ok: false, error: formatApiError(err, "Failed to add suspects.") };
+        }
     };
+
 
     const handleAddEvidenceSubmit = async (data) => {
         const list = data?.evidences || [];
@@ -259,6 +243,7 @@ const CasePage = () => {
             const n = result.created_ids?.length || 0;
             setToast(`Added ${n} evidence item${n === 1 ? "" : "s"} to ${caseId}`);
 
+            setShowAddEvidence(false)
             return {
                 ok: true,
                 created_ids: result.created_ids,
@@ -289,6 +274,7 @@ const CasePage = () => {
             const n = result.created_ids?.length || 0;
             setToast(`Added ${n} Victim item${n === 1 ? "" : "s"} to ${caseId}`);
 
+            setShowAddVictim(false)
             return {
                 ok: true,
                 created_ids: result.created_ids,
@@ -304,23 +290,28 @@ const CasePage = () => {
 
     const handleAddWitnessSubmit = async (data) => {
         const list = data?.witnesses || [];
-        if (!list.length) return { ok: false };
+        if (!list.length) return { ok: false, error: "No witness items to submit." };
 
         try {
             const result = await addWitnessesToCase(caseId, list);
             const count = result.created_ids?.length || 0;
 
-            // Refresh the list
-            await fetchWitnesses();
+            if (result.timeline_events?.length) {
+                setEvents(curr => [...result.timeline_events, ...curr]);
+            }
+            setToast(`Added ${count} witness item${count === 1 ? "" : "s"} to ${caseId}`);
 
             if (result.photo_failures?.length) {
                 const names = result.photo_failures.map(f => f.photoName).join(", ");
                 console.warn(`${count} witness(es) added but photo(s) failed: ${names}`);
             }
 
+            setShowAddWitness(false)
             return { ok: true, ...result };
         } catch (err) {
             console.error('Add witnesses failed:', err);
+            const detail = formatApiError(err, "Failed to save witness.");
+            setToast(`Save failed: ${detail}`);
             return { ok: false, error: formatApiError(err, 'Failed to add witnesses.') };
         }
     };

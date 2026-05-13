@@ -69,3 +69,9 @@ button, input, select, textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+.pdf-export {
+    --background: white !important;
+    --foreground: #1e293b !important;
+    --border: #cbd5e1 !important;
+}

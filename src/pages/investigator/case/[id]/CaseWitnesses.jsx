@@ -11,16 +11,11 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 
 import AddWitnessDialog from './forms/AddWitness';
-import { updateWitness, formatApiError } from '@/services/witnessApi';
+import { updateWitness, formatApiError, listWitnesses } from '@/services/witnessApi';
 
 const PAGE_SIZE = 5;
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 // Adapt a row from GET /witnesses → the shape StepWitnesses expects.
 // StepWitnesses uses these flat field names directly, so the mapping is
@@ -117,28 +112,15 @@ const CaseWitnesses = () => {
   // ── Fetch ─────────────────────────────────────────────────────────────
   const fetchWitnesses = useCallback(async () => {
     if (!caseId) return;
+    const seq = ++requestSeq.current;   // ← increment BEFORE the await
     setLoading(true);
     setError(null);
-    const seq = ++requestSeq.current;
 
     try {
-      const url = import.meta.env.VITE_API_URL;
-      const res = await axios.get(
-        `${url}/api/investigator/cases/${caseId}/witnesses`,
-        {
-          headers: getAuthHeader(),
-          params: {
-            search: appliedFilters.name,
-            status: appliedFilters.status,
-            date: appliedFilters.date,
-            page: currentPage,
-            page_size: PAGE_SIZE,
-          },
-        },
-      );
-      if (seq !== requestSeq.current) return;
-      setItems(res.data?.items || []);
-      setTotal(res.data?.total || 0);
+      const res = await listWitnesses(caseId, appliedFilters);
+      if (seq !== requestSeq.current) return;   // stale request, ignore
+      setItems(res?.items || []);
+      setTotal(res?.total || 0);
     } catch (err) {
       if (seq !== requestSeq.current) return;
       console.error('Failed to load witnesses:', err);
@@ -146,13 +128,12 @@ const CaseWitnesses = () => {
       setItems([]);
       setTotal(0);
     } finally {
-      if (seq === requestSeq.current) setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);  // ← compare, not falsy check
     }
   }, [caseId, appliedFilters, currentPage]);
 
   useEffect(() => { fetchWitnesses(); }, [fetchWitnesses]);
 
-  console.log("witness: ", items[0])
   // ── Filter handlers ──────────────────────────────────────────────────
   const handleApply = useCallback(() => {
     setAppliedFilters({
@@ -221,7 +202,6 @@ const CaseWitnesses = () => {
     }
   };
 
-  // ── Render ───────────────────────────────────────────────────────────
   return (
     <section
       className="bg-white rounded-t-lg border-x border-t border-slate-300 p-6 shadow-sm"
@@ -428,7 +408,7 @@ const CaseWitnesses = () => {
             itemLabel="witnesses"
           />
         </div>
-      )}    
+      )}
 
       {/* View Details dialog */}
       {dialogWitness && (

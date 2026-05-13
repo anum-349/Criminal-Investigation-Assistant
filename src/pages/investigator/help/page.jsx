@@ -4,10 +4,12 @@ import {
     Search, ChevronDown, ChevronRight, BookOpen, Keyboard,
     FolderOpen, Map, Brain, FileText, Bell, Shield,
     ArrowLeft, LayoutDashboard, HelpCircle, PlayCircle,
-    AlertTriangle, Users, Crosshair
+    AlertTriangle, Users, Crosshair,
+    Loader2
 } from 'lucide-react';
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/Card';
+import axios from 'axios';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -185,7 +187,10 @@ const KeyBadge = ({ k }) => (
     </kbd>
 );
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+export const getAuthHeader = () => {
+    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 const HelpPage = () => {
     const navigate = useNavigate();
@@ -195,6 +200,8 @@ const HelpPage = () => {
     const [showContact, setShowContact] = useState(false);
     const [contactForm, setContactForm] = useState({ subject: '', message: '', priority: 'normal' });
     const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
 
     const faqs = FAQS[activeCategory] || [];
 
@@ -213,16 +220,45 @@ const HelpPage = () => {
         return () => window.removeEventListener('keydown', handleEsc);
     }, []);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+        if (submitting) return;
         if (!contactForm.subject.trim() || !contactForm.message.trim()) return;
-        // TODO: replace with real API call → POST /api/admin/contact
-        setSubmitted(true);
+
+        setSubmitting(true);
+        setSubmitError(null);
+
+        try {
+            const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
+            await axios.post(
+                `${import.meta.env.VITE_API_URL}/api/tickets`,
+                {
+                    priority: contactForm.priority,
+                    subject: contactForm.subject.trim(),
+                    message: contactForm.message.trim(),
+                },
+                { headers: getAuthHeader() },
+            );
+            setSubmitted(true);
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            setSubmitError(
+                Array.isArray(detail) ? detail.map(d => d?.msg).join(", ")
+                    : typeof detail === "string" ? detail
+                        : "Failed to send message. Please try again."
+            );
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleClose = () => {
         setShowContact(false);
-        setSubmitted(false);
-        setContactForm({ subject: '', message: '', priority: 'normal' });
+        // reset after close so next open is fresh
+        setTimeout(() => {
+            setContactForm({ priority: 'normal', subject: '', message: '' });
+            setSubmitted(false);
+            setSubmitError(null);
+        }, 300); // wait for close animation
     };
 
     return (
@@ -384,7 +420,7 @@ const HelpPage = () => {
                         <p className="text-xs text-slate-500 mt-0.5">Contact your system administrator or raise a support ticket.</p>
                     </div>
                     <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-[#162f42] transition-colors shrink-0"
-                    onClick={()=> setShowContact(true)}>
+                        onClick={() => setShowContact(true)}>
                         <Bell className="h-4 w-4" /> Contact Admin
                     </button>
                 </section>
@@ -444,123 +480,131 @@ const HelpPage = () => {
 
             {/* Contact Admin Modal */}
             {showContact && (
-    <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-        onClick={handleClose}
-    >
-        <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-            onClick={e => e.stopPropagation()}
-        >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-deep-ocean">
-                <div className="flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-blue-300" />
-                    <h3 className="text-base font-bold text-white">Contact Administrator</h3>
-                </div>
-                <button
+                <div
+                    className="fixed inset-0 z-50 flex overflow-auto items-center justify-center bg-black/60 backdrop-blur-sm"
                     onClick={handleClose}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
                 >
-                    ✕
-                </button>
-            </div>
-
-            {submitted ? (
-                /* ── Success state ── */
-                <div className="px-6 py-10 text-center">
-                    <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                    <h4 className="text-base font-bold text-slate-800">Message Sent</h4>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Your message has been sent to the administrator. You will be notified when they respond.
-                    </p>
-                    <button
-                        onClick={handleClose}
-                        className="mt-6 px-5 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-[#162f42] transition-colors"
+                    <div
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+                        onClick={e => e.stopPropagation()}
                     >
-                        Done
-                    </button>
-                </div>
-            ) : (
-                /* ── Form state ── */
-                <div className="px-6 py-5 space-y-4">
-                    <p className="text-xs text-slate-500">
-                        Send a message to the system administrator. They will respond via the notifications panel.
-                    </p>
-
-                    {/* Priority */}
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Priority</label>
-                        <div className="flex gap-2">
-                            {[
-                                { value: 'normal',  label: 'Normal',  color: 'bg-blue-50   border-blue-300   text-blue-700'   },
-                                { value: 'urgent',  label: 'Urgent',  color: 'bg-orange-50 border-orange-300 text-orange-700' },
-                                { value: 'critical',label: 'Critical',color: 'bg-red-50    border-red-300    text-red-700'    },
-                            ].map(p => (
-                                <button
-                                    key={p.value}
-                                    onClick={() => setContactForm(f => ({ ...f, priority: p.value }))}
-                                    className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold transition-all
-                                        ${contactForm.priority === p.value
-                                            ? p.color + ' ring-2 ring-offset-1 ring-current'
-                                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                                        }`}
-                                >
-                                    {p.label}
-                                </button>
-                            ))}
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-deep-ocean">
+                            <div className="flex items-center gap-2">
+                                <Bell className="h-4 w-4 text-blue-300" />
+                                <h3 className="text-base font-bold text-white">Contact Administrator</h3>
+                            </div>
+                            <button
+                                onClick={handleClose}
+                                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
+                            >
+                                ✕
+                            </button>
                         </div>
-                    </div>
 
-                    {/* Subject */}
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Subject</label>
-                        <input
-                            type="text"
-                            placeholder="e.g. Cannot access case C-2053"
-                            value={contactForm.subject}
-                            onChange={e => setContactForm(f => ({ ...f, subject: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:border-transparent transition-all"
-                        />
-                    </div>
+                        {submitted ? (
+                            /* ── Success state ── */
+                            <div className="px-6 py-10 text-center">
+                                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                                    <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-base font-bold text-slate-800">Message Sent</h4>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Your message has been sent to the administrator. You will be notified when they respond.
+                                </p>
+                                <button
+                                    onClick={handleClose}
+                                    className="mt-6 px-5 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-[#162f42] transition-colors"
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        ) : (
+                            /* ── Form state ── */
+                            <div className="px-6 py-5 space-y-4">
+                                <p className="text-xs text-slate-500">
+                                    Send a message to the system administrator. They will respond via the notifications panel.
+                                </p>
 
-                    {/* Message */}
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Message</label>
-                        <textarea
-                            rows={4}
-                            placeholder="Describe your issue or question in detail…"
-                            value={contactForm.message}
-                            onChange={e => setContactForm(f => ({ ...f, message: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:border-transparent transition-all resize-none"
-                        />
-                    </div>
+                                {/* Priority */}
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Priority</label>
+                                    <div className="flex gap-2">
+                                        {[
+                                            { value: 'normal', label: 'Normal', color: 'bg-blue-50   border-blue-300   text-blue-700' },
+                                            { value: 'urgent', label: 'Urgent', color: 'bg-orange-50 border-orange-300 text-orange-700' },
+                                            { value: 'critical', label: 'Critical', color: 'bg-red-50    border-red-300    text-red-700' },
+                                        ].map(p => (
+                                            <button
+                                                key={p.value}
+                                                onClick={() => setContactForm(f => ({ ...f, priority: p.value }))}
+                                                className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold transition-all
+                                        ${contactForm.priority === p.value
+                                                        ? p.color + ' ring-2 ring-offset-1 ring-current'
+                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                                                    }`}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-2 pt-1">
-                        <button
-                            onClick={handleClose}
-                            className="flex-1 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={!contactForm.subject.trim() || !contactForm.message.trim()}
-                            className="flex-1 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-[#162f42] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Send Message
-                        </button>
+                                {/* Subject */}
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Subject</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Cannot access case C-2053"
+                                        value={contactForm.subject}
+                                        onChange={e => setContactForm(f => ({ ...f, subject: e.target.value }))}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:border-transparent transition-all"
+                                    />
+                                </div>
+
+                                {/* Message */}
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Message</label>
+                                    <textarea
+                                        rows={4}
+                                        placeholder="Describe your issue or question in detail…"
+                                        value={contactForm.message}
+                                        onChange={e => setContactForm(f => ({ ...f, message: e.target.value }))}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-deep-ocean focus:border-transparent transition-all resize-none"
+                                    />
+                                </div>
+
+                                {submitError && (
+                                    <div className="px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                                        {submitError}
+                                    </div>
+                                )}
+                                {/* Actions */}
+                                <div className="flex gap-2 pt-1">
+                                    <button
+                                        onClick={handleClose}
+                                        className="flex-1 py-2 rounded-lg cursor-pointer border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={submitting || !contactForm.subject.trim() || !contactForm.message.trim()}
+                                        className="flex-1 py-2 cursor-pointer rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-[#162f42] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        {submitting
+                                            ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                                            : "Send Message"
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
-        </div>
-    </div>
-)}
         </div>
     );
 };

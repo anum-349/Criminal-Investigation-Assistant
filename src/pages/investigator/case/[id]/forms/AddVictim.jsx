@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { User, Save, X, AlertCircle, Loader2 } from "lucide-react";
-import StepVictims from "@/pages/form/case-forms/step-victim/page";
+import StepVictims, { validateVictims } from "@/pages/form/case-forms/step-victim/page";
 
 export default function AddVictimDialog({
     isOpen,
@@ -14,7 +14,7 @@ export default function AddVictimDialog({
     const [formData, setFormData] = useState({ victims: [] });
     const [submitted, setSubmitted] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState(null);
+    const [validationErrors, setValidationErrors] = useState([]);  // ← was never declared
     const [warning, setWarning] = useState(null);
 
     const isUpdate = !!initialData;
@@ -37,7 +37,7 @@ export default function AddVictimDialog({
                 : { caseType, victims: [] }
         );
         setSubmitted(false);
-        setError(null);
+        setValidationErrors([])
         setWarning(null);
         setSaving(false);
     }, [isOpen, initialData, caseType]);
@@ -58,30 +58,24 @@ export default function AddVictimDialog({
         if (saving) return;
         setFormData({ caseType, victims: [] });
         setSubmitted(false);
-        setError(null);
+        setValidationErrors([]);
         setWarning(null);
         onClose?.();
-    };
-
-    const validate = () => {
-        const list = formData.victims || [];
-        if (!list.length) return "Add at least one victim.";
-        for (let i = 0; i < list.length; i++) {
-            const v = list[i];
-            if (!v.name?.trim()) return `Victim #${i + 1}: name is required.`;
-        }
-        return null;
     };
 
     const handleSubmit = async (e) => {
         e?.preventDefault?.();
         if (saving) return;
 
-        const v = validate();
-        if (v) { setError(v); return; }
+        const allErrors = formData.victims.map(validateVictims);
+        const hasErrors = allErrors.some(e => Object.keys(e).length > 0);
+        if (hasErrors) {
+            setValidationErrors(allErrors);   // ← passed down to StepWitnesses
+            return;
+        }
+        setValidationErrors([]);
 
         setSaving(true);
-        setError(null);
         setWarning(null);
 
         try {
@@ -98,7 +92,7 @@ export default function AddVictimDialog({
 
             if (!ok) {
                 const detail = (result && typeof result === "object" && result.error) || "Save failed.";
-                setError(detail);
+                console.error(detail)
                 return;
             }
 
@@ -110,7 +104,6 @@ export default function AddVictimDialog({
             setSubmitted(true);
         } catch (err) {
             console.error("AddVictim submit error:", err);
-            setError(err?.message || "Save failed. Please try again.");
         } finally {
             setSaving(false);
         }
@@ -186,7 +179,7 @@ export default function AddVictimDialog({
                                     onClick={() => {
                                         setFormData({ caseType, victims: [] });
                                         setSubmitted(false);
-                                        setError(null); setWarning(null);
+                                        setWarning(null);
                                     }}
                                     className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
                                 >
@@ -204,13 +197,7 @@ export default function AddVictimDialog({
                 ) : (
                     <form onSubmit={handleSubmit}>
                         <div className="px-6 py-5 space-y-4">
-                            {error && (
-                                <div className="flex items-start gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs">
-                                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                                    <span>{error}</span>
-                                </div>
-                            )}
-                            <StepVictims data={formData} setData={setFormData} caseType={caseType} mode="standalone" />
+                            <StepVictims data={formData} setData={setFormData} caseType={caseType} mode="standalone" validationErrors={validationErrors} />
                         </div>
 
                         <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-3">

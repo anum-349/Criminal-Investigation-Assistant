@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Hash, Plus, Trash2, Users, Pencil, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Hash, Plus, Trash2, Users, Pencil, Check, ImageIcon, X } from "lucide-react";
 import { defaultSuspect, generateSuspectId, SUSPECT_STATUSES } from "@/pages/form/case-forms/caseFormConstants/page";
 import { CheckField, FieldLabel, SectionHeading, SelectField, TextareaField, TextField } from "@/pages/form/case-forms/CaseFormFields/page";
 
@@ -8,9 +8,37 @@ const RELATION_OPTIONS = [
     "Resident", "Witness", "Business Associate", "Unknown",
 ];
 
+// export from StepSuspects.jsx
+export const validateSuspect = (s) => {
+    const errors = {};
+    const CNIC_RE = /^\d{5}-\d{7}-\d$/;
+    const PHONE_RE = /^(\+92|0)[-\s]?\d{3}[-\s]?\d{7}$/;
+
+    if (s.name && s.name.length < 3 || /\d/.test(s.name))
+        errors.name = "Enter a valid name (no numbers, at least 3 characters)";
+
+    if (s.cnic && !CNIC_RE.test(s.cnic.trim()))
+        errors.cnic = "Format: 00000-0000000-0";
+
+    if (s.contact && !PHONE_RE.test(s.contact.trim()))
+        errors.contact = "Format: 0300-1234567 or +92-300-1234567";
+
+    if (s.age !== undefined && s.age !== "" && Number(s.age) < 7)
+        errors.age = "Suspect must be at least 7 years old";
+
+    if (s.age !== undefined && s.age !== "" && Number(s.age) > 120)
+        errors.age = "Age must be 120 or less";
+
+    if (!s.reason?.trim())
+        errors.reason = "Reason for suspicion is required";
+
+    return errors;
+};
+
 // ── SuspectFormFields — all editable fields extracted into one reusable block ──
-function SuspectFormFields({ suspect, idx, onUpdate }) {
+function SuspectFormFields({ suspect, idx, onUpdate, errors }) {
     const u = (k) => (e) => onUpdate(idx, k, e.target.value);
+    const photoRef = useRef(null)
 
     return (
         <div className="space-y-4">
@@ -22,21 +50,75 @@ function SuspectFormFields({ suspect, idx, onUpdate }) {
                     </FieldLabel>
                     <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-500 font-mono select-all">
                         <Hash className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                        {suspect.id ? suspect.id : generateSuspectId().id}
+                        Auto generate
                     </div>
                 </div>
 
-                <TextField label="Full Name (if known)" value={suspect.name} onChange={u("name")} placeholder="Leave blank if unknown" />
+                <TextField label="Full Name (if known)" value={suspect.name} onChange={u("name")} placeholder="Leave blank if unknown" error={errors.name} />
                 <SelectField
                     label="Relation to Case"
                     options={RELATION_OPTIONS}
                     value={suspect.relationToCase}
                     onChange={u("relationToCase")}
                 />
-                <TextField label="CNIC Number" value={suspect.cnic} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" />
-                <TextField label="Age (Approximate)" type="number" min="0" max="120" value={suspect.age} onChange={u("age")} />
-                <SelectField label="Gender" options={["Male", "Female", "Transgender / Other", "Unknown"]} value={suspect.gender} onChange={u("gender")} />
-                <SelectField label="Suspect Status" options={SUSPECT_STATUSES} value={suspect.status} onChange={u("status")} />
+                <TextField label="CNIC Number" value={suspect.cnic} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" error={errors.cnic} />
+                <TextField label="Age (Approximate)" type="number" min="0" max="120" value={suspect.age} onChange={u("age")} error={errors.age} />
+                <SelectField label="Gender" options={["Male", "Female", "Transgender / Other", "Unknown"]} value={suspect.gender} onChange={u("gender")} required />
+                <SelectField label="Suspect Status" options={SUSPECT_STATUSES} value={suspect.status} onChange={u("status")} required />
+            </div>
+
+            <div>
+                <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
+                    <ImageIcon className="h-3.5 w-3.5" /> Photograph
+                </h5>
+                <input ref={photoRef} type="file" className="hidden" accept="image/*"
+                    onChange={e => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        const reader = new FileReader();
+                        reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+                        reader.readAsDataURL(f);
+                        e.target.value = "";
+                    }}
+                />
+                {!suspect.photoUrl ? (
+                    <button type="button" onClick={() => photoRef.current?.click()}
+                        className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2
+                        text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                        <ImageIcon className="h-4 w-4 shrink-0" /> Add photo…
+                    </button>
+                ) : (
+                    <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
+                        <img
+                            src={typeof suspect.photoUrl === 'string' ? suspect.photoUrl : suspect.photoUrl?.[0]?.dataUrl}
+                            alt={suspect.name}
+                            className="w-full h-full object-cover"
+                        />
+                        {suspect._hadPhoto && (
+                            <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
+                                saved
+                            </span>
+                        )}
+                        <label className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center
+                        py-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                            Replace
+                            <input type="file" accept="image/*" hidden
+                                onChange={e => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    const reader = new FileReader();
+                                    reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+                                    reader.readAsDataURL(f);
+                                    e.target.value = "";
+                                }} />
+                        </label>
+                        <button type="button" onClick={() => onUpdate(idx, "photoUrl", null)}
+                            className="absolute top-1 right-1 bg-black/60 text-white rounded p-0.5
+                            opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                            <X className="h-3 w-3" />
+                        </button>
+                    </div>
+                )}
             </div>
 
             <TextareaField
@@ -44,6 +126,7 @@ function SuspectFormFields({ suspect, idx, onUpdate }) {
                 rows={2}
                 value={suspect.reason}
                 onChange={u("reason")}
+                error={errors.reason}
                 placeholder="Why is this person a suspect? Observed behaviour, witness testimony, forensic link…"
             />
 
@@ -63,7 +146,7 @@ function SuspectFormFields({ suspect, idx, onUpdate }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <TextField label="Last Known Address" value={suspect.address} onChange={u("address")} placeholder="Last known residential address" />
-                <TextField label="Contact Number" value={suspect.contact} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" />
+                <TextField label="Contact Number" value={suspect.contact} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" error={errors.contact} />
                 <TextField label="Occupation" value={suspect.occupation} onChange={u("occupation")} placeholder="If known" />
                 <TextField label="Known Affiliations / Gang" value={suspect.knownAffiliations} onChange={u("knownAffiliations")} placeholder="Criminal gang, organisation etc." />
                 <TextField label="Escape Vehicle Description" value={suspect.vehicleDescription} onChange={u("vehicleDescription")} placeholder="Color, make, model, registration" />
@@ -85,7 +168,7 @@ function SuspectFormFields({ suspect, idx, onUpdate }) {
 }
 
 // ── Register mode card — always expanded, no Edit button ──────────────────
-function RegisterSuspectCard({ suspect, idx, canRemove, onUpdate, onRemove }) {
+function RegisterSuspectCard({ suspect, idx, canRemove, onUpdate, onRemove, errors = {} }) {
     return (
         <div className="border border-slate-200 rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -112,13 +195,13 @@ function RegisterSuspectCard({ suspect, idx, canRemove, onUpdate, onRemove }) {
                 )}
             </div>
 
-            <SuspectFormFields suspect={suspect} idx={idx} onUpdate={onUpdate} />
+            <SuspectFormFields suspect={suspect} idx={idx} onUpdate={onUpdate} errors={errors} />
         </div>
     );
 }
 
 // ── Standalone mode card — collapsed summary with Edit button ─────────────
-function StandaloneSuspectCard({ suspect, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove }) {
+function StandaloneSuspectCard({ suspect, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove, errors }) {
     return (
         <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
 
@@ -164,11 +247,11 @@ function StandaloneSuspectCard({ suspect, idx, canRemove, isEditing, onToggleEdi
                 <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
                     {[
                         { label: "Suspect ID", value: <span className="font-mono text-xs">{suspect.id}</span> },
-                        { label: "Name",       value: suspect.name || "—" },
-                        { label: "Relation",   value: suspect.relationToCase || "—" },
-                        { label: "Status",     value: suspect.status || "—" },
-                        { label: "Age",        value: suspect.age || "—" },
-                        { label: "Gender",     value: suspect.gender || "—" },
+                        { label: "Name", value: suspect.name || "—" },
+                        { label: "Relation", value: suspect.relationToCase || "—" },
+                        { label: "Status", value: suspect.status || "—" },
+                        { label: "Age", value: suspect.age || "—" },
+                        { label: "Gender", value: suspect.gender || "—" },
                     ].map(({ label, value }) => (
                         <div key={label}>
                             <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">{label}</span>
@@ -193,7 +276,7 @@ function StandaloneSuspectCard({ suspect, idx, canRemove, isEditing, onToggleEdi
             {/* Expanded edit form */}
             {isEditing && (
                 <div className="p-5">
-                    <SuspectFormFields suspect={suspect} idx={idx} onUpdate={onUpdate} />
+                    <SuspectFormFields suspect={suspect} idx={idx} onUpdate={onUpdate} errors={errors} />
                 </div>
             )}
         </div>
@@ -201,7 +284,7 @@ function StandaloneSuspectCard({ suspect, idx, canRemove, isEditing, onToggleEdi
 }
 
 // ── StepSuspects ───────────────────────────────────────────────────────────
-export function StepSuspects({ data = {}, setData, mode = "register" }) {
+export function StepSuspects({ data = {}, setData, mode = "register", validationErrors = [] }) {
     const suspects = data.suspects || [];
     const [editingIds, setEditingIds] = useState(new Set());
 
@@ -257,6 +340,7 @@ export function StepSuspects({ data = {}, setData, mode = "register" }) {
                         canRemove={suspects.length > 1}
                         onUpdate={update}
                         onRemove={() => removeSuspect(idx)}
+                        errors={validationErrors[idx] || {}}
                     />
                 ) : (
                     <StandaloneSuspectCard
@@ -268,6 +352,7 @@ export function StepSuspects({ data = {}, setData, mode = "register" }) {
                         onToggleEdit={() => toggleEdit(suspect.id)}
                         onUpdate={update}
                         onRemove={() => removeSuspect(idx)}
+                        errors={validationErrors[idx] || {}}
                     />
                 )
             )}

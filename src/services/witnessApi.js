@@ -43,27 +43,27 @@ export const witnessToPatchPayload = (w) => {
     const payload = {};
     const fwd = (k, val) => { if (val !== undefined) payload[k] = val; };
 
-    fwd("name",                w?.name);
-    fwd("cnic",                w?.cnic);
+    fwd("name", w?.name);
+    fwd("cnic", w?.cnic);
     if (w?.age !== undefined && w?.age !== null && w?.age !== "") {
         payload.age = parseAge(w.age);
     }
-    fwd("gender",              w?.gender);
-    fwd("contact",             w?.contact);
-    fwd("address",             w?.address);
+    fwd("gender", w?.gender);
+    fwd("contact", w?.contact);
+    fwd("address", w?.address);
 
-    fwd("witnessType",         w?.witnessType);
-    fwd("relationToCase",      w?.relationToCase);
-    fwd("credibility",         w?.credibility);
-    fwd("status",              w?.status);
+    fwd("witnessType", w?.witnessType);
+    fwd("relationToCase", w?.relationToCase);
+    fwd("credibility", w?.credibility);
+    fwd("status", w?.status);
 
-    fwd("statementDate",       w?.statementDate);
+    fwd("statementDate", w?.statementDate);
     fwd("statementRecordedBy", w?.statementRecordedBy);
-    fwd("description",         w?.description);
+    fwd("description", w?.description);
 
-    if (w?.anonymous          !== undefined) payload.anonymous          = !!w.anonymous;
+    if (w?.anonymous !== undefined) payload.anonymous = !!w.anonymous;
     if (w?.protectionRequired !== undefined) payload.protectionRequired = !!w.protectionRequired;
-    if (w?.cooperating        !== undefined) payload.cooperating        = !!w.cooperating;
+    if (w?.cooperating !== undefined) payload.cooperating = !!w.cooperating;
 
     return payload;
 };
@@ -72,29 +72,29 @@ export const witnessToPatchPayload = (w) => {
 export const witnessDetailToFormShape = (w) => {
     if (!w) return null;
     return {
-        id:                  w.id,
-        witnessId:           w.witnessId || w.id,
-        caseId:              w.caseId || "",
+        id: w.id,
+        witnessId: w.witnessId || w.id,
+        caseId: w.caseId || "",
 
-        name:                w.name        || "",
-        cnic:                w.cnic        || "",
-        age:                 w.age         || "",
-        gender:              w.gender      || "",
-        contact:             w.contact     || "",
-        address:             w.address     || "",
+        name: w.name || "",
+        cnic: w.cnic || "",
+        age: w.age || "",
+        gender: w.gender || "",
+        contact: w.contact || "",
+        address: w.address || "",
 
-        witnessType:         w.witnessType      || "",
-        relationToCase:      w.relationToCase   || "",
-        credibility:         w.credibility      || "",
-        status:              w.status           || "Active",
+        witnessType: w.witnessType || "",
+        relationToCase: w.relationToCase || "",
+        credibility: w.credibility || "",
+        status: w.status || "Active",
 
-        statementDate:       w.statementDate        || "",
-        statementRecordedBy: w.statementRecordedBy  || "",
-        description:         w.description          || "",
+        statementDate: w.statementDate || "",
+        statementRecordedBy: w.statementRecordedBy || "",
+        description: w.description || "",
 
-        anonymous:           !!w.anonymous,
-        protectionRequired:  !!w.protectionRequired,
-        cooperating:         w.cooperating !== false,
+        anonymous: !!w.anonymous,
+        protectionRequired: !!w.protectionRequired,
+        cooperating: w.cooperating !== false,
 
         // Single photo
         photoUrl: w.photoUrl
@@ -122,65 +122,68 @@ export const getWitness = async (caseId, witnessId) => {
     return res.data;
 };
 
-// ── 3. Add witnesses to a case (bulk POST) ─────────────────────────────────
+// ── 3. Add witnesses to a case (bulk POST) — full replacement
 export const addWitnessesToCase = async (caseId, witnesses) => {
     if (!caseId) throw new Error("caseId is required");
+
     const list = Array.isArray(witnesses) ? witnesses : [];
     if (!list.length) return { created_ids: [], photo_failures: [] };
 
-    const url = apiBase();
-    const headers = getAuthHeader();
+    const url     = apiBase();
+    const headers = getAuthHeader();           // ← defined once here
 
     const res = await axios.post(
         `${url}/api/investigator/cases/${caseId}/witnesses`,
-        { witnesses: list.map(w => ({
-            witnessId:           w.witnessId           || undefined,
-            name:                w.name                || undefined,
-            cnic:                w.cnic                || undefined,
-            age:                 parseAge(w.age),
-            gender:              w.gender              || undefined,
-            contact:             w.contact             || undefined,
-            address:             w.address             || undefined,
-            witnessType:         w.witnessType         || undefined,
-            relationToCase:      w.relationToCase      || undefined,
-            credibility:         w.credibility         || undefined,
-            status:              w.status              || undefined,
-            statementDate:       w.statementDate       || undefined,
-            statementRecordedBy: w.statementRecordedBy || undefined,
-            description:         w.description         || undefined,
-            anonymous:           !!w.anonymous,
-            protectionRequired:  !!w.protectionRequired,
-            cooperating:         w.cooperating !== false,
-        })) },
+        {
+            witnesses: list.map(w => ({
+                witnessId:        w.witnessId        || undefined,
+                name:             w.name             || undefined,
+                cnic:             w.cnic             || undefined,
+                age:              parseAge(w.age),
+                gender:           w.gender           || undefined,
+                contact:          w.contact          || undefined,
+                address:          w.address          || undefined,
+                witnessType:      w.witnessType      || undefined,
+                relationToCase:   w.relationToCase   || undefined,
+                credibility:      w.credibility      || undefined,
+                status:           w.status           || undefined,
+                statementDate:    w.statementDate    || undefined,
+                recorded_by:      w.statementRecordedBy || undefined,
+                description:      w.description      || undefined,
+                anonymous:        !!w.anonymous,
+                protectionRequired: !!w.protectionRequired,
+                cooperating:      w.cooperating !== false,
+            })),
+        },
         { headers },
     );
 
-    const data = res.data || {};
+    const data       = res.data || {};
     const createdIds = data.created_ids || [];
     const photoFailures = [];
 
-    // Upload one photo per witness if provided
+    // Upload photo per-witness (index-aligned with createdIds)
     for (let i = 0; i < list.length; i++) {
-        const vid = createdIds[i];
-        const item = list[i];
-        if (!vid) continue;
+        const w          = list[i];
+        const witnessId  = createdIds[i];          // ← correct per-witness ID
+        if (!witnessId) continue;
 
-        const photoArr = Array.isArray(item.photoUrl) ? item.photoUrl : [];
+        const photoArr = Array.isArray(w.photoUrl) ? w.photoUrl : [];
         const newPhoto = photoArr.find(isNewPhoto);
-        if (newPhoto) {
-            try {
-                await axios.post(
-                    `${url}/api/investigator/cases/${caseId}/witnesses/${vid}/photos`,
-                    { dataUrl: newPhoto.dataUrl, fileName: newPhoto.name },
-                    { headers },
-                );
-            } catch (err) {
-                photoFailures.push({
-                    witnessId: vid,
-                    photoName: newPhoto.name || "(unnamed)",
-                    error: err?.response?.data?.detail || err.message || "Upload failed",
-                });
-            }
+        if (!newPhoto) continue;
+
+        try {
+            await axios.post(
+                `${url}/api/investigator/cases/${caseId}/witnesses/${witnessId}/photos`,
+                { dataUrl: newPhoto.dataUrl, fileName: newPhoto.name },
+                { headers },
+            );
+        } catch (err) {
+            photoFailures.push({
+                witnessId,
+                photoName: newPhoto.name || "(unnamed)",
+                error: err?.response?.data?.detail || err.message || "Upload failed",
+            });
         }
     }
 

@@ -1,31 +1,3 @@
-/**
- * src/services/victimApi.js
- * ─────────────────────────────────────────────────────────────────────────────
- * Centralized backend integration for the Victim flow.
- *
- * Mirror of services/suspectApi.js — same shape, same error-handling
- * conventions. Used by THREE call-sites:
- *
- *   1. Register-case wizard          (POST victims as part of a brand-new case)
- *   2. AddVictimDialog (Add mode)    (POST victims to an existing case)
- *   3. AddVictimDialog (Update)      (PATCH one row + add/remove its photos)
- *
- * Backend endpoints:
- *   GET    /api/investigator/cases/{caseId}/victims
- *   GET    /api/investigator/cases/{caseId}/victims/{victimId}
- *   PATCH  /api/investigator/cases/{caseId}/victims/{victimId}
- *   POST   /api/investigator/cases/{caseId}/victims/{victimId}/photos
- *   DELETE /api/investigator/cases/{caseId}/victims/{victimId}/photos/{photoId}
- *
- * (Bulk POST /victims is wired by the existing case_detail_service.add_victim
- *  endpoint — addVictimsToCase() below targets that. Photos are uploaded as
- *  follow-ups after the rows are created.)
- *
- * Photo state shape (matches suspect/evidence convention):
- *   • New:      { name, dataUrl: "data:image/...;base64,..." }
- *   • Existing: { existingPhotoId, name, dataUrl: "https://..." }
- */
-
 import axios from "axios";
 
 // ── Auth header ────────────────────────────────────────────────────────────
@@ -161,8 +133,8 @@ export const addVictimsToCase = async (caseId, victims) => {
         const item = list[i];
         if (!vid) continue;
 
-        const photoArr = Array.isArray(formItem?.photoUrl) ? formItem.photoUrl : [];
-        const newPhoto = photoArr.find(isNewPhoto);
+        const photoArr = Array.isArray(item?.photoUrl) ? item.photoUrl : [];
+        const newPhoto = photoArr.find(isNewPhoto)
         if (newPhoto) {
             try {
                 await axios.post(
@@ -197,7 +169,6 @@ export const addVictimsToCase = async (caseId, victims) => {
 export const updateVictim = async (caseId, victimId, formItem) => {
     if (!caseId || !victimId) throw new Error("caseId and victimId are required");
 
-    console.log("Form ", formItem)
     const url = apiBase();
     const headers = getAuthHeader();
 
@@ -211,7 +182,7 @@ export const updateVictim = async (caseId, victimId, formItem) => {
 
     const photoFailures = [];
     const photoArr = Array.isArray(formItem?.photoUrl) ? formItem.photoUrl : [];
-    const newPhoto = photoArr.find(isNewPhoto);
+    const newPhoto = photoArr.find(isNewPhoto)
     const hasPhoto = photoArr.length > 0;
     if (newPhoto) {
         try {

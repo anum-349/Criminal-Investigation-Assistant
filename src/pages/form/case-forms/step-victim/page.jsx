@@ -5,7 +5,7 @@ import {
   Calendar,
 } from "lucide-react";
 import {
-  defaultVictim, generateVictimId,
+  defaultVictim,
   INJURY_TYPES, VICTIM_STATUSES, RELATION_TO_VICTIM,
   THREAT_LEVELS, DECLARED_DEAD_OPTIONS, POSTMORTEM_OPTIONS,
 } from "@/pages/form/case-forms/caseFormConstants/page";
@@ -38,16 +38,215 @@ const getCfg = (caseType) => {
   if (!caseType) return DEFAULT_CFG;
   return CASE_TYPE_CONFIG[String(caseType).toLowerCase().trim()] ?? DEFAULT_CFG;
 };
+export const validateVictims = (v) => {
+  const errors = {};
 
-// ─────────────────────────────────────────────────────────────────────────────
-// VictimFormFields — every editable field, used by both card variants.
-// Sections render conditionally based on resolved case-type config.
-// ─────────────────────────────────────────────────────────────────────────────
-function VictimFormFields({ victim, idx, onUpdate, caseType }) {
+  const CNIC_RE = /^\d{5}-\d{7}-\d$/;
+  const PHONE_RE = /^(\+92|0)[-\s]?\d{3}[-\s]?\d{7}$/;
+
+  if (!v) {
+    return { form: "Add at least one victim." };
+  }
+
+  /* ─────────────────────────────────────────────
+     1. Identification
+  ───────────────────────────────────────────── */
+
+  if (!v.primaryLabel?.trim()) {
+    errors.primaryLabel = "Primary Label is required";
+  }
+
+  /* ─────────────────────────────────────────────
+     2. Personal Information
+  ───────────────────────────────────────────── */
+
+  if (!v.name?.trim()) {
+    errors.name = "Victim name is required";
+  } else if (v.name.trim().length < 3 || /\d/.test(v.name)) {
+    errors.name =
+      "Enter a valid name (minimum 3 characters, no numbers)";
+  }
+
+  if (v.cnic && !CNIC_RE.test(v.cnic.trim())) {
+    errors.cnic = "Format: XXXXX-XXXXXXX-X";
+  }
+
+  if (v.contact && !PHONE_RE.test(v.contact.trim())) {
+    errors.contact =
+      "Format: 0300-1234567 or +92-300-1234567";
+  }
+
+  if (v.age !== undefined && v.age !== "") {
+    const age = Number(v.age);
+
+    if (isNaN(age)) {
+      errors.age = "Age must be a number";
+    } else if (age < 0) {
+      errors.age = "Age cannot be negative";
+    } else if (age > 120) {
+      errors.age = "Age must be 120 or less";
+    }
+  }
+
+  if (!v.gender?.trim()) {
+    errors.gender = "Gender is required";
+  }
+
+  if (v.address && v.address.trim().length < 5) {
+    errors.address = "Enter a more complete address";
+  }
+
+  /* ─────────────────────────────────────────────
+     3. Photograph
+  ───────────────────────────────────────────── */
+
+  if (v.photoUrl) {
+    const photo =
+      typeof v.photoUrl === "string"
+        ? null
+        : v.photoUrl?.[0];
+
+    if (photo?.dataUrl && !photo.dataUrl.startsWith("data:image/")) {
+      errors.photoUrl = "Only image files are allowed";
+    }
+  }
+
+  /* ─────────────────────────────────────────────
+     4. Incident Details
+  ───────────────────────────────────────────── */
+
+  if (!v.status?.trim()) {
+    errors.status = "Victim status is required";
+  }
+
+  if (!v.caseType?.trim()) {
+    errors.caseType = "Case type is required";
+  }
+
+  if (v.injuryType && v.injuryType.trim().length < 2) {
+    errors.injuryType = "Enter a valid injury type";
+  }
+
+  if (
+    v.natureOfInjuries &&
+    v.natureOfInjuries.trim().length < 5
+  ) {
+    errors.natureOfInjuries =
+      "Provide more detailed injury information";
+  }
+
+  /* ─────────────────────────────────────────────
+     5. Deceased Validation
+  ───────────────────────────────────────────── */
+
+  if (v.status === "Deceased") {
+    if (!v.causeOfDeath?.trim()) {
+      errors.causeOfDeath = "Cause of death is required";
+    }
+
+    if (!v.declaredDead?.trim()) {
+      errors.declaredDead =
+        "Please specify who declared the victim dead";
+    }
+
+    if (!v.postmortemAutopsy?.trim()) {
+      errors.postmortemAutopsy =
+        "Postmortem / autopsy status is required";
+    }
+  }
+
+  /* ─────────────────────────────────────────────
+     6. Protection Validation
+  ───────────────────────────────────────────── */
+
+  if (v.protectionRequired) {
+    if (!v.threatLevel?.trim()) {
+      errors.threatLevel =
+        "Threat level is required if protection is needed";
+    }
+
+    if (!v.protectionAssigned?.trim()) {
+      errors.protectionAssigned =
+        "Specify protection assignment status";
+    }
+  }
+
+  /* ─────────────────────────────────────────────
+     7. Statement Validation
+  ───────────────────────────────────────────── */
+
+  if (
+    v.statement &&
+    v.statement.trim().length > 1000
+  ) {
+    errors.statement =
+      "Statement cannot exceed 1000 characters";
+  }
+
+  /* ─────────────────────────────────────────────
+     8. Timeline Validation
+  ───────────────────────────────────────────── */
+
+  if (Array.isArray(v.timeline)) {
+    v.timeline.forEach((item, i) => {
+      if (!item.date?.trim()) {
+        errors[`timeline_${i}_date`] =
+          "Timeline date is required";
+      }
+
+      if (!item.text?.trim()) {
+        errors[`timeline_${i}_text`] =
+          "Timeline description is required";
+      }
+    });
+  }
+
+  /* ─────────────────────────────────────────────
+     9. Legal Milestones Validation
+  ───────────────────────────────────────────── */
+
+  if (Array.isArray(v.legal)) {
+    v.legal.forEach((item, i) => {
+      if (!item.label?.trim()) {
+        errors[`legal_${i}_label`] =
+          "Legal milestone cannot be empty";
+      }
+    });
+  }
+
+  /* ─────────────────────────────────────────────
+     10. Follow-Up Date Validation
+  ───────────────────────────────────────────── */
+
+  if (v.nextFollowUp) {
+    const today = new Date().toISOString().split("T")[0];
+
+    if (v.nextFollowUp < today) {
+      errors.nextFollowUp =
+        "Follow-up date cannot be in the past";
+    }
+  }
+
+  /* ─────────────────────────────────────────────
+     11. Forensic Findings Validation
+  ───────────────────────────────────────────── */
+
+  if (Array.isArray(v.forensic)) {
+    v.forensic.forEach((finding, i) => {
+      if (!finding?.trim()) {
+        errors[`forensic_${i}`] =
+          "Forensic finding cannot be empty";
+      }
+    });
+  }
+
+  return errors;
+};
+
+function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
   const photoRef = useRef(null);
   const u = (k) => (e) => onUpdate(idx, k, e.target.value);
 
-  console.log(victim)
   // Resolve config: explicit `caseType` prop (from the wizard's top-level
   // formData) wins; otherwise per-victim caseType; otherwise full visibility.
   const cfg = getCfg(caseType || victim.caseType);
@@ -76,13 +275,14 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
           </FieldLabel>
           <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-500 font-mono select-all">
             <Hash className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            {victim.victimId || generateVictimId()}
+            Auto Generate
           </div>
         </div>
         <TextField
           label="Primary Label" hint="e.g. Primary Victim - Murder"
           value={victim.primaryLabel || ""} onChange={u("primaryLabel")}
           placeholder="Primary Victim - Murder"
+          error={errors.primaryLabel}
         />
       </div>
 
@@ -92,11 +292,11 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
           <User className="h-3.5 w-3.5" /> Personal Information
         </h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField label="Full Name" required value={victim.name || ""} onChange={u("name")} placeholder="As on CNIC" />
-          <TextField label="CNIC Number" value={victim.cnic || ""} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" />
-          <TextField label="Age" type="number" min="0" max="120" value={victim.age || ""} onChange={u("age")} />
-          <SelectField label="Gender" options={["Male", "Female", "Transgender / Other"]} value={victim.gender || ""} onChange={u("gender")} />
-          <TextField label="Contact Number" value={victim.contact || ""} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" />
+          <TextField label="Full Name" error={errors.name} required value={victim.name || ""} onChange={u("name")} placeholder="As on CNIC" />
+          <TextField label="CNIC Number" error={errors.cnic} value={victim.cnic || ""} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" />
+          <TextField label="Age" error={errors.age} type="number" min="0" max="120" value={victim.age || ""} onChange={u("age")} />
+          <SelectField label="Gender" error={errors.gender} options={["Male", "Female", "Transgender / Other"]} value={victim.gender || ""} onChange={u("gender")} />
+          <TextField label="Contact Number" error={errors.contact} value={victim.contact || ""} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" />
           <TextField label="Occupation" value={victim.occupation || ""} onChange={u("occupation")} placeholder="e.g. IT Professional, Teacher" />
         </div>
         <TextareaField
@@ -104,6 +304,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
           label="Residential Address" rows={2}
           value={victim.address || ""} onChange={u("address")}
           placeholder="Full home address of victim"
+          error={errors.address}
         />
       </div>
 
@@ -172,17 +373,18 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
           <AlertTriangle className="h-3.5 w-3.5" /> Incident Details
         </h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <SelectField label="Victim Status" options={VICTIM_STATUSES} value={victim.status || ""} onChange={u("status")} />
+          <SelectField label="Victim Status" error={errors.status} options={VICTIM_STATUSES} value={victim.status || ""} onChange={u("status")} />
           <SelectField label="Relation to Suspect (if known)" options={RELATION_TO_VICTIM} value={victim.relation || ""} onChange={u("relation")} />
           <TextField
             label="Case Type"
             value={victim.caseType || caseType || ""} onChange={u("caseType")}
             placeholder="e.g. Murder / Homicide"
+            error={errors.caseType}
             hint={caseType ? "Inherited from case header — override only if needed" : null}
           />
           {/* Injury type only matters when injury card is shown */}
           {cfg.showInjury && (
-            <SelectField label="Nature of Injury / Harm" options={INJURY_TYPES} value={victim.injuryType || ""} onChange={u("injuryType")} />
+            <SelectField label="Nature of Injury / Harm" error={errors.injuryType} options={INJURY_TYPES} value={victim.injuryType || ""} onChange={u("injuryType")} />
           )}
         </div>
 
@@ -190,6 +392,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
           <TextareaField
             className="mt-4"
             label="Nature of Injuries (detail)" rows={2}
+            error={errors.natureOfInjuries}
             value={victim.natureOfInjuries || ""} onChange={u("natureOfInjuries")}
             placeholder="e.g. Multiple stab wounds to chest and abdomen"
           />
@@ -207,17 +410,20 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <TextField
                 label="Cause of Death"
+                error={errors.causeOfDeath}
                 value={victim.causeOfDeath || ""} onChange={u("causeOfDeath")}
                 placeholder="As per postmortem report"
               />
               <SelectField
                 label="Declared Dead"
+                error={errors.declaredDead}
                 options={DECLARED_DEAD_OPTIONS}
                 value={victim.declaredDead || ""} onChange={u("declaredDead")}
               />
               <SelectField
                 label="Postmortem / Autopsy Status"
                 options={POSTMORTEM_OPTIONS}
+                error={errors.postmortemAutopsy}
                 value={victim.postmortemAutopsy || ""} onChange={u("postmortemAutopsy")}
                 className="sm:col-span-2"
               />
@@ -279,6 +485,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+                <span className={errors[`forensic_${i}`] ? "border-red-400 bg-red-50 focus:ring-red-300" : "border-slate-300 bg-white focus:ring-deep-ocean/30 focus:border-deep-ocean"}>{errors[`forensic_${i}`]} </span>
               </div>
             ))}
             {(victim.forensic || []).length === 0 && (
@@ -324,6 +531,8 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+                <span className={errors[`timeline_${i}_date`] ? "border-red-400 bg-red-50 focus:ring-red-300" : "border-slate-300 bg-white focus:ring-deep-ocean/30 focus:border-deep-ocean"}>{errors[`timeline_${i}_date`]} </span>
+                <span className={errors[`timeline_${i}_text`] ? "border-red-400 bg-red-50 focus:ring-red-300" : "border-slate-300 bg-white focus:ring-deep-ocean/30 focus:border-deep-ocean"}>{errors[`timeline_${i}_text`]} </span>
               </div>
             ))}
             {(victim.timeline || []).length === 0 && (
@@ -348,10 +557,12 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField
               label="Threat Level" options={THREAT_LEVELS}
+              error={errors.threatLevel}
               value={victim.threatLevel || ""} onChange={u("threatLevel")}
             />
             <SelectField
               label="Protection Assigned" options={["Yes", "No", "Pending Review"]}
+              error={errors.protectionAssigned}
               value={victim.protectionAssigned || ""} onChange={u("protectionAssigned")}
             />
           </div>
@@ -393,6 +604,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+                <span className={errors[`legal_${i}_label`] ? "border-red-400 bg-red-50 focus:ring-red-300" : "border-slate-300 bg-white focus:ring-deep-ocean/30 focus:border-deep-ocean"}>{errors[`legal_${i}_label`]} </span>
               </div>
             ))}
             {(victim.legal || []).length === 0 && (
@@ -414,6 +626,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
               label="Next Follow-Up Date"
               value={victim.nextFollowUp || ""} onChange={u("nextFollowUp")}
               placeholder="e.g. 20 Dec 2025"
+              error={errors.nextFollowUp}
             />
           </div>
         </div>
@@ -427,6 +640,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
           </h5>
           <TextareaField
             label="Victim Statement / Complaint" rows={3} maxLength={1000}
+            error={errors.statement}
             value={victim.statement || ""} onChange={u("statement")}
             placeholder="Statement given by victim or complainant…"
           />
@@ -439,7 +653,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Register-mode card — always expanded, no Edit toggle
 // ─────────────────────────────────────────────────────────────────────────────
-function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseType }) {
+function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseType, errors = {} }) {
   return (
     <div className="border border-slate-200 rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -473,7 +687,7 @@ function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseTy
 // ─────────────────────────────────────────────────────────────────────────────
 // Standalone-mode card — collapsed summary with Edit/Save toggle
 // ─────────────────────────────────────────────────────────────────────────────
-function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove, caseType }) {
+function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove, caseType, errors }) {
   const photoCount = (victim.photoUrl || []).length;
 
   return (
@@ -555,7 +769,7 @@ function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit,
       {/* Expanded edit form */}
       {isEditing && (
         <div className="p-5">
-          <VictimFormFields victim={victim} idx={idx} onUpdate={onUpdate} caseType={caseType} />
+          <VictimFormFields victim={victim} idx={idx} onUpdate={onUpdate} caseType={caseType} errors={errors} />
         </div>
       )}
     </div>
@@ -565,7 +779,7 @@ function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit,
 // ─────────────────────────────────────────────────────────────────────────────
 // StepVictims — main component
 // ─────────────────────────────────────────────────────────────────────────────
-export function StepVictims({ data = {}, setData, mode = "register" }) {
+export function StepVictims({ data = {}, setData, mode = "register", validationErrors = [] }) {
   const victims = data.victims || [];
   // case-type from the wizard's top-level form (set on step 1) drives section
   // visibility for ALL victims by default. Each victim can still override
@@ -640,6 +854,7 @@ export function StepVictims({ data = {}, setData, mode = "register" }) {
             onUpdate={update}
             onRemove={() => removeVictim(idx)}
             caseType={caseType}
+            errors={validationErrors[idx] || {}}
           />
         ) : (
           <StandaloneVictimCard
@@ -651,6 +866,7 @@ export function StepVictims({ data = {}, setData, mode = "register" }) {
             onUpdate={update}
             onRemove={() => removeVictim(idx)}
             caseType={caseType}
+            errors={validationErrors[idx] || {}}
           />
         )
       )}

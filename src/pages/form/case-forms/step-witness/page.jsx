@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Hash, Plus, Trash2, User, Pencil, Check, Shield,
   CheckCircle2, AlertTriangle, EyeOff,
@@ -15,10 +15,46 @@ import {
   SelectField, TextareaField, TextField,
 } from "@/pages/form/case-forms/CaseFormFields/page";
 
+// ─── Validation helper (call before submit in AddWitnessDialog) ────────────
+export const validateWitness = (w) => {
+  const errors = {};
+  const CNIC_RE = /^\d{5}-\d{7}-\d$/;
+  const PHONE_RE = /^(\+92|0)[-\s]?\d{3}[-\s]?\d{7}$/;
+
+  if (!w.anonymous && !w.name?.trim())
+    errors.name = "Name is required for non-anonymous witnesses";
+
+  if (!w.anonymous && w.name.length < 3 || /\d/.test(w.name))
+    errors.name = "Enter a valid name (no numbers, at least 3 characters)";
+
+  if (w.cnic && !CNIC_RE.test(w.cnic.trim()))
+    errors.cnic = "Format: xxxxx-xxxxxxx-x";
+
+  if (w.contact && !PHONE_RE.test(w.contact.trim()))
+    errors.contact = "Format: 0300-1234567 or +92-300-1234567";
+
+  if (w.age !== undefined && w.age !== "" && Number(w.age) < 7)
+    errors.age = "Witness must be at least 7 years old";
+
+  if (w.age !== undefined && w.age !== "" && Number(w.age) > 120)
+    errors.age = "Age must be 120 or less";
+
+  if (w.statementDate) {
+    const today = new Date().toISOString().split("T")[0];
+    if (w.statementDate > today)
+      errors.statementDate = "Statement date cannot be in the future";
+  }
+
+  if (!w.description?.trim())
+    errors.description = "Witness statement is required";
+
+  return errors; // empty object = valid
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // WitnessFormFields — every editable field, used by both card variants
 // ─────────────────────────────────────────────────────────────────────────────
-function WitnessFormFields({ witness, idx, onUpdate }) {
+function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
   const photoRef = useRef(null);
   const u = (k) => (e) => onUpdate(idx, k, e.target.value);
   const isAnonymous = !!witness.anonymous;
@@ -63,7 +99,7 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
           </FieldLabel>
           <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-500 font-mono select-all">
             <Hash className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            {witness.witnessId || generateWitnessId()}
+            Auto Generated
           </div>
         </div>
         <SelectField
@@ -79,29 +115,50 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
           <User className="h-3.5 w-3.5" /> Personal Information
         </h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField
-            label="Full Name" required={!isAnonymous}
-            value={isAnonymous ? "" : (witness.name || "")}
-            onChange={u("name")}
-            disabled={isAnonymous}
-            placeholder={isAnonymous ? "Hidden" : "Full name"}
-          />
-          <TextField
-            label="Age" type="number" min="0" max="120"
-            value={witness.age || ""} onChange={u("age")}
-          />
+          <div>
+            <TextField
+              label="Full Name" required={!isAnonymous}
+              value={isAnonymous ? "" : (witness.name || "")}
+              onChange={u("name")}
+              disabled={isAnonymous}
+              placeholder={isAnonymous ? "Hidden" : "Full name"}
+              error={errors.name}
+            />
+
+          </div>
+
+          <div>
+            <TextField
+              label="Age" type="number" min="0" max="120"
+              value={witness.age || ""} onChange={u("age")}
+              error={errors.age}
+            />
+          </div>
+
           <SelectField
             label="Gender"
             options={["Male", "Female", "Transgender / Other"]}
             value={witness.gender || ""} onChange={u("gender")}
           />
-          <TextField
-            label="Contact Number"
-            value={isAnonymous ? "" : (witness.contact || "")}
-            onChange={u("contact")}
-            disabled={isAnonymous}
-            placeholder={isAnonymous ? "Hidden" : "+92-XXX-XXXXXXX"}
-          />
+          <div>
+            <TextField
+              label="Contact Number"
+              value={isAnonymous ? "" : (witness.contact || "")}
+              onChange={u("contact")}
+              disabled={isAnonymous}
+              error={errors.contact}
+              placeholder={isAnonymous ? "Hidden" : "+92-XXX-XXXXXXX"}
+            />
+          </div>
+          <div>
+            <TextField label="CNIC"
+              value={isAnonymous ? "" : (witness.cnic || "")}
+              onChange={u("cnic")} disabled={isAnonymous}
+              placeholder={isAnonymous ? "Hidden" : "00000-0000000-0"}
+              error={errors.cnic}
+            />
+          </div>
+
         </div>
         <TextareaField
           className="mt-4"
@@ -114,59 +171,67 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
       </div>
 
       {/* ── Photo ─────────────────────────────────────────────────── */}
-      <div>
-        <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
-          <ImageIcon className="h-3.5 w-3.5" /> Photograph
-        </h5>
-        <input ref={photoRef} type="file" className="hidden" accept="image/*"
-          onChange={e => {
-            const f = e.target.files?.[0];
-            if (!f) return;
-            const reader = new FileReader();
-            reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
-            reader.readAsDataURL(f);
-            e.target.value = "";
-          }}
-        />
-        {!witness.photoUrl ? (
-          <button type="button" onClick={() => photoRef.current?.click()}
-            className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2
-                 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
-            <ImageIcon className="h-4 w-4 shrink-0" /> Add photo…
-          </button>
-        ) : (
-          <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
-            <img
-              src={typeof witness.photoUrl === 'string' ? witness.photoUrl : witness.photoUrl?.[0]?.dataUrl}
-              alt={witness.anonymous ? "Witness" : witness.name}
-              className="w-full h-full object-cover"
+      {
+        isAnonymous ?
+          <div>
+            <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
+              <ImageIcon className="h-3.5 w-3.5" /> Photograph
+            </h5>
+            <p className="italic">Hidden</p>
+          </div> : <div>
+            <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 pb-1.5 border-b border-slate-100 flex items-center gap-2">
+              <ImageIcon className="h-3.5 w-3.5" /> Photograph
+            </h5>
+            <input ref={photoRef} type="file" className="hidden" accept="image/*"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const reader = new FileReader();
+                reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+                reader.readAsDataURL(f);
+                e.target.value = "";
+              }}
             />
-            {witness._hadPhoto && (
-              <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
-                saved
-              </span>
-            )}
-            <label className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center
+            {!witness.photoUrl ? (
+              <button type="button" onClick={() => photoRef.current?.click()}
+                className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2
+                 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                <ImageIcon className="h-4 w-4 shrink-0" /> Add photo…
+              </button>
+            ) : (
+              <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
+                <img
+                  src={typeof witness.photoUrl === 'string' ? witness.photoUrl : witness.photoUrl?.[0]?.dataUrl}
+                  alt={witness.anonymous ? "Witness" : witness.name}
+                  className="w-full h-full object-cover"
+                />
+                {witness._hadPhoto && (
+                  <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
+                    saved
+                  </span>
+                )}
+                <label className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center
                         py-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              Replace
-              <input type="file" accept="image/*" hidden
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  const reader = new FileReader();
-                  reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
-                  reader.readAsDataURL(f);
-                  e.target.value = "";
-                }} />
-            </label>
-            <button type="button" onClick={() => onUpdate(idx, "photoUrl", null)}
-              className="absolute top-1 right-1 bg-black/60 text-white rounded p-0.5
+                  Replace
+                  <input type="file" accept="image/*" hidden
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const reader = new FileReader();
+                      reader.onload = e2 => onUpdate(idx, "photoUrl", [{ name: f.name, dataUrl: e2.target.result }]);
+                      reader.readAsDataURL(f);
+                      e.target.value = "";
+                    }} />
+                </label>
+                <button type="button" onClick={() => onUpdate(idx, "photoUrl", null)}
+                  className="absolute top-1 right-1 bg-black/60 text-white rounded p-0.5
                    opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              <X className="h-3 w-3" />
-            </button>
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+      }
 
       {/* ── 3. Witness Classification ───────────────────────────────── */}
       <div>
@@ -191,8 +256,9 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
           />
           <TextField
             label="Related Case ID" required
-            value={witness.caseId || ""} onChange={u("caseId")}
+            value={witness.caseId || caseId || ""} onChange={u("caseId")}
             placeholder="e.g. C-2053"
+            readOnly
           />
         </div>
       </div>
@@ -203,23 +269,24 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
           <AlertTriangle className="h-3.5 w-3.5" /> Statement
         </h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField
-            label="Statement Date" type="date"
-            value={witness.statementDate || ""} onChange={u("statementDate")}
-            max={new Date().toISOString().split("T")[0]}
-          />
-          <TextField
-            label="Statement Recorded By"
-            value={witness.statementRecordedBy || ""} onChange={u("statementRecordedBy")}
-            placeholder="Officer name"
+          <div>
+            <TextField
+              label="Statement Date" type="date"
+              value={witness.statementDate || ""} onChange={u("statementDate")}
+              max={new Date().toISOString().split("T")[0]}
+            />
+            {errors.statementDate && <p className="mt-1 text-xs text-red-600">{errors.statementDate}</p>}
+          </div>
+        </div>
+        <div>
+          <TextareaField
+            className="mt-4"
+            label="Witness Statement / Description" required rows={5} maxLength={2000}
+            value={witness.description || ""} onChange={u("description")}
+            placeholder="Full statement as given by the witness. Include exact words where possible. Note any hesitation, inconsistencies, or key details…"
+            error={errors.description}
           />
         </div>
-        <TextareaField
-          className="mt-4"
-          label="Witness Statement / Description" required rows={5} maxLength={2000}
-          value={witness.description || ""} onChange={u("description")}
-          placeholder="Full statement as given by the witness. Include exact words where possible. Note any hesitation, inconsistencies, or key details…"
-        />
       </div>
 
       {/* ── 5. Flags ────────────────────────────────────────────────── */}
@@ -242,7 +309,7 @@ function WitnessFormFields({ witness, idx, onUpdate }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Register-mode card — always expanded, no Edit toggle
 // ─────────────────────────────────────────────────────────────────────────────
-function RegisterWitnessCard({ witness, idx, canRemove, onUpdate, onRemove }) {
+function RegisterWitnessCard({ witness, idx, canRemove, onUpdate, onRemove, caseId, errors = {} }) {
   return (
     <div className="border border-slate-200 rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -274,7 +341,7 @@ function RegisterWitnessCard({ witness, idx, canRemove, onUpdate, onRemove }) {
         )}
       </div>
 
-      <WitnessFormFields witness={witness} idx={idx} onUpdate={onUpdate} />
+      <WitnessFormFields witness={witness} idx={idx} onUpdate={onUpdate} caseId={caseId} errors={errors} />
     </div>
   );
 }
@@ -283,7 +350,7 @@ function RegisterWitnessCard({ witness, idx, canRemove, onUpdate, onRemove }) {
 // Standalone-mode card — collapsed summary with Edit/Save toggle
 // ─────────────────────────────────────────────────────────────────────────────
 function StandaloneWitnessCard({
-  witness, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove,
+  witness, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove, caseId, errors
 }) {
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -374,7 +441,7 @@ function StandaloneWitnessCard({
       {/* Expanded edit form */}
       {isEditing && (
         <div className="p-5">
-          <WitnessFormFields witness={witness} idx={idx} onUpdate={onUpdate} />
+          <WitnessFormFields witness={witness} idx={idx} onUpdate={onUpdate} caseId={caseId} errors={errors} />
         </div>
       )}
     </div>
@@ -384,7 +451,7 @@ function StandaloneWitnessCard({
 // ─────────────────────────────────────────────────────────────────────────────
 // StepWitnesses — main component
 // ─────────────────────────────────────────────────────────────────────────────
-export function StepWitnesses({ data = {}, setData, mode = "register" }) {
+export function StepWitnesses({ data = {}, setData, mode = "register", caseId = "", validationErrors = [] }) {
   const witnesses = data.witnesses || [];
   const [editingIds, setEditingIds] = useState(new Set());
 
@@ -447,6 +514,8 @@ export function StepWitnesses({ data = {}, setData, mode = "register" }) {
             canRemove={witnesses.length > 1}
             onUpdate={update}
             onRemove={() => removeWitness(idx)}
+            caseId={caseId}
+            errors={validationErrors[idx] || {}}
           />
         ) : (
           <StandaloneWitnessCard
@@ -458,6 +527,8 @@ export function StepWitnesses({ data = {}, setData, mode = "register" }) {
             onToggleEdit={() => toggleEdit(witness.id)}
             onUpdate={update}
             onRemove={() => removeWitness(idx)}
+            caseId={caseId}
+            errors={validationErrors[idx] || {}}
           />
         )
       )}

@@ -1,117 +1,136 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    FileText, Download, Eye, ChevronRight, ArrowLeft,
-    LayoutDashboard, Filter, Calendar, CheckCircle2,
-    AlertTriangle, Clock, Users, MapPin, Brain,
-    Loader2, Printer, FileDown, X
+    FileText,
+    Download,
+    Eye,
+    ChevronRight,
+    ArrowLeft,
+    LayoutDashboard,
+    Filter,
+    CheckCircle2,
+    AlertTriangle,
+    Clock,
+    Users,
+    MapPin,
+    Brain,
+    Loader2,
+    Printer,
+    FileDown,
 } from 'lucide-react';
+
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/Card';
+import logoSrc from '@/assets/logo.png'
 
-// ── Install: npm install jspdf html2canvas ────────────────────────────────────
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { generateReport, fetchReportHistory } from "@/services/reportApi";
 
-// ── Report type definitions ───────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORT TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+
 const REPORT_TYPES = [
     {
-        id:          'case_summary',
-        label:       'Case Summary',
-        icon:        FileText,
-        color:       'border-blue-200 bg-blue-50',
-        iconColor:   'text-blue-700',
-        description: 'Full overview of a case including suspects, victims, evidence, and timeline.',
-        fields:      ['caseId', 'dateRange'],
+        id: 'case_summary',
+        label: 'Case Summary',
+        icon: FileText,
+        color: 'border-blue-200 bg-blue-50',
+        iconColor: 'text-blue-700',
+        description:
+            'Full overview of a case including suspects, victims, evidence, and timeline.',
+        fields: ['caseId', 'dateRange'],
     },
     {
-        id:          'crime_hotspot',
-        label:       'Crime Hotspot',
-        icon:        MapPin,
-        color:       'border-red-200 bg-red-50',
-        iconColor:   'text-red-700',
-        description: 'Geographic distribution of crimes by province, city, and severity.',
-        fields:      ['dateRange', 'province', 'crimeType'],
+        id: 'crime_hotspot',
+        label: 'Crime Hotspot',
+        icon: MapPin,
+        color: 'border-red-200 bg-red-50',
+        iconColor: 'text-red-700',
+        description:
+            'Geographic distribution of crimes by province, city, and severity.',
+        fields: ['dateRange', 'province', 'crimeType'],
     },
     {
-        id:          'case_timeline',
-        label:       'Case Timeline',
-        icon:        Clock,
-        color:       'border-purple-200 bg-purple-50',
-        iconColor:   'text-purple-700',
-        description: 'Chronological event log for a specific case from registration to current status.',
-        fields:      ['caseId'],
+        id: 'case_timeline',
+        label: 'Case Timeline',
+        icon: Clock,
+        color: 'border-purple-200 bg-purple-50',
+        iconColor: 'text-purple-700',
+        description:
+            'Chronological event log for a specific case from registration to current status.',
+        fields: ['caseId'],
     },
     {
-        id:          'leads_report',
-        label:       'AI Leads Report',
-        icon:        Brain,
-        color:       'border-green-200 bg-green-50',
-        iconColor:   'text-green-700',
-        description: 'All AI-generated investigative leads with confidence scores and evidence links.',
-        fields:      ['caseId', 'minConfidence'],
+        id: 'leads_report',
+        label: 'AI Leads Report',
+        icon: Brain,
+        color: 'border-green-200 bg-green-50',
+        iconColor: 'text-green-700',
+        description:
+            'All AI-generated investigative leads with confidence scores and evidence links.',
+        fields: ['caseId', 'minConfidence'],
     },
     {
-        id:          'suspect_report',
-        label:       'Suspect Analysis',
-        icon:        Users,
-        color:       'border-orange-200 bg-orange-50',
-        iconColor:   'text-orange-700',
-        description: 'Detailed suspect profiles across cases with cross-reference analysis.',
-        fields:      ['dateRange', 'crimeType'],
+        id: 'suspect_report',
+        label: 'Suspect Analysis',
+        icon: Users,
+        color: 'border-orange-200 bg-orange-50',
+        iconColor: 'text-orange-700',
+        description:
+            'Detailed suspect profiles across cases with cross-reference analysis.',
+        fields: ['dateRange', 'crimeType'],
     },
 ];
 
-const PROVINCES   = ['All Provinces', 'Punjab', 'Sindh', 'Balochistan', 'KPK', 'ICT', 'GB'];
-const CRIME_TYPES = ['All Types', 'Murder', 'Robbery', 'Theft', 'Assault', 'Fraud', 'Kidnapping', 'Drug'];
-const FORMATS     = ['PDF', 'CSV'];
+const PROVINCES = [
+    'All Provinces',
+    'Punjab',
+    'Sindh',
+    'Balochistan',
+    'KPK',
+    'ICT',
+    'GB',
+];
 
-// ── Mock preview data ─────────────────────────────────────────────────────────
-const MOCK_PREVIEW = {
-    case_summary: {
-        title:    'Case Summary Report — C-2053',
-        sections: [
-            { heading: 'Case Overview', rows: [['Case ID','C-2053'],['Type','Murder – Homicide'],['Status','Under Investigation'],['Assigned','Inspector Rana Ali Khan'],['Registered','15 Dec 2025'],['Days Open','89']] },
-            { heading: 'Suspects',      rows: [['Name','Bilal Hussain'],['CNIC','35201-1234567-1'],['Status','Detained'],['—','—'],['Name','Unknown Male'],['Status','At Large']] },
-            { heading: 'Evidence',      rows: [['#','Item','Collected'],['1','CCTV Footage','16 Dec 2025'],['2','DNA Sample','17 Dec 2025'],['3','Weapon (knife)','16 Dec 2025']] },
-        ],
-    },
-    crime_hotspot: {
-        title:    'Crime Hotspot Report — Mar 2026',
-        sections: [
-            { heading: 'Hotspot Summary', rows: [['Province','Cases','Severity'],['Punjab','45','High'],['Sindh','38','High'],['Balochistan','14','Medium'],['KPK','12','Medium'],['ICT','5','Low']] },
-            { heading: 'Top Crime Types', rows: [['Type','Count','Change'],['Robbery','45','+18%'],['Theft','67','-6%'],['Murder','28','+27%'],['Assault','39','+18%']] },
-        ],
-    },
-    case_timeline: {
-        title:    'Case Timeline Report — C-2053',
-        sections: [
-            { heading: 'Timeline Events', rows: [['Date','Time','Event'],['15 Dec 2025','10:45 PM','Victim found by family'],['15 Dec 2025','11:00 PM','Police notified; scene secured'],['15 Dec 2025','11:30 PM','Scene secured by Clifton Division'],['16 Dec 2025','9:00 AM','Forensic team arrives'],['16 Dec 2025','12:00 PM','CCTV footage recovered'],['16 Dec 2025','3:00 PM','Initial suspect interviews']] },
-        ],
-    },
-    leads_report: {
-        title:    'AI Leads Report — C-2053',
-        sections: [
-            { heading: 'Generated Leads', rows: [['#','Lead','Confidence','Status'],['1','Suspect linked to prior robbery case','92%','Flagged'],['2','Weapon matches C-2040 evidence','87%','Pending'],['3','Location pattern near Case C-2047','74%','Unverified'],['4','Witness statement inconsistency','68%','Review']] },
-        ],
-    },
-    suspect_report: {
-        title:    'Suspect Analysis Report — All Types',
-        sections: [
-            { heading: 'Suspect Overview', rows: [['Name','Cases','Status','Risk'],['Bilal Hussain','3','Detained','High'],['Unknown Male','1','At Large','Critical'],['Ahmed Raza','2','Released','Medium']] },
-        ],
-    },
-};
+const toBase64 = (src) =>
+    new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = src;
+    });
 
-// ── Preview Table ─────────────────────────────────────────────────────────────
+const FORMATS = ['PDF', 'CSV'];
+
 const PreviewTable = ({ rows }) => (
-    <table className="w-full text-xs border-collapse mb-4">
+    <table className="w-full border-collapse text-xs overflow-hidden rounded-lg border border-slate-200">
         <tbody>
             {rows.map((row, ri) => (
-                <tr key={ri} className={ri === 0 && rows[0].length > 2 ? 'bg-deep-ocean text-white' : ri % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                <tr
+                    key={ri}
+                    className={
+                        ri === 0 && rows[0].length > 2
+                            ? 'bg-[#1b3c53] text-white'
+                            : ri % 2 === 0
+                                ? 'bg-[#f8fafc]'
+                                : 'bg-white'
+                    }
+                >
                     {row.map((cell, ci) => (
-                        <td key={ci} className="px-3 py-1.5 border border-slate-200 text-slate-800"
-                            style={{ color: ri === 0 && rows[0].length > 2 ? 'white' : undefined }}>
+                        <td
+                            key={ci}
+                            className={`px-4 py-2 border border-slate-200 ${ri === 0 && rows[0].length > 2
+                                ? 'text-white font-semibold'
+                                : 'text-slate-700'
+                                }`}
+                        >
                             {cell}
                         </td>
                     ))}
@@ -121,442 +140,938 @@ const PreviewTable = ({ rows }) => (
     </table>
 );
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ReportPage = () => {
     const navigate = useNavigate();
 
-    // ── Step state: 'select' → 'configure' → 'preview' ───────────────────
-    const [step,         setStep]         = useState('select');
-    const [selectedType, setSelectedType] = useState(null);
-    const [format,       setFormat]       = useState('PDF');
-    const [generating,   setGenerating]   = useState(false);
-    const [previewOpen,  setPreviewOpen]  = useState(false);
     const previewRef = useRef(null);
 
-    // ── Filter state ─────────────────────────────────────────────────────
+    const [step, setStep] = useState('select');
+
+    const [selectedType, setSelectedType] = useState(null);
+
+    const [format, setFormat] = useState('PDF');
+
+    const [livePreview, setLivePreview] = useState(null);
+
+    const [generating, setGenerating] = useState(false);
+
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    const [previewError, setPreviewError] = useState(null);
+
+    const [history, setHistory] = useState([]);
+
     const [filters, setFilters] = useState({
-        caseId:        '',
-        dateFrom:      '',
-        dateTo:        '',
-        province:      'All Provinces',
-        crimeType:     'All Types',
+        caseId: '',
+        dateFrom: '',
+        dateTo: '',
+        province: 'All Provinces',
+        crimeType: 'All Types',
         minConfidence: '60',
     });
-    const setF = (key) => (e) => setFilters(f => ({ ...f, [key]: e.target.value }));
+    // At component level — load once on mount
+    const logoRef = useRef(null);
 
-    // ── History ───────────────────────────────────────────────────────────
-    const [history, setHistory] = useState([
-        { id: 1, type: 'Case Summary',    date: '12 Mar 2026', format: 'PDF', status: 'success' },
-        { id: 2, type: 'Crime Hotspot',   date: '10 Mar 2026', format: 'CSV', status: 'success' },
-        { id: 3, type: 'AI Leads Report', date: '08 Mar 2026', format: 'PDF', status: 'success' },
-    ]);
+    const [countHistory, setCountHistory] = useState(6)
 
-    const currentType = REPORT_TYPES.find(r => r.id === selectedType);
-    const preview     = MOCK_PREVIEW[selectedType];
+    useEffect(() => {
+        toBase64(logoSrc).then(b64 => { logoRef.current = b64; }).catch(() => { });
+    }, []);
 
-    // ── Validation ────────────────────────────────────────────────────────
+    const setF =
+        (key) =>
+            (e) =>
+                setFilters((f) => ({
+                    ...f,
+                    [key]: e.target.value,
+                }));
+
+    const currentType = REPORT_TYPES.find(
+        (r) => r.id === selectedType
+    );
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HISTORY
+    // ─────────────────────────────────────────────────────────────────────────
+
+    useEffect(() => {
+        fetchReportHistory()
+            .then((d) =>
+                setHistory(
+                    d.items.map((r) => ({
+                        id: r.id,
+                        type: r.report_type
+                            .replace(/_/g, ' ')
+                            .replace(/\b\w/g, (c) =>
+                                c.toUpperCase()
+                            ),
+                        date: new Date(
+                            r.generated_at
+                        ).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                        }),
+                        format: r.format,
+                        status: 'success',
+                    }))
+                )
+            )
+            .catch(() => { });
+    }, []);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // VALIDATION
+    // ─────────────────────────────────────────────────────────────────────────
+
     const validate = () => {
         if (!currentType) return false;
-        if (currentType.fields.includes('caseId') && !filters.caseId.trim()) return false;
+
+        if (
+            currentType.fields.includes('caseId') &&
+            !filters.caseId.trim()
+        ) {
+            return false;
+        }
+
         return true;
     };
 
-    // ── Generate PDF using jsPDF + html2canvas ────────────────────────────
-    const handleGenerate = async () => {
-        if (!validate()) return;
+    // ─────────────────────────────────────────────────────────────────────────
+    // GENERATE PREVIEW
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const handlePreview = async () => {
+        if (!validate() || previewLoading) return;
+
+        setPreviewLoading(true);
+        setPreviewError(null);
+
+        try {
+            const data = await generateReport(selectedType, {
+                ...filters,
+                format,
+            });
+
+            setLivePreview(data);
+
+            setStep('preview');
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+
+            setPreviewError(
+                typeof detail === 'string'
+                    ? detail
+                    : 'Preview failed.'
+            );
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PDF EXPORT
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // npm install jspdf  (no html2canvas needed anymore)
+
+    const capturePdf = useCallback(async () => {
+        if (!livePreview) return;
         setGenerating(true);
 
         try {
-            if (format === 'CSV') {
-                // Build CSV from preview data
-                const rows = preview.sections.flatMap(s => s.rows);
-                const csv  = rows.map(r => r.join(',')).join('\n');
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url  = URL.createObjectURL(blob);
-                const a    = document.createElement('a');
-                a.href     = url;
-                a.download = `${selectedType}_report.csv`;
-                a.click();
-                URL.revokeObjectURL(url);
-            } else {
-                // PDF — screenshot the preview panel
-                // Dynamic import so app loads even if jsPDF not installed yet
-                const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-                    import('jspdf'),
-                    import('html2canvas'),
-                ]);
+            const { default: jsPDF } = await import('jspdf');
 
-                // Make sure preview is open before capturing
-                setPreviewOpen(true);
-                await new Promise(r => setTimeout(r, 300)); // wait for render
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageW = doc.internal.pageSize.getWidth();   // 210
+            const pageH = doc.internal.pageSize.getHeight();  // 297
+            const marginL = 15;
+            const marginR = 15;
+            const marginT = 15;
+            const marginB = 20;
+            const contentW = pageW - marginL - marginR;          // 180
+            let y = marginT;
 
-                const el = previewRef.current;
-                if (!el) throw new Error('Preview element not found');
+            // ── colour palette ────────────────────────────────────────────────
+            const C = {
+                darknavy: [2, 22, 36],
+                navy: [27, 60, 83],
+                navyLight: [235, 242, 247],
+                slate700: [51, 65, 85],
+                slate500: [100, 116, 139],
+                slate300: [203, 213, 225],
+                white: [255, 255, 255],
+                rowEven: [248, 250, 252],
+                headerText: [255, 255, 255],
+                black: [15, 23, 42],
+            };
 
-                // Fix oklch colors in clone
-                const canvas = await html2canvas(el, {
-                    backgroundColor: '#ffffff',
-                    scale:           2,
-                    useCORS:         true,
-                    logging:         false,
-                    x:      -16,
-                    y:      -16,
-                    width:  el.offsetWidth  + 32,
-                    height: el.offsetHeight + 32,
-                    onclone: (clonedDoc) => {
-                        const s = clonedDoc.createElement('style');
-                        s.textContent = `* { background-color: revert !important; color: revert !important; border-color: revert !important; } body { background: white !important; }`;
-                        clonedDoc.head.appendChild(s);
-                    },
-                });
+            // ── helpers ───────────────────────────────────────────────────────
 
-                const imgData = canvas.toDataURL('image/png');
-                const pdf     = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-                const pdfW    = pdf.internal.pageSize.getWidth();
-                const pdfH    = (canvas.height * pdfW) / canvas.width;
+            const setFill = (rgb) => doc.setFillColor(...rgb);
+            const setDraw = (rgb) => doc.setDrawColor(...rgb);
+            const setTxtClr = (rgb) => doc.setTextColor(...rgb);
 
-                // If content exceeds one page, split across pages
-                let y = 0;
-                const pageH = pdf.internal.pageSize.getHeight();
-                while (y < pdfH) {
-                    pdf.addImage(imgData, 'PNG', 0, -y, pdfW, pdfH);
-                    y += pageH;
-                    if (y < pdfH) pdf.addPage();
+            // Ensure we never write below the bottom margin; add page if needed.
+            const checkPage = (needed = 6) => {
+                if (y + needed > pageH - marginB) {
+                    doc.addPage();
+                    y = marginT;
+                    drawPageFooter();
+                }
+            };
+
+            const drawPageFooter = () => {
+                const pg = doc.internal.getCurrentPageInfo().pageNumber;
+                doc.setFontSize(8);
+                setTxtClr(C.slate500);
+                doc.text(
+                    'CONFIDENTIAL — Authorized Personnel Only',
+                    marginL,
+                    pageH - 8,
+                );
+                doc.text(
+                    `CIA System   |   Page ${pg}`,
+                    pageW - marginR,
+                    pageH - 8,
+                    { align: 'right' },
+                );
+            };
+
+            // ── PAGE 1 HEADER ─────────────────────────────────────────────────
+
+            // Navy banner
+            setFill(C.navy);
+            doc.rect(0, 0, pageW, 38, 'F');
+
+            const logoBase64 = logoRef.current;
+            if (logoBase64) {
+                doc.addImage(logoBase64, 'PNG', marginL, 8, 18, 18);
+            }
+            // Logo placeholder (white square + "CIA")
+            setFill(C.white);
+            doc.roundedRect(marginL, 8, 18, 18, 2, 2, 'F');
+            doc.addImage(logoBase64, 'PNG', marginL + 2, 8 + 2, 14, 14);
+
+            // Title block
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            setTxtClr([180, 200, 215]);
+            doc.text('CRIMINAL INVESTIGATION ASSISTANT', marginL + 22, 14);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            setTxtClr(C.white);
+            // Clamp title to content width
+            const titleLines = doc.splitTextToSize(livePreview.title, contentW - 22);
+            doc.text(titleLines, marginL + 22, 22);
+
+            // Meta row
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            setTxtClr([180, 200, 215]);
+            const meta = `Generated: ${new Date().toLocaleString()}   |   Format: ${format}`;
+            doc.text(meta, marginL + 22, 33);
+
+            y = 46;   // below banner
+
+            drawPageFooter();
+
+            // ── SECTIONS ─────────────────────────────────────────────────────
+
+            livePreview.sections.forEach((section) => {
+
+                // ── Section heading pill ──────────────────────────────────────
+                checkPage(12);
+                setFill(C.navyLight);
+                setDraw(C.slate300);
+                doc.roundedRect(marginL, y, contentW, 7.5, 1.5, 1.5, 'FD');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9);
+                setTxtClr(C.darknavy);
+                doc.text(section.heading.toUpperCase(), marginL + 4, y + 5.2);
+                y += 10;
+
+                if (!section.rows?.length) {
+                    checkPage(6);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(8.5);
+                    setTxtClr(C.slate500);
+                    doc.text('No data available.', marginL + 3, y);
+                    y += 7;
+                    return;
                 }
 
-                pdf.save(`${selectedType}_report.pdf`);
+                const rows = section.rows;
+                const nCols = rows[0].length;
+
+                // ── Column widths ─────────────────────────────────────────────
+                // Two-column tables (key-value) get a 35/65 split.
+                // All other tables share equally.
+                let colWidths;
+                if (nCols === 2) {
+                    colWidths = [contentW * 0.38, contentW * 0.62];
+                } else {
+                    const base = Math.floor(contentW / nCols);
+                    colWidths = Array(nCols).fill(base);
+                    // Give remainder to last column
+                    colWidths[nCols - 1] += contentW - base * nCols;
+                }
+
+                const cellPadX = 3;
+                const cellPadY = 1.8;
+                const fontSize = nCols <= 2 ? 9 : 8;
+                const lineH = fontSize * 0.38;
+
+                // ── Rows ──────────────────────────────────────────────────────
+                rows.forEach((row, ri) => {
+                    const isHeader = ri === 0 && nCols > 2;
+
+                    // Pre-measure row height: find tallest cell
+                    doc.setFontSize(fontSize);
+                    const cellHeights = row.map((cell, ci) => {
+                        const lines = doc.splitTextToSize(
+                            String(cell ?? '—'),
+                            colWidths[ci] - cellPadX * 2,
+                        );
+                        return lines.length * (lineH + 0.6) + cellPadY * 2;
+                    });
+                    const rowH = Math.max(...cellHeights, isHeader ? 7 : 6);
+
+                    checkPage(rowH + 1);
+
+                    // Row background
+                    if (isHeader) {
+                        setFill(C.navy);
+                    } else {
+                        setFill(ri % 2 === 0 ? C.rowEven : C.white);
+                    }
+                    setDraw(C.slate300);
+                    doc.rect(marginL, y, contentW, rowH, 'FD');
+
+                    // Cell text
+                    let cx = marginL;
+                    row.forEach((cell, ci) => {
+                        const cw = colWidths[ci];
+                        const lines = doc.splitTextToSize(
+                            String(cell ?? '—'),
+                            cw - cellPadX * 2,
+                        );
+
+                        doc.setFont('helvetica', isHeader ? 'bold' : ci === 0 && nCols === 2 ? 'bold' : 'normal');
+                        doc.setFontSize(fontSize);
+                        setTxtClr(isHeader ? C.headerText : ci === 0 && nCols === 2 ? C.slate700 : C.black);
+
+                        lines.forEach((line, li) => {
+                            doc.text(
+                                line,
+                                cx + cellPadX,
+                                y + cellPadY + lineH + li * (lineH + 0.6),
+                            );
+                        });
+
+                        // Vertical divider between cells
+                        if (ci < nCols - 1) {
+                            setDraw(isHeader ? [60, 90, 110] : C.slate300);
+                            doc.line(cx + cw, y, cx + cw, y + rowH);
+                        }
+
+                        cx += cw;
+                    });
+
+                    y += rowH;
+                });
+
+                y += 6;   // gap after table
+            });
+
+            // ── Update footer page numbers (jsPDF doesn't do this natively) ──
+            // Re-draw footer on every page with correct number.
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let p = 1; p <= totalPages; p++) {
+                doc.setPage(p);
+                // Clear old footer strip
+                setFill(C.white);
+                doc.rect(0, pageH - 14, pageW, 14, 'F');
+                // Divider
+                setDraw(C.slate300);
+                doc.line(marginL, pageH - 12, pageW - marginR, pageH - 12);
+                doc.setFontSize(7.5);
+                setTxtClr(C.slate500);
+                doc.setFont('helvetica', 'normal');
+                doc.text('CONFIDENTIAL — Authorized Personnel Only', marginL, pageH - 7);
+                doc.text(`CIA System   |   Page ${p} of ${totalPages}`, pageW - marginR, pageH - 7, { align: 'right' });
             }
 
-            // Add to history
+            doc.save(`${selectedType}_report.pdf`);
+
             setHistory(h => [{
-                id:     h.length + 1,
-                type:   currentType.label,
-                date:   new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-                format,
+                id: h.length + 1,
+                type: currentType?.label ?? selectedType,
+                date: new Date().toLocaleDateString('en-GB',
+                    { day: '2-digit', month: 'short', year: 'numeric' }),
+                format: 'PDF',
                 status: 'success',
             }, ...h]);
 
         } catch (err) {
-            console.error('Report generation failed:', err);
-            alert('Report generation failed. Make sure jspdf and html2canvas are installed:\nnpm install jspdf html2canvas');
+            console.error(err);
+            setPreviewError('PDF export failed: ' + err.message);
         } finally {
             setGenerating(false);
         }
+    }, [selectedType, currentType, format, livePreview]);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CSV EXPORT
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const exportCsv = () => {
+        if (!livePreview) return;
+
+        const rows = livePreview.sections.flatMap(
+            (section) => [
+                [section.heading],
+                ...section.rows,
+                [],
+            ]
+        );
+
+        const csv = rows
+            .map((row) =>
+                row
+                    .map((cell) => `"${cell ?? ''}"`)
+                    .join(',')
+            )
+            .join('\n');
+
+        const blob = new Blob([csv], {
+            type: 'text/csv;charset=utf-8;',
+        });
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+
+        link.href = url;
+
+        link.download = `${selectedType}_report.csv`;
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+
+        setHistory((h) => [
+            {
+                id: h.length + 1,
+                type:
+                    currentType?.label ?? selectedType,
+                date: new Date().toLocaleDateString(
+                    'en-GB',
+                    {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                    }
+                ),
+                format: 'CSV',
+                status: 'success',
+            },
+            ...h,
+        ]);
     };
 
-    // ── Field renderer ────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // FIELDS
+    // ─────────────────────────────────────────────────────────────────────────
+
     const renderFields = () => {
         if (!currentType) return null;
+
         return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {currentType.fields.includes('caseId') && (
-                    <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                            Case ID <span className="text-red-500">*</span>
-                        </label>
-                        <input type="text" value={filters.caseId} onChange={setF('caseId')}
-                            placeholder="e.g. C-2053"
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean" />
-                    </div>
-                )}
-                {currentType.fields.includes('dateRange') && (
-                    <>
+                {currentType.fields.includes(
+                    'caseId'
+                ) && (
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Date From</label>
-                            <input type="date" value={filters.dateFrom} onChange={setF('dateFrom')}
-                                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean" />
+                            <label className="text-xs font-semibold text-slate-600 uppercase">
+                                Case ID *
+                            </label>
+
+                            <input
+                                type="text"
+                                value={filters.caseId}
+                                onChange={setF('caseId')}
+                                placeholder="e.g. C-2053"
+                                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm"
+                            />
                         </div>
+                    )}
+
+                {currentType.fields.includes(
+                    'dateRange'
+                ) && (
+                        <>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-600 uppercase">
+                                    Date From
+                                </label>
+
+                                <input
+                                    type="date"
+                                    value={filters.dateFrom}
+                                    onChange={setF('dateFrom')}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-600 uppercase">
+                                    Date To
+                                </label>
+
+                                <input
+                                    type="date"
+                                    value={filters.dateTo}
+                                    onChange={setF('dateTo')}
+                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm"
+                                />
+                            </div>
+                        </>
+                    )}
+
+                {currentType.fields.includes(
+                    'province'
+                ) && (
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Date To</label>
-                            <input type="date" value={filters.dateTo} onChange={setF('dateTo')}
-                                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean" />
+                            <label className="text-xs font-semibold text-slate-600 uppercase">
+                                Province
+                            </label>
+
+                            <select
+                                value={filters.province}
+                                onChange={setF('province')}
+                                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm"
+                            >
+                                {PROVINCES.map((p) => (
+                                    <option key={p}>{p}</option>
+                                ))}
+                            </select>
                         </div>
-                    </>
-                )}
-                {currentType.fields.includes('province') && (
-                    <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Province</label>
-                        <select value={filters.province} onChange={setF('province')}
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean">
-                            {PROVINCES.map(p => <option key={p}>{p}</option>)}
-                        </select>
-                    </div>
-                )}
-                {currentType.fields.includes('crimeType') && (
-                    <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Crime Type</label>
-                        <select value={filters.crimeType} onChange={setF('crimeType')}
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-deep-ocean">
-                            {CRIME_TYPES.map(c => <option key={c}>{c}</option>)}
-                        </select>
-                    </div>
-                )}
-                {currentType.fields.includes('minConfidence') && (
-                    <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                            Min. Confidence: <span className="text-deep-ocean font-bold">{filters.minConfidence}%</span>
-                        </label>
-                        <input type="range" min="50" max="95" step="5" value={filters.minConfidence}
-                            onChange={setF('minConfidence')}
-                            className="w-full accent-deep-ocean" />
-                        <div className="flex justify-between text-[10px] text-slate-400">
-                            <span>50%</span><span>95%</span>
-                        </div>
-                    </div>
-                )}
+                    )}
             </div>
         );
     };
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // UI
+    // ─────────────────────────────────────────────────────────────────────────
+
     return (
-        <div className="min-h-screen bg-slate-100 font-sans text-slate-900">
+        <div className="min-h-screen bg-slate-100 mt-10">
             <Header />
 
-            <main className="max-w-6xl mx-auto px-4 lg:px-6 py-8 space-y-6">
+            <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
 
-                {/* Breadcrumb */}
-                <div className="flex items-center justify-between">
-                    <nav className="flex items-center gap-1.5 text-xs text-slate-500">
-                        <button onClick={() => navigate('/investigator')} className="hover:text-slate-800 cursor-pointer transition-colors">Dashboard</button>
-                        <ChevronRight className="h-3 w-3" />
-                        <span className="text-slate-800 font-medium">Generate Report</span>
-                    </nav>
-                    <div className="flex gap-2">
-                        <button onClick={() => navigate(-1)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer border border-slate-300 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                            <ArrowLeft className="h-3.5 w-3.5" /> Back
-                        </button>
-                        <button onClick={() => navigate('/investigator')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer bg-deep-ocean text-xs font-medium text-white hover:bg-[#162f42] transition-colors">
-                            <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
-                        </button>
-                    </div>
-                </div>
 
-                {/* Page title */}
+                {/* TITLE */}
+
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Generate Report</h1>
-                    <p className="text-sm text-slate-500 mt-1">Select a report type, configure filters, preview and export as PDF or CSV</p>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        Generate Report
+                    </h1>
+
+                    <p className="text-sm text-slate-500 mt-1">
+                        Preview and export professional
+                        investigation reports
+                    </p>
                 </div>
 
-                {/* ── Step indicator ── */}
-                <div className="flex items-center gap-2">
-                    {[['select','1','Select Type'],['configure','2','Configure'],['preview','3','Preview & Export']].map(([id, num, label], i) => (
-                        <div key={id} className="flex items-center gap-2">
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all
-                                ${step === id ? 'bg-deep-ocean text-white' : ['select','configure','preview'].indexOf(step) > i ? 'bg-green-100 text-green-700' : 'bg-white border border-slate-200 text-slate-400'}`}>
-                                {['select','configure','preview'].indexOf(step) > i
-                                    ? <CheckCircle2 className="h-3.5 w-3.5" />
-                                    : <span>{num}</span>
-                                }
-                                {label}
+                {/* ── Step indicator ───────────────────────────────────────────────── */}
+                <div className="flex items-center gap-2 ">
+                    {[
+                        ['select', '1', 'Select Type'],
+                        ['configure', '2', 'Configure'],
+                        ['preview', '3', 'Preview & Export'],
+                    ].map(([id, num, label], i, arr) => {
+                        const stepOrder = ['select', 'configure', 'preview'];
+                        const currentIdx = stepOrder.indexOf(step);
+                        const thisIdx = stepOrder.indexOf(id);
+                        const isDone = currentIdx > thisIdx;
+                        const isActive = step === id;
+
+                        return (
+                            <div key={id} className="flex items-center gap-2">
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all select-none
+                    ${isActive ? 'bg-[#1b3c53] text-white shadow-md'
+                                        : isDone ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                            : 'bg-white border border-slate-200 text-slate-400'}`}
+                                >
+                                    {isDone
+                                        ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                                        : <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold
+                            ${isActive ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
+                                            {num}
+                                        </span>
+                                    }
+                                    {label}
+                                </div>
+                                {i < arr.length - 1 && (
+                                    <div className={`w-8 h-px transition-colors
+                        ${currentIdx > thisIdx ? 'bg-emerald-300' : 'bg-slate-300'}`}
+                                    />
+                                )}
                             </div>
-                            {i < 2 && <div className="w-6 h-px bg-slate-300" />}
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* STEP 1 */}
 
-                    {/* ── Main area ── */}
-                    <div className="lg:col-span-2 space-y-4">
+                {step === 'select' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                        {/* ── STEP 1: SELECT TYPE ── */}
-                        {step === 'select' && (
+                        {/* ── Report type cards ── */}
+                        <div className="lg:col-span-2">
                             <Card className="p-6 space-y-4">
-                                <h2 className="text-base font-bold text-slate-800">Select Report Type</h2>
+                                <div>
+                                    <h2 className="text-base font-bold text-slate-800">
+                                        Select Report Type
+                                    </h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        Choose what kind of report you want to generate
+                                    </p>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {REPORT_TYPES.map(({ id, label, icon: Icon, color, iconColor, description }) => (
-                                        <button key={id}
+                                        <button
+                                            key={id}
                                             onClick={() => { setSelectedType(id); setStep('configure'); }}
-                                            className={`rounded-lg border-2 p-4 text-left transition-all hover:shadow-md
-                                                ${selectedType === id ? 'border-deep-ocean ring-2 ring-deep-ocean/20' : color}`}
+                                            className={`border-2 rounded-xl p-4 text-left transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${color}`}
                                         >
                                             <div className="flex items-center gap-3 mb-2">
-                                                <div className={`p-2 rounded-lg bg-white border border-slate-200`}>
+                                                <div className="p-2 rounded-lg bg-white shadow-sm">
                                                     <Icon className={`h-4 w-4 ${iconColor}`} />
                                                 </div>
-                                                <span className="text-sm font-bold text-slate-800">{label}</span>
+                                                <h3 className="text-sm font-bold text-slate-800">{label}</h3>
                                             </div>
                                             <p className="text-xs text-slate-500 leading-relaxed">{description}</p>
                                         </button>
                                     ))}
                                 </div>
                             </Card>
-                        )}
+                        </div>
 
-                        {/* ── STEP 2: CONFIGURE ── */}
-                        {step === 'configure' && currentType && (
-                            <Card className="p-6 space-y-5">
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => setStep('select')}
-                                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
-                                        <ArrowLeft className="h-4 w-4 text-slate-500" />
-                                    </button>
-                                    <div>
-                                        <h2 className="text-base font-bold text-slate-800">{currentType.label}</h2>
-                                        <p className="text-xs text-slate-500">{currentType.description}</p>
+                        {/* ── History sidebar ── */}
+                        <div className="space-y-4">
+                            <Card className="p-5">
+                                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-slate-400" />
+                                    Recent Reports
+                                </h3>
+
+                                {history.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-400">
+                                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                        <p className="text-xs">No reports generated yet</p>
                                     </div>
-                                </div>
-
-                                <div className="border-t border-slate-100 pt-4 space-y-4">
-                                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        <Filter className="h-3.5 w-3.5" /> Report Filters
-                                    </div>
-                                    {renderFields()}
-                                </div>
-
-                                {/* Format selector */}
-                                <div className="border-t border-slate-100 pt-4">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Export Format</p>
-                                    <div className="flex gap-2">
-                                        {FORMATS.map(f => (
-                                            <button key={f} onClick={() => setFormat(f)}
-                                                className={`flex items-center cursor-pointer gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all
-                                                    ${format === f ? 'bg-deep-ocean text-white border-deep-ocean' : 'bg-white border-slate-300 text-slate-600 hover:border-deep-ocean'}`}>
-                                                {f === 'PDF' ? <FileDown className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
-                                                {f}
-                                            </button>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {history.slice(0, countHistory).map((h) => (
+                                            <div
+                                                key={h.id}
+                                                className="flex items-start justify-between gap-2 p-2.5 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
+                                            >
+                                                <div className="flex items-start gap-2 min-w-0">
+                                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-medium text-slate-800 truncate">
+                                                            {h.type}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400 mt-0.5">
+                                                            {h.date}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0
+                                    ${h.format === 'PDF'
+                                                        ? 'bg-red-50 text-red-600 border border-red-100'
+                                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
+                                                    {h.format}
+                                                </span>
+                                            </div>
                                         ))}
+                                        <div className="flex justify-end">
+                                            <button className='hover:underline text-blue-700 text-sm' onClick={() => countHistory <= history.length ? setCountHistory(countHistory + 6) : setCountHistory(countHistory - 6)}>{countHistory <= history.length ? 'view more' : 'view less'}</button>
+                                        </div>
                                     </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex gap-3 pt-2">
-                                    <button onClick={() => { setStep('preview'); setPreviewOpen(true); }}
-                                        disabled={!validate()}
-                                        className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors">
-                                        <Eye className="h-4 w-4" /> Preview
-                                    </button>
-                                    <button onClick={handleGenerate}
-                                        disabled={!validate() || generating}
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-[#162f42] disabled:opacity-40 transition-colors">
-                                        {generating
-                                            ? <Loader2 className="h-4 w-4 animate-spin" />
-                                            : <Download className="h-4 w-4" />
-                                        }
-                                        {generating ? 'Generating…' : `Export ${format}`}
-                                    </button>
-                                </div>
-
-                                {!validate() && currentType.fields.includes('caseId') && !filters.caseId && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                        <AlertTriangle className="h-3.5 w-3.5" /> Case ID is required for this report type
-                                    </p>
                                 )}
                             </Card>
-                        )}
 
-                        {/* ── STEP 3: PREVIEW ── */}
-                        {step === 'preview' && preview && (
-                            <Card className="p-6 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <button onClick={() => setStep('configure')}
-                                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
-                                            <ArrowLeft className="h-4 w-4 text-slate-500" />
-                                        </button>
-                                        <h2 className="text-base font-bold text-slate-800">Preview</h2>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => window.print()}
-                                            className="flex items-center gap-1.5 cursor-pointer px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                                            <Printer className="h-3.5 w-3.5" /> Print
-                                        </button>
-                                        <button onClick={handleGenerate} disabled={generating}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer bg-deep-ocean text-xs font-medium text-white hover:bg-[#162f42] disabled:opacity-50 transition-colors">
-                                            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                                            {generating ? 'Exporting…' : `Export ${format}`}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Preview panel — this is what gets captured as PDF */}
-                                <div ref={previewRef}
-                                    className="bg-white border border-slate-200 rounded-lg p-8 space-y-6 print:shadow-none">
-
-                                    {/* Report header */}
-                                    <div className="border-b-2 border-deep-ocean pb-4">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Criminal Investigation Assistant</p>
-                                                <h1 className="text-xl font-bold text-deep-ocean mt-1">{preview.title}</h1>
-                                                <p className="text-xs text-slate-500 mt-1">
-                                                    Generated: {new Date().toLocaleString()} &nbsp;|&nbsp;
-                                                    Format: {format} &nbsp;|&nbsp;
-                                                    Filters: {filters.caseId || 'All cases'}, {filters.province}, {filters.crimeType}
-                                                </p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="w-10 h-10 rounded-lg bg-deep-ocean flex items-center justify-center">
-                                                    <FileText className="h-5 w-5 text-white" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Sections */}
-                                    {preview.sections.map((section, si) => (
-                                        <div key={si} className="space-y-2">
-                                            <h3 className="text-sm font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded">
-                                                {section.heading}
-                                            </h3>
-                                            <PreviewTable rows={section.rows} />
-                                        </div>
-                                    ))}
-
-                                    {/* Footer */}
-                                    <div className="border-t border-slate-200 pt-3 flex justify-between text-[10px] text-slate-400">
-                                        <span>CONFIDENTIAL — For authorized personnel only</span>
-                                        <span>CIA System — Page 1</span>
-                                    </div>
-                                </div>
+                            {/* Tips card */}
+                            <Card className="p-5 bg-blue-50 border border-blue-200">
+                                <h3 className="text-xs font-bold text-blue-800 mb-2">💡 Tips</h3>
+                                <ul className="text-xs text-blue-700 space-y-1.5">
+                                    <li>• <strong>Case Summary</strong> needs a Case ID</li>
+                                    <li>• <strong>AI Leads</strong> requires a specific case</li>
+                                    <li>• Set confidence ≥ 80% for high-quality leads</li>
+                                    <li>• Preview before exporting to verify data</li>
+                                    <li>• CSV is best for spreadsheet imports</li>
+                                </ul>
                             </Card>
-                        )}
+                        </div>
                     </div>
+                )}
 
-                    {/* ── Right sidebar: recent reports ── */}
-                    <div className="space-y-4">
-                        <Card className="p-5">
-                            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-slate-500" /> Recent Reports
-                            </h3>
-                            <div className="space-y-3">
-                                {history.map(h => (
-                                    <div key={h.id} className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100 last:border-0 last:pb-0">
-                                        <div className="flex items-start gap-2">
-                                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
-                                            <div>
-                                                <p className="text-xs font-medium text-slate-800">{h.type}</p>
-                                                <p className="text-[10px] text-slate-400">{h.date}</p>
-                                            </div>
-                                        </div>
-                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0
-                                            ${h.format === 'PDF' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-                                            {h.format}
+                {/* STEP 2 */}
+
+                {step === 'configure' &&
+                    currentType && (
+                        <Card className="p-6 space-y-5">
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() =>
+                                        setStep('select')
+                                    }
+                                >
+                                    <ArrowLeft className="h-4 w-4" />
+                                </button>
+
+                                <div>
+                                    <h2 className="font-bold text-slate-800">
+                                        {
+                                            currentType.label
+                                        }
+                                    </h2>
+
+                                    <p className="text-sm text-slate-500">
+                                        {
+                                            currentType.description
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+
+                            {renderFields()}
+
+                            {/* FORMAT */}
+
+                            <div>
+                                <p className="text-xs font-semibold text-slate-500 uppercase mb-2">
+                                    Export Format
+                                </p>
+
+                                <div className="flex gap-2">
+                                    {FORMATS.map((f) => (
+                                        <button
+                                            key={f}
+                                            onClick={() =>
+                                                setFormat(f)
+                                            }
+                                            className={`px-4 py-2 rounded-lg border text-sm font-medium ${format === f
+                                                ? 'bg-[#1b3c53] text-white'
+                                                : 'bg-white'
+                                                }`}
+                                        >
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ACTION */}
+
+                            <button
+                                onClick={handlePreview}
+                                disabled={
+                                    !validate() ||
+                                    previewLoading
+                                }
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#1b3c53] text-white text-sm font-medium disabled:opacity-40"
+                            >
+                                {previewLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Eye className="h-4 w-4" />
+                                )}
+
+                                Generate Preview
+                            </button>
+
+                            {!validate() &&
+                                currentType.fields.includes(
+                                    'caseId'
+                                ) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                        <AlertTriangle className="h-3.5 w-3.5" />
+                                        Case ID required
+                                    </p>
+                                )}
+                        </Card>
+                    )}
+
+                {/* PREVIEW */}
+
+                {step === 'preview' &&
+                    livePreview && (
+                        <Card className="p-6 space-y-5">
+
+                            {/* HEADER */}
+
+                            <div className="flex items-center justify-between">
+
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() =>
+                                            setStep(
+                                                'configure'
+                                            )
+                                        }
+                                    >
+                                        <ArrowLeft className="h-4 w-4" />
+                                    </button>
+
+                                    <h2 className="font-bold text-slate-800">
+                                        Report Preview
+                                    </h2>
+                                </div>
+
+                                <div className="flex gap-2">
+
+                                    <button
+                                        onClick={() =>
+                                            window.print()
+                                        }
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm"
+                                    >
+                                        <Printer className="h-4 w-4" />
+                                        Print
+                                    </button>
+
+                                    <button
+                                        onClick={
+                                            format ===
+                                                'PDF'
+                                                ? capturePdf
+                                                : exportCsv
+                                        }
+                                        disabled={
+                                            generating
+                                        }
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1b3c53] text-white text-sm"
+                                    >
+                                        {generating ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Download className="h-4 w-4" />
+                                        )}
+
+                                        {format ===
+                                            'PDF'
+                                            ? 'Download PDF'
+                                            : 'Download CSV'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* REPORT */}
+
+                            <div
+                                ref={previewRef}
+                                className="bg-white border border-slate-200 rounded-xl p-10 shadow-sm space-y-8"
+                            >
+
+                                {/* REPORT HEADER */}
+
+                                <div className="border-b pb-5">
+                                    <p className="text-xs uppercase tracking-[0.25em] text-slate-400 font-semibold">
+                                        Criminal
+                                        Investigation
+                                        Assistant
+                                    </p>
+
+                                    <h1 className="text-3xl font-bold text-[#1b3c53] mt-2">
+                                        {
+                                            livePreview.title
+                                        }
+                                    </h1>
+
+                                    <div className="mt-3 text-sm text-slate-500 flex gap-4">
+                                        <span>
+                                            Generated:{' '}
+                                            {new Date().toLocaleString()}
+                                        </span>
+
+                                        <span>
+                                            Format:{' '}
+                                            {format}
                                         </span>
                                     </div>
-                                ))}
+                                </div>
+
+                                {/* SECTIONS */}
+
+                                {livePreview.sections.map(
+                                    (
+                                        section,
+                                        si
+                                    ) => (
+                                        <div
+                                            key={si}
+                                            className="space-y-3"
+                                        >
+                                            <h3 className="text-sm font-bold text-slate-700 bg-slate-100 px-4 py-2 rounded-lg">
+                                                {
+                                                    section.heading
+                                                }
+                                            </h3>
+
+                                            <PreviewTable
+                                                rows={
+                                                    section.rows
+                                                }
+                                            />
+                                        </div>
+                                    )
+                                )}
+
+                                {/* FOOTER */}
+
+                                <div className="border-t pt-4 flex justify-between text-xs text-slate-400">
+                                    <span>
+                                        CONFIDENTIAL —
+                                        Authorized
+                                        Personnel Only
+                                    </span>
+
+                                    <span>
+                                        CIA System
+                                    </span>
+                                </div>
                             </div>
                         </Card>
+                    )}
 
-                        {/* Tips */}
-                        <Card className="p-5 bg-blue-50 border-blue-200">
-                            <h3 className="text-xs font-bold text-blue-800 mb-2">💡 Tips</h3>
-                            <ul className="text-xs text-blue-700 space-y-1.5">
-                                <li>• Use <strong>Case Summary</strong> for full case documentation</li>
-                                <li>• <strong>AI Leads</strong> report requires a specific Case ID</li>
-                                <li>• Set confidence ≥80% for high-quality leads only</li>
-                                <li>• Preview before exporting to verify data is correct</li>
-                                <li>• CSV format is best for importing into spreadsheets</li>
-                            </ul>
-                        </Card>
+                {/* ERROR */}
+
+                {previewError && (
+                    <div className="text-sm text-red-600 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        {previewError}
                     </div>
-                </div>
+                )}
             </main>
         </div>
     );
 };
 
 export default ReportPage;
-

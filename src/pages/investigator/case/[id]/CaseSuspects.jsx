@@ -4,12 +4,15 @@ import { useParams } from 'react-router-dom';
 import {
   Search, ChevronDown, Calendar, X, ExternalLink, Pencil, Users,
   Loader2, AlertTriangle,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 
 import AddSuspectDialog from './forms/AddSuspect';
+import { listSuspects, updateSuspect } from '@/services/suspectApi';
+
 const PAGE_SIZE = 5;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -29,48 +32,48 @@ const getStatusVariant = (status) => {
   return 'default';
 };
 
-// Adapt the row from GET /suspects → the shape StepSuspects expects.
-// StepSuspects reads `name, cnic, age, gender, contact, address, occupation,
-// status, reason, alibi, relationToCase, criminalRecord, arrested`.
-// The list row already uses those field names — main thing we need is to
-// give the form a stable React id (it uses `suspect.id` as a key inside
-// the form), which already exists.
 const rowToFormShape = (row) => {
   if (!row) return null;
   return {
-    id:              row.id,                    // React key + suspect_id
-    suspectId:       row.id,
-    name:            row.name || '',
-    cnic:            row.cnic || '',
-    age:             row.age || '',
-    gender:          row.gender || '',
-    contact:         row.contact || '',
-    address:         row.address || '',
-    occupation:      row.occupation || '',
-    status:          row.status || '',
-    relationToCase:  row.relationToCase || '',
-    reason:          row.reason || '',
-    alibi:           row.alibi || '',
-    criminalRecord:  !!row.criminalRecord,
-    arrested:        !!row.arrested,
+    id: row.id,                    // React key + suspect_id
+    suspectId: row.id,
+    name: row.name || '',
+    cnic: row.cnic || '',
+    age: row.age || '',
+    gender: row.gender || '',
+    contact: row.contact || '',
+    address: row.address || '',
+    occupation: row.occupation || '',
+    status: row.status || '',
+    relationToCase: row.relationToCase || '',
+    reason: row.reason || '',
+    alibi: row.alibi || '',
+    criminalRecord: !!row.criminalRecord,
+    arrested: !!row.arrested || '',
+    arrivalMethod: row.arrivalMethod || '',
+    knownAffiliations: row.knownAffiliations || '',
+    notes: row.notes || '',
+    photoUrl: row.photoUrl || '',
+    physicalDescription: row.physicalDescription || '',
+    vehicleDescription: row.vehicleDescription || '',
   };
 };
 
 // Pick only the fields the PATCH endpoint accepts.
 const formShapeToPatchBody = (formItem) => ({
-  name:            formItem?.name,
-  cnic:            formItem?.cnic,
-  age:             formItem?.age ? Number(formItem.age) : undefined,
-  gender:          formItem?.gender,
-  contact:         formItem?.contact,
-  address:         formItem?.address,
-  occupation:      formItem?.occupation,
-  status:          formItem?.status,
-  relationToCase:  formItem?.relationToCase,
-  reason:          formItem?.reason,
-  alibi:           formItem?.alibi,
-  arrested:        formItem?.arrested,
-  criminalRecord:  formItem?.criminalRecord,
+  name: formItem?.name,
+  cnic: formItem?.cnic,
+  age: formItem?.age ? Number(formItem.age) : undefined,
+  gender: formItem?.gender,
+  contact: formItem?.contact,
+  address: formItem?.address,
+  occupation: formItem?.occupation,
+  status: formItem?.status,
+  relationToCase: formItem?.relationToCase,
+  reason: formItem?.reason,
+  alibi: formItem?.alibi,
+  arrested: formItem?.arrested,
+  criminalRecord: formItem?.criminalRecord,
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,8 +83,8 @@ const CaseSuspects = () => {
   const caseId = caseIdFromUrl || 'C-2053';   // graceful fallback
 
   // Filter inputs (live)
-  const [searchName, setSearchName]     = useState('');
-  const [dateFilter, setDateFilter]     = useState('');
+  const [searchName, setSearchName] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
   // Applied filters
@@ -91,17 +94,17 @@ const CaseSuspects = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Server data
-  const [items, setItems]               = useState([]);
-  const [total, setTotal]               = useState(0);
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
   const [statusOptions, setStatusOptions] = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const requestSeq = useRef(0);
 
   // Dialog states
   const [dialogSuspect, setDialogSuspect] = useState(null);
-  const [updateTarget, setUpdateTarget]   = useState(null);
-  const [updating, setUpdating]           = useState(false);
+  const [updateTarget, setUpdateTarget] = useState(null);
+  const [updating, setUpdating] = useState(false);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
 
@@ -113,28 +116,15 @@ const CaseSuspects = () => {
     const seq = ++requestSeq.current;
 
     try {
-      const url = import.meta.env.VITE_API_URL;
-      const res = await axios.get(
-        `${url}/api/investigator/cases/${caseId}/suspects`,
-        {
-          headers: getAuthHeader(),
-          params: {
-            search: appliedFilters.name,
-            status: appliedFilters.status,
-            date: appliedFilters.date,
-            page: currentPage,
-            page_size: PAGE_SIZE,
-          },
-        },
-      );
+      const res = await listSuspects(caseId, appliedFilters)
       if (seq !== requestSeq.current) return;
-      setItems(res.data?.items || []);
-      setTotal(res.data?.total || 0);
-      setStatusOptions(res.data?.status_options || []);
+      setItems(res?.items || []);
+      setTotal(res?.total || 0);
+      setStatusOptions(res?.status_options || []);
     } catch (err) {
       if (seq !== requestSeq.current) return;
       console.error('Failed to load suspects:', err);
-      setError(err?.response?.data?.detail || 'Could not load suspects.');
+      setError(err?.response?.detail || 'Could not load suspects.');
       setItems([]);
       setTotal(0);
     } finally {
@@ -188,28 +178,19 @@ const CaseSuspects = () => {
     };
   }, [dialogSuspect, closeDialog]);
 
-  // ── Update dialog submit (PATCH) ──────────────────────────────────────
   const handleUpdateSubmit = async (data) => {
     const sid = updateTarget?.id;
     const first = data?.suspects?.[0];
-    if (!sid || !first) {
-      setUpdateTarget(null);
-      return;
-    }
+    if (!sid || !first) { setUpdateTarget(null); return; }
 
     setUpdating(true);
     try {
-      const url = import.meta.env.VITE_API_URL;
-      const res = await axios.patch(
-        `${url}/api/investigator/cases/${caseId}/suspects/${sid}`,
-        formShapeToPatchBody(first),
-        { headers: getAuthHeader() },
-      );
-      // Patch row in place
-      setItems(curr => curr.map(it => it.id === sid ? res.data : it));
+      const { detail, photo_failures } = await updateSuspect(caseId, sid, first);
+      setItems(curr => curr.map(it => it.id === sid ? detail : it));
+      if (photo_failures?.length) console.warn("Photo upload failed:", photo_failures);
     } catch (err) {
-      console.error('Update failed:', err);
-      alert(`Update failed: ${err?.response?.data?.detail || err.message}`);
+      console.error("Update failed:", err);
+      alert(`Update failed: ${formatApiError(err)}`);
     } finally {
       setUpdating(false);
       setUpdateTarget(null);
@@ -325,7 +306,25 @@ const CaseSuspects = () => {
                 items.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-semibold text-slate-800 text-nowrap">{s.id}</td>
-                    <td className="p-4 text-slate-800">{s.name || '—'}</td>
+                    <td className="p-4 text-slate-800">
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        {s.photoUrl ? (
+                          <img
+                            src={s.photoUrl.startsWith('/uploads')
+                              ? `${import.meta.env.VITE_API_URL}${s.photoUrl}`
+                              : s.photoUrl}
+                            alt={ s.name}
+                            className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                            <User className="h-4 w-4 text-slate-400" />
+                          </div>
+                        )}
+                        {(s.name || '—')}
+                      </div>
+                    </td>
                     <td className="p-4 text-slate-700">{s.reason || '—'}</td>
                     <td className="p-4 text-slate-700">
                       {s.alibi
@@ -397,8 +396,20 @@ const CaseSuspects = () => {
             {/* Header */}
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                  <Users className="h-4 w-4" />
+                <div className="rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                  {dialogSuspect.photoUrl ? (
+                    <img
+                      src={dialogSuspect.photoUrl.startsWith('/uploads')
+                        ? `${import.meta.env.VITE_API_URL}${dialogSuspect.photoUrl}`
+                        : dialogSuspect.photoUrl}
+                      alt={dialogSuspect.name}
+                      className="w-20 h-20 rounded-full object-cover border-2 border-slate-200 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                      <User className="h-4 w-4" />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h3 id="suspect-dialog-title" className="text-lg font-bold text-slate-800">
