@@ -7,23 +7,22 @@ import {
 } from "lucide-react";
 import { CASE_STEPS, emptyFormData } from "@/pages/form/case-forms/caseFormConstants/page";
 
-// ── Step components ───────────────────────────────────────────────────────────
-import StepFIRUpload     from "@/pages/form/case-forms/fir-upload";
-import StepCaseDetails   from "@/pages/form/case-forms/case-details";
-import StepCrimeDetails  from "@/pages/form/case-forms/crime-details";
-import { StepEvidence }  from "@/pages/form/case-forms/step-evidence";
-import StepAIAnalysis    from "@/pages/form/case-forms/ai-analysis";
-import { StepReview }    from "@/pages/form/case-forms/review";
-import Header from "@/pages/form/case-forms/components/Header";
-import StepSuspects from "@/pages/form/case-forms/step-suspects";
-import StepVictims from "@/pages/form/case-forms/step-victim";
-import StepWitnesses from "@/pages/form/case-forms/step-witness";
-import StepLocation from "@/pages/form/case-forms/step-location";
+// ── Services ──────────────────────────────────────────────────────────────────
+import { registerCaseFull, formatApiError } from "@/services/caseApi";
+import StepFIRUpload from "../fir-upload/page";
+import StepCaseDetails from "../case-details/page";
+import StepLocation from "../step-location/page";
+import StepVictims from "../step-victim/page";
+import StepSuspects from "../step-suspects/page";
+import StepCrimeDetails from "../crime-details/page";
+import StepEvidence from "../step-evidence/page";
+import StepWitnesses from "../step-witness/page";
+import StepAIAnalysis from "../ai-analysis/page";
+import StepReview from "../review/page";
+import Header from "@/components/Header";
 
-// ── Icon map (step icons from constants are strings) ─────────────────────────
 const ICON_MAP = { Upload, FileText, MapPin, User, Users, Gavel, Camera, Brain, CheckCircle2, File };
 
-// ── Step Progress Bar ─────────────────────────────────────────────────────────
 const StepProgressBar = ({ currentStep, completedSteps, onStepClick }) => (
   <div className="sticky top-14 z-30 bg-white border-b border-slate-200 shadow-sm">
     <div className="max-w-6xl mx-auto px-4 py-3">
@@ -33,35 +32,34 @@ const StepProgressBar = ({ currentStep, completedSteps, onStepClick }) => (
           <span className="text-xs font-semibold text-slate-600">Step {currentStep} of {CASE_STEPS.length}</span>
           <span className="text-xs text-slate-500">{CASE_STEPS[currentStep - 1]?.label}</span>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-1.5">
+        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
           <div
-            className="h-1.5 rounded-full bg-deep-ocean transition-all duration-500"
-            style={{ width: `${((currentStep - 1) / (CASE_STEPS.length - 1)) * 100}%` }}
+            className="h-full bg-deep-ocean transition-all duration-300"
+            style={{ width: `${(currentStep / CASE_STEPS.length) * 100}%` }}
           />
         </div>
       </div>
+
       {/* Desktop */}
-      <div className="hidden sm:flex items-center">
+      <div className="hidden sm:flex items-center justify-between">
         {CASE_STEPS.map((step, idx) => {
           const Icon = ICON_MAP[step.icon] || FileText;
-          const isCompleted  = completedSteps.includes(step.id);
-          const isCurrent    = currentStep === step.id;
-          const isAccessible = step.id === 1 || isCompleted || isCurrent || completedSteps.includes(step.id - 1);
+          const isCompleted = completedSteps.includes(step.id);
+          const isCurrent   = currentStep === step.id;
           return (
             <div key={step.id} className="flex items-center flex-1 last:flex-none">
               <button
-                onClick={() => isAccessible && onStepClick(step.id)}
-                disabled={!isAccessible}
-                className={`flex flex-col items-center gap-1 transition-all
-                  ${isAccessible ? "cursor-pointer" : "cursor-not-allowed opacity-40"}`}
+                onClick={() => (isCompleted || isCurrent) && onStepClick(step.id)}
+                disabled={!isCompleted && !isCurrent}
+                className={`flex flex-col items-center gap-1 transition-all ${
+                  (isCompleted || isCurrent) ? "cursor-pointer" : "cursor-not-allowed opacity-40"
+                }`}
                 title={step.label}
               >
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all
-                  ${isCompleted
-                    ? "bg-emerald-600 border-emerald-600 text-white"
-                    : isCurrent
-                    ? "bg-deep-ocean border-deep-ocean text-white shadow-lg shadow-deep-ocean/30"
-                    : "bg-white border-slate-300 text-slate-400 group-hover:border-deep-ocean/50"}`}>
+                  ${isCompleted ? "bg-emerald-600 border-emerald-600 text-white"
+                    : isCurrent ? "bg-deep-ocean border-deep-ocean text-white shadow-lg shadow-deep-ocean/30"
+                    : "bg-white border-slate-300 text-slate-400"}`}>
                   {isCompleted ? <Check className="h-4 w-4" /> : <Icon className="h-3.5 w-3.5" />}
                 </div>
                 <span className={`text-[9px] font-semibold uppercase tracking-wide transition-colors
@@ -81,7 +79,6 @@ const StepProgressBar = ({ currentStep, completedSteps, onStepClick }) => (
   </div>
 );
 
-// ── Validation ────────────────────────────────────────────────────────────────
 const validateStep = (step, formData) => {
   const e = {};
   if (step === 2) {
@@ -104,7 +101,12 @@ const validateStep = (step, formData) => {
   return e;
 };
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+const validateAll = (formData) => ({
+  ...validateStep(2, formData),
+  ...validateStep(3, formData),
+  ...validateStep(6, formData),
+});
+
 export default function RegisterCasePage() {
   const navigate = useNavigate();
   const topRef = useRef(null);
@@ -115,6 +117,9 @@ export default function RegisterCasePage() {
   const [submitting,     setSubmitting]     = useState(false);
   const [submitted,      setSubmitted]      = useState(false);
   const [formData,       setFormData]       = useState(emptyFormData());
+
+  const [submitError,   setSubmitError]   = useState(null);
+  const [submitResult,  setSubmitResult]  = useState(null);
 
   const scrollTop = () => topRef.current?.scrollIntoView({ behavior: "smooth" });
 
@@ -132,16 +137,53 @@ export default function RegisterCasePage() {
   const goBack = () => { setCurrentStep(s => Math.max(s - 1, 1)); scrollTop(); };
 
   const handleSubmit = async () => {
-    const e = validateStep(currentStep, formData);
-    if (Object.keys(e).length) { setErrors(e); return; }
+    if (submitting) return;
+
+    const allErrors = validateAll(formData);
+    if (Object.keys(allErrors).length) {
+      setErrors(allErrors);
+
+      // Jump to the earliest failing step so the highlighted fields are visible.
+      // Mapping: any step-2 keys → step 2, otherwise step 3 / step 6 / step 1.
+      const firstFailingStep =
+        Object.keys(allErrors).some(k => ["firNumber","caseTitle","incidentDate","reportingDate","caseType","priority","description"].includes(k)) ? 2
+        : Object.keys(allErrors).some(k => ["province","city","address"].includes(k)) ? 3
+        : 6;
+      setCurrentStep(firstFailingStep);
+      scrollTop();
+      return;
+    }
+
+    setErrors({});
+    setSubmitError(null);
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setSubmitting(false);
-    setSubmitted(true);
+
+    try {
+      const result = await registerCaseFull(formData);
+
+      // result.caseId is the server-issued external id ("C-2054"). Store it
+      // back on the form too so the success screen and any "Register
+      // Another" reset can read a clean value.
+      setFormData(d => ({
+        ...d,
+        caseId:    result.caseId,
+        firNumber: result.firNumber || d.firNumber,
+      }));
+      setSubmitResult(result);
+      setSubmitted(true);
+    } catch (err) {
+      console.error("Case registration failed:", err);
+      setSubmitError(formatApiError(err, "Could not register the case. Please retry."));
+      scrollTop();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ── Success screen ──────────────────────────────────────────────────────────
   if (submitted) {
+    const partialFailures = submitResult?.partialFailures || [];
+
     return (
       <div className="min-h-screen bg-soft-mist font-sans mt-14">
         <Header />
@@ -151,13 +193,43 @@ export default function RegisterCasePage() {
           </div>
           <h1 className="text-3xl font-bold text-slate-800">Case Registered Successfully</h1>
           <p className="text-slate-500">
-            Case ID: <span className="font-bold text-deep-ocean">{formData.caseId}</span>
+            Case ID: <span className="font-bold text-deep-ocean">{submitResult?.caseId || formData.caseId}</span>
           </p>
           <p className="text-sm text-slate-400">
-            FIR Number: <strong>{formData.firNumber}</strong> · AI analysis queued.
+            FIR Number: <strong>{submitResult?.firNumber || formData.firNumber}</strong> · AI analysis queued.
           </p>
+
+          {/* Partial-failure banner: case is saved, but something downstream
+              didn't make it (a photo, an evidence file, etc.). We list each
+              one so the user can fix it from the case detail page. */}
+          {partialFailures.length > 0 && (
+            <div className="mt-6 text-left bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-start gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">
+                    Case was saved, but the following items need attention:
+                  </p>
+                  <ul className="mt-2 text-xs text-amber-800 list-disc ml-4 space-y-1">
+                    {partialFailures.map((f, i) => (
+                      <li key={i}>
+                        <span className="capitalize font-medium">{f.phase}</span>
+                        {": "}
+                        {f.error}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[11px] text-amber-700">
+                    You can fix these from the case detail page.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap justify-center gap-3 pt-4">
-            <button onClick={() => navigate("/investigator/case")}
+            <button
+              onClick={() => navigate(`/investigator/case/${submitResult?.caseId || formData.caseId}`)}
               className="flex items-center gap-2 px-6 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-medium hover:bg-deep-ocean-900 cursor-pointer transition-colors">
               <FolderOpen className="h-4 w-4" /> View Case
             </button>
@@ -166,7 +238,14 @@ export default function RegisterCasePage() {
               All Cases
             </button>
             <button
-              onClick={() => { setSubmitted(false); setCurrentStep(1); setCompletedSteps([]); setFormData(emptyFormData()); }}
+              onClick={() => {
+                setSubmitted(false);
+                setSubmitResult(null);
+                setSubmitError(null);
+                setCurrentStep(1);
+                setCompletedSteps([]);
+                setFormData(emptyFormData());
+              }}
               className="flex items-center gap-2 px-6 py-2.5 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm hover:bg-slate-50 cursor-pointer transition-colors">
               <Plus className="h-4 w-4" /> Register Another
             </button>
@@ -203,7 +282,25 @@ export default function RegisterCasePage() {
           </div>
         </div>
 
-        {/* Error banner */}
+        {/* Submit-error banner — shown when phase 1 (case create) fails.
+            Validation errors still go through the green banner below. */}
+        {submitError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-800">Could not register case</p>
+              <p className="text-xs text-red-700 mt-1">{submitError}</p>
+            </div>
+            <button
+              onClick={() => setSubmitError(null)}
+              className="text-xs text-red-700 hover:text-red-900 underline cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Validation banner (existing behaviour) */}
         {Object.keys(errors).length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -218,31 +315,32 @@ export default function RegisterCasePage() {
 
         {/* Step card */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8">
-          {currentStep === 1 && <StepFIRUpload    data={formData} setData={setFormData} onExtracted={handleExtracted} />}
+          {currentStep === 1 && <StepFIRUpload   data={formData} setData={setFormData} onExtracted={handleExtracted} />}
           {currentStep === 2 && <StepCaseDetails  data={formData} setData={setFormData} errors={errors} mode="register" />}
-          {currentStep === 3 && <StepLocation     data={formData} setData={setFormData} errors={errors} />}
+          {currentStep === 3 && <StepLocation    data={formData} setData={setFormData} errors={errors} />}
           {currentStep === 4 && <StepVictims      data={formData} setData={setFormData} mode="register" />}
-          {currentStep === 5 && <StepSuspects    data={formData} setData={setFormData} mode="register" />}
+          {currentStep === 5 && <StepSuspects     data={formData} setData={setFormData} mode="register" />}
           {currentStep === 6 && <StepCrimeDetails data={formData} setData={setFormData} errors={errors} />}
-          {currentStep === 7 && <StepEvidence     data={formData} setData={setFormData} mode="register"/>}
-          {currentStep === 8 && <StepWitnesses     data={formData} setData={setFormData} mode="register"/>}
+          {currentStep === 7 && <StepEvidence    data={formData} setData={setFormData} mode="register"/>}
+          {currentStep === 8 && <StepWitnesses    data={formData} setData={setFormData} mode="register"/>}
           {currentStep === 9 && <StepAIAnalysis   data={formData} />}
-          {currentStep === 10 && <StepReview       data={formData} mode="register" />}
+          {currentStep === 10 && <StepReview      data={formData} mode="register" />}
         </div>
 
         {/* Navigation */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-10">
-          <button onClick={goBack} disabled={currentStep === 1}
+          <button onClick={goBack} disabled={currentStep === 1 || submitting}
             className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full sm:w-auto justify-center cursor-pointer">
             <ChevronLeft className="h-4 w-4" /> Back
           </button>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button onClick={() => navigate("/investigator/cases")}
-              className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors flex-1 sm:flex-none justify-center cursor-pointer">
+              disabled={submitting}
+              className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-1 sm:flex-none justify-center cursor-pointer">
               Save Draft
             </button>
             {currentStep < CASE_STEPS.length ? (
-              <button onClick={goNext}
+              <button onClick={goNext} disabled={submitting}
                 className="flex items-center gap-2 px-6 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 transition-colors flex-1 sm:flex-none justify-center cursor-pointer">
                 Next <ChevronRight className="h-4 w-4" />
               </button>

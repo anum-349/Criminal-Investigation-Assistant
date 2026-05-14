@@ -54,17 +54,17 @@ function SuspectFormFields({ suspect, idx, onUpdate, errors }) {
                     </div>
                 </div>
 
-                <TextField label="Full Name (if known)" value={suspect.name} onChange={u("name")} placeholder="Leave blank if unknown" error={errors.name} />
+                <TextField label="Full Name (if known)" value={suspect?.name} onChange={u("name")} placeholder="Leave blank if unknown" error={errors.name} />
                 <SelectField
                     label="Relation to Case"
                     options={RELATION_OPTIONS}
-                    value={suspect.relationToCase}
+                    value={suspect?.relationToCase}
                     onChange={u("relationToCase")}
                 />
-                <TextField label="CNIC Number" value={suspect.cnic} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" error={errors.cnic} />
-                <TextField label="Age (Approximate)" type="number" min="0" max="120" value={suspect.age} onChange={u("age")} error={errors.age} />
-                <SelectField label="Gender" options={["Male", "Female", "Transgender / Other", "Unknown"]} value={suspect.gender} onChange={u("gender")} required />
-                <SelectField label="Suspect Status" options={SUSPECT_STATUSES} value={suspect.status} onChange={u("status")} required />
+                <TextField label="CNIC Number" value={suspect?.cnic} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" error={errors.cnic} />
+                <TextField label="Age (Approximate)" type="number" min="0" max="120" value={suspect?.age} onChange={u("age")} error={errors.age} />
+                <SelectField label="Gender" options={["Male", "Female", "Transgender / Other", "Unknown"]} value={suspect?.gender} onChange={u("gender")} required />
+                <SelectField label="Suspect Status" options={SUSPECT_STATUSES} value={suspect?.status} onChange={u("status")} required />
             </div>
 
             <div>
@@ -81,7 +81,7 @@ function SuspectFormFields({ suspect, idx, onUpdate, errors }) {
                         e.target.value = "";
                     }}
                 />
-                {!suspect.photoUrl ? (
+                {!suspect?.photoUrl ? (
                     <button type="button" onClick={() => photoRef.current?.click()}
                         className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2
                         text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
@@ -90,11 +90,11 @@ function SuspectFormFields({ suspect, idx, onUpdate, errors }) {
                 ) : (
                     <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
                         <img
-                            src={typeof suspect.photoUrl === 'string' ? suspect.photoUrl : suspect.photoUrl?.[0]?.dataUrl}
-                            alt={suspect.name}
+                            src={typeof suspect?.photoUrl === 'string' ? suspect?.photoUrl : suspect?.photoUrl?.[0]?.dataUrl}
+                            alt={suspect?.name}
                             className="w-full h-full object-cover"
                         />
-                        {suspect._hadPhoto && (
+                        {suspect?._hadPhoto && (
                             <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
                                 saved
                             </span>
@@ -124,7 +124,7 @@ function SuspectFormFields({ suspect, idx, onUpdate, errors }) {
             <TextareaField
                 label="Reason for Suspicion"
                 rows={2}
-                value={suspect.reason}
+                value={suspect?.reason}
                 onChange={u("reason")}
                 error={errors.reason}
                 placeholder="Why is this person a suspect? Observed behaviour, witness testimony, forensic link…"
@@ -133,34 +133,34 @@ function SuspectFormFields({ suspect, idx, onUpdate, errors }) {
             <TextareaField
                 label="Alibi / Statement"
                 rows={2}
-                value={suspect.alibi}
+                value={suspect?.alibi}
                 onChange={u("alibi")}
                 placeholder="What did the suspect say? Deny involvement, provide alibi, refused to comment…"
             />
 
             <TextareaField
                 label="Physical Description" rows={2} maxLength={500}
-                value={suspect.physicalDescription} onChange={u("physicalDescription")}
+                value={suspect?.physicalDescription} onChange={u("physicalDescription")}
                 placeholder="Height, build, skin tone, hair, distinguishing marks, clothing at time of incident…"
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <TextField label="Last Known Address" value={suspect.address} onChange={u("address")} placeholder="Last known residential address" />
-                <TextField label="Contact Number" value={suspect.contact} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" error={errors.contact} />
-                <TextField label="Occupation" value={suspect.occupation} onChange={u("occupation")} placeholder="If known" />
-                <TextField label="Known Affiliations / Gang" value={suspect.knownAffiliations} onChange={u("knownAffiliations")} placeholder="Criminal gang, organisation etc." />
-                <TextField label="Escape Vehicle Description" value={suspect.vehicleDescription} onChange={u("vehicleDescription")} placeholder="Color, make, model, registration" />
-                <SelectField label="Method of Arrival / Escape" options={["On Foot", "Motorcycle", "Car", "Rickshaw", "Public Transport", "Unknown"]} value={suspect.arrivalMethod} onChange={u("arrivalMethod")} />
+                <TextField label="Last Known Address" value={suspect?.address} onChange={u("address")} placeholder="Last known residential address" />
+                <TextField label="Contact Number" value={suspect?.contact} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" error={errors.contact} />
+                <TextField label="Occupation" value={suspect?.occupation} onChange={u("occupation")} placeholder="If known" />
+                <TextField label="Known Affiliations / Gang" value={suspect?.knownAffiliations} onChange={u("knownAffiliations")} placeholder="Criminal gang, organisation etc." />
+                <TextField label="Escape Vehicle Description" value={suspect?.vehicleDescription} onChange={u("vehicleDescription")} placeholder="Color, make, model, registration" />
+                <SelectField label="Method of Arrival / Escape" options={["On Foot", "Motorcycle", "Car", "Rickshaw", "Public Transport", "Unknown"]} value={suspect?.arrivalMethod} onChange={u("arrivalMethod")} />
             </div>
 
             <div className="flex flex-wrap gap-5">
-                <CheckField label="Has Prior Criminal Record" checked={suspect.criminalRecord} onChange={v => onUpdate(idx, "criminalRecord", v)} />
-                <CheckField label="Currently Arrested" checked={suspect.arrested} onChange={v => onUpdate(idx, "arrested", v)} />
+                <CheckField label="Has Prior Criminal Record" checked={suspect?.criminalRecord} onChange={v => onUpdate(idx, "criminalRecord", v)} />
+                <CheckField label="Currently Arrested" checked={suspect?.arrested} onChange={v => onUpdate(idx, "arrested", v)} />
             </div>
 
             <TextareaField
                 label="Additional Notes" rows={2} maxLength={500}
-                value={suspect.notes} onChange={u("notes")}
+                value={suspect?.notes} onChange={u("notes")}
                 placeholder="Any other relevant information about this suspect…"
             />
         </div>
@@ -177,7 +177,7 @@ function RegisterSuspectCard({ suspect, idx, canRemove, onUpdate, onRemove, erro
                         {idx + 1}
                     </div>
                     Suspect #{idx + 1}
-                    {suspect._extractedByAI && (
+                    {suspect?._extractedByAI && (
                         <span className="text-[10px] font-normal text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
                             AI Extracted
                         </span>
@@ -214,7 +214,7 @@ function StandaloneSuspectCard({ suspect, idx, canRemove, isEditing, onToggleEdi
                     <h4 className="text-sm font-bold text-slate-700 shrink-0">Suspect #{idx + 1}</h4>
                     {!isEditing && (
                         <span className="text-xs text-slate-400 truncate font-mono">
-                            {suspect.id}{suspect.name ? ` — ${suspect.name}` : ""}
+                            {suspect?.id}{suspect?.name ? ` — ${suspect?.name}` : ""}
                         </span>
                     )}
                 </div>
@@ -246,28 +246,28 @@ function StandaloneSuspectCard({ suspect, idx, canRemove, isEditing, onToggleEdi
             {!isEditing && (
                 <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
                     {[
-                        { label: "Suspect ID", value: <span className="font-mono text-xs">{suspect.id}</span> },
-                        { label: "Name", value: suspect.name || "—" },
-                        { label: "Relation", value: suspect.relationToCase || "—" },
-                        { label: "Status", value: suspect.status || "—" },
-                        { label: "Age", value: suspect.age || "—" },
-                        { label: "Gender", value: suspect.gender || "—" },
+                        { label: "Suspect ID", value: <span className="font-mono text-xs">{suspect?.id}</span> },
+                        { label: "Name", value: suspect?.name || "—" },
+                        { label: "Relation", value: suspect?.relationToCase || "—" },
+                        { label: "Status", value: suspect?.status || "—" },
+                        { label: "Age", value: suspect?.age || "—" },
+                        { label: "Gender", value: suspect?.gender || "—" },
                     ].map(({ label, value }) => (
                         <div key={label}>
                             <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">{label}</span>
                             <span className="text-slate-700 font-medium">{value}</span>
                         </div>
                     ))}
-                    {suspect.reason && (
+                    {suspect?.reason && (
                         <div className="col-span-2 sm:col-span-3">
                             <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">Reason for Suspicion</span>
-                            <span className="text-slate-600 text-xs">{suspect.reason}</span>
+                            <span className="text-slate-600 text-xs">{suspect?.reason}</span>
                         </div>
                     )}
-                    {suspect.alibi && (
+                    {suspect?.alibi && (
                         <div className="col-span-2 sm:col-span-3">
                             <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">Alibi / Statement</span>
-                            <span className="text-slate-600 text-xs">{suspect.alibi}</span>
+                            <span className="text-slate-600 text-xs">{suspect?.alibi}</span>
                         </div>
                     )}
                 </div>
@@ -334,7 +334,7 @@ export function StepSuspects({ data = {}, setData, mode = "register", validation
             {suspects.map((suspect, idx) =>
                 mode === "register" ? (
                     <RegisterSuspectCard
-                        key={suspect.id}
+                        key={suspect?.id}
                         suspect={suspect}
                         idx={idx}
                         canRemove={suspects.length > 1}
@@ -344,12 +344,12 @@ export function StepSuspects({ data = {}, setData, mode = "register", validation
                     />
                 ) : (
                     <StandaloneSuspectCard
-                        key={suspect.id}
+                        key={suspect?.id}
                         suspect={suspect}
                         idx={idx}
                         canRemove={suspects.length > 1 || mode === "standalone"}
-                        isEditing={editingIds.has(suspect.id)}
-                        onToggleEdit={() => toggleEdit(suspect.id)}
+                        isEditing={editingIds.has(suspect?.id)}
+                        onToggleEdit={() => toggleEdit(suspect?.id)}
                         onUpdate={update}
                         onRemove={() => removeSuspect(idx)}
                         errors={validationErrors[idx] || {}}

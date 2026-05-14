@@ -57,7 +57,7 @@ export const validateWitness = (w) => {
 function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
   const photoRef = useRef(null);
   const u = (k) => (e) => onUpdate(idx, k, e.target.value);
-  const isAnonymous = !!witness.anonymous;
+  const isAnonymous = !!witness?.anonymous;
 
   return (
     <div className="space-y-5">
@@ -105,7 +105,7 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
         <SelectField
           label="Witness Status"
           options={WITNESS_STATUSES}
-          value={witness.status || ""} onChange={u("status")}
+          value={witness?.status || ""} onChange={u("status")}
         />
       </div>
 
@@ -118,7 +118,7 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
           <div>
             <TextField
               label="Full Name" required={!isAnonymous}
-              value={isAnonymous ? "" : (witness.name || "")}
+              value={isAnonymous ? "" : (witness?.name || "")}
               onChange={u("name")}
               disabled={isAnonymous}
               placeholder={isAnonymous ? "Hidden" : "Full name"}
@@ -130,7 +130,7 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
           <div>
             <TextField
               label="Age" type="number" min="0" max="120"
-              value={witness.age || ""} onChange={u("age")}
+              value={witness?.age || ""} onChange={u("age")}
               error={errors.age}
             />
           </div>
@@ -138,12 +138,12 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
           <SelectField
             label="Gender"
             options={["Male", "Female", "Transgender / Other"]}
-            value={witness.gender || ""} onChange={u("gender")}
+            value={witness?.gender || ""} onChange={u("gender")}
           />
           <div>
             <TextField
               label="Contact Number"
-              value={isAnonymous ? "" : (witness.contact || "")}
+              value={isAnonymous ? "" : (witness?.contact || "")}
               onChange={u("contact")}
               disabled={isAnonymous}
               error={errors.contact}
@@ -152,7 +152,7 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
           </div>
           <div>
             <TextField label="CNIC"
-              value={isAnonymous ? "" : (witness.cnic || "")}
+              value={isAnonymous ? "" : (witness?.cnic || "")}
               onChange={u("cnic")} disabled={isAnonymous}
               placeholder={isAnonymous ? "Hidden" : "00000-0000000-0"}
               error={errors.cnic}
@@ -163,7 +163,7 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
         <TextareaField
           className="mt-4"
           label="Residential Address" rows={2}
-          value={isAnonymous ? "" : (witness.address || "")}
+          value={isAnonymous ? "" : (witness?.address || "")}
           onChange={u("address")}
           disabled={isAnonymous}
           placeholder={isAnonymous ? "Hidden" : "Witness home address"}
@@ -192,7 +192,7 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
                 e.target.value = "";
               }}
             />
-            {!witness.photoUrl ? (
+            {!witness?.photoUrl ? (
               <button type="button" onClick={() => photoRef.current?.click()}
                 className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2
                  text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
@@ -201,11 +201,11 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
             ) : (
               <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
                 <img
-                  src={typeof witness.photoUrl === 'string' ? witness.photoUrl : witness.photoUrl?.[0]?.dataUrl}
-                  alt={witness.anonymous ? "Witness" : witness.name}
+                  src={typeof witness?.photoUrl === 'string' ? witness?.photoUrl : witness?.photoUrl?.[0]?.dataUrl}
+                  alt={witness?.anonymous ? "Witness" : witness?.name}
                   className="w-full h-full object-cover"
                 />
-                {witness._hadPhoto && (
+                {witness?._hadPhoto && (
                   <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
                     saved
                   </span>
@@ -242,21 +242,21 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
           <SelectField
             label="Witness Type"
             options={WITNESS_TYPES}
-            value={witness.witnessType || ""} onChange={u("witnessType")}
+            value={witness?.witnessType || ""} onChange={u("witnessType")}
           />
           <SelectField
             label="Relation to Case"
             options={WITNESS_RELATIONS}
-            value={witness.relationToCase || ""} onChange={u("relationToCase")}
+            value={witness?.relationToCase || ""} onChange={u("relationToCase")}
           />
           <SelectField
             label="Credibility Assessment"
             options={WITNESS_CREDIBILITY}
-            value={witness.credibility || ""} onChange={u("credibility")}
+            value={witness?.credibility || ""} onChange={u("credibility")}
           />
           <TextField
             label="Related Case ID" required
-            value={witness.caseId || caseId || ""} onChange={u("caseId")}
+            value={witness?.caseId || caseId || ""} onChange={u("caseId")}
             placeholder="e.g. C-2053"
             readOnly
           />
@@ -272,7 +272,7 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
           <div>
             <TextField
               label="Statement Date" type="date"
-              value={witness.statementDate || ""} onChange={u("statementDate")}
+              value={witness?.statementDate || ""} onChange={u("statementDate")}
               max={new Date().toISOString().split("T")[0]}
             />
             {errors.statementDate && <p className="mt-1 text-xs text-red-600">{errors.statementDate}</p>}
@@ -282,8 +282,8 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
           <TextareaField
             className="mt-4"
             label="Witness Statement / Description" required rows={5} maxLength={2000}
-            value={witness.description || ""} onChange={u("description")}
-            placeholder="Full statement as given by the witness. Include exact words where possible. Note any hesitation, inconsistencies, or key details…"
+            value={witness?.description || ""} onChange={u("description")}
+            placeholder="Full statement as given by the witness?. Include exact words where possible. Note any hesitation, inconsistencies, or key details…"
             error={errors.description}
           />
         </div>
@@ -293,12 +293,12 @@ function WitnessFormFields({ witness, idx, onUpdate, caseId, errors }) {
       <div className="flex flex-wrap gap-5">
         <CheckField
           label="Protection Required"
-          checked={!!witness.protectionRequired}
+          checked={!!witness?.protectionRequired}
           onChange={v => onUpdate(idx, "protectionRequired", v)}
         />
         <CheckField
           label="Cooperating with Investigation"
-          checked={witness.cooperating !== false}
+          checked={witness?.cooperating !== false}
           onChange={v => onUpdate(idx, "cooperating", v)}
         />
       </div>
@@ -318,12 +318,12 @@ function RegisterWitnessCard({ witness, idx, canRemove, onUpdate, onRemove, case
             {idx + 1}
           </div>
           Witness #{idx + 1}
-          {witness.anonymous && (
+          {witness?.anonymous && (
             <span className="text-[10px] font-normal text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
               Anonymous
             </span>
           )}
-          {witness._extractedByAI && (
+          {witness?._extractedByAI && (
             <span className="text-[10px] font-normal text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
               AI Extracted
             </span>
@@ -364,10 +364,10 @@ function StandaloneWitnessCard({
           <h4 className="text-sm font-bold text-slate-700 shrink-0">Witness #{idx + 1}</h4>
           {!isEditing && (
             <span className="text-xs text-slate-400 truncate font-mono">
-              {witness.witnessId || ""}
-              {witness.anonymous
+              {witness?.witnessId || ""}
+              {witness?.anonymous
                 ? " — Anonymous"
-                : witness.name ? ` — ${witness.name}` : ""}
+                : witness?.name ? ` — ${witness?.name}` : ""}
             </span>
           )}
         </div>
@@ -401,35 +401,35 @@ function StandaloneWitnessCard({
       {!isEditing && (
         <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
           {[
-            { label: "Name", value: witness.anonymous ? "Anonymous" : (witness.name || "—") },
-            { label: "Age / Gender", value: `${witness.age || "—"} / ${witness.gender || "—"}` },
-            { label: "Contact", value: witness.anonymous ? "Hidden" : (witness.contact || "—") },
-            { label: "Type", value: witness.witnessType || "—" },
-            { label: "Relation", value: witness.relationToCase || "—" },
-            { label: "Status", value: witness.status || "—" },
+            { label: "Name", value: witness?.anonymous ? "Anonymous" : (witness?.name || "—") },
+            { label: "Age / Gender", value: `${witness?.age || "—"} / ${witness?.gender || "—"}` },
+            { label: "Contact", value: witness?.anonymous ? "Hidden" : (witness?.contact || "—") },
+            { label: "Type", value: witness?.witnessType || "—" },
+            { label: "Relation", value: witness?.relationToCase || "—" },
+            { label: "Status", value: witness?.status || "—" },
           ].map(({ label, value }) => (
             <div key={label}>
               <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">{label}</span>
               <span className="text-slate-700 font-medium">{value}</span>
             </div>
           ))}
-          {witness.description && (
+          {witness?.description && (
             <div className="col-span-2 sm:col-span-3">
               <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">Statement</span>
               <span className="text-slate-600 text-xs">
-                {witness.description.length > 140
-                  ? `${witness.description.slice(0, 140)}…`
-                  : witness.description}
+                {witness?.description.length > 140
+                  ? `${witness?.description.slice(0, 140)}…`
+                  : witness?.description}
               </span>
             </div>
           )}
           <div className="col-span-2 sm:col-span-3 flex flex-wrap gap-1.5 mt-1">
-            {witness.protectionRequired && (
+            {witness?.protectionRequired && (
               <span className="text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-700">
                 <Shield className="h-3 w-3" /> Protection Required
               </span>
             )}
-            {witness.cooperating !== false && (
+            {witness?.cooperating !== false && (
               <span className="text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
                 <CheckCircle2 className="h-3 w-3" /> Cooperating
               </span>
@@ -508,7 +508,7 @@ export function StepWitnesses({ data = {}, setData, mode = "register", caseId = 
       {witnesses.map((witness, idx) =>
         mode === "register" ? (
           <RegisterWitnessCard
-            key={witness.id}
+            key={witness?.id}
             witness={witness}
             idx={idx}
             canRemove={witnesses.length > 1}
@@ -519,12 +519,12 @@ export function StepWitnesses({ data = {}, setData, mode = "register", caseId = 
           />
         ) : (
           <StandaloneWitnessCard
-            key={witness.id}
+            key={witness?.id}
             witness={witness}
             idx={idx}
             canRemove={witnesses.length > 1 || mode === "standalone"}
-            isEditing={editingIds.has(witness.id)}
-            onToggleEdit={() => toggleEdit(witness.id)}
+            isEditing={editingIds.has(witness?.id)}
+            onToggleEdit={() => toggleEdit(witness?.id)}
             onUpdate={update}
             onRemove={() => removeWitness(idx)}
             caseId={caseId}

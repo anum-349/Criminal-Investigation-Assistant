@@ -53,9 +53,9 @@ const validators = {
 
 /** Returns an object of { fieldName: errorString | null } for the whole card. */
 const validateEvidence = (ev) => ({
-    type:          validators.type(ev.type),
-    dateCollected: validators.dateCollected(ev.dateCollected),
-    collectedBy:   validators.collectedBy(ev.collectedBy),
+    type:          validators.type(ev?.type),
+    dateCollected: validators.dateCollected(ev?.dateCollected),
+    collectedBy:   validators.collectedBy(ev?.collectedBy),
 });
 
 /** True only when every rule passes. */
@@ -110,8 +110,8 @@ const EvidenceCard = forwardRef(function EvidenceCard(
     const errorFor = (field) =>
         (touched[field] || showAllErrors) ? fieldErrors[field] : null;
 
-    const hasNew      = !!ev.file || ev.fileDataUrl?.startsWith?.("data:");
-    const hasExisting = !!ev.existingFileName;
+    const hasNew      = !!ev?.file || ev?.fileDataUrl?.startsWith?.("data:");
+    const hasExisting = !!ev?.existingFileName;
 
     // ── Save (collapse) button handler ────────────────────────────────────────
     const handleSave = () => {
@@ -145,7 +145,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                     </h4>
                     {!isEditing && (
                         <span className="text-xs text-slate-400 truncate font-mono">
-                            {ev.evidenceId} — {ev.type}
+                            {ev?.evidenceId} — {ev?.type}
                         </span>
                     )}
                 </div>
@@ -185,12 +185,12 @@ const EvidenceCard = forwardRef(function EvidenceCard(
             {!isEditing && (
                 <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
                     {[
-                        { label: "Evidence ID", value: <span className="font-mono text-xs">{ev.evidenceId}</span> },
-                        { label: "Type",         value: ev.type || "—" },
-                        { label: "Date",         value: ev.dateCollected || "—" },
-                        { label: "Collected By", value: ev.collectedBy || "—" },
-                        { label: "File",         value: <span className="truncate block max-w-40">{ev.fileName || "None"}</span> },
-                        { label: "Photos",       value: `${ev.photos?.length || 0} photo(s)` },
+                        { label: "Evidence ID", value: <span className="font-mono text-xs">{ev?.evidenceId}</span> },
+                        { label: "Type",         value: ev?.type || "—" },
+                        { label: "Date",         value: ev?.dateCollected || "—" },
+                        { label: "Collected By", value: ev?.collectedBy || "—" },
+                        { label: "File",         value: <span className="truncate block max-w-40">{ev?.fileName || "None"}</span> },
+                        { label: "Photos",       value: `${ev?.photos?.length || 0} photo(s)` },
                     ].map(({ label, value }) => (
                         <div key={label}>
                             <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">
@@ -199,17 +199,17 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                             <span className="text-slate-700 font-medium">{value}</span>
                         </div>
                     ))}
-                    {ev.description && (
+                    {ev?.description && (
                         <div className="col-span-2 sm:col-span-3">
                             <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">
                                 Description
                             </span>
-                            <span className="text-slate-600 text-xs">{ev.description}</span>
+                            <span className="text-slate-600 text-xs">{ev?.description}</span>
                         </div>
                     )}
-                    {ev.photos?.length > 0 && (
+                    {ev?.photos?.length > 0 && (
                         <div className="col-span-2 sm:col-span-3 flex flex-wrap gap-2 mt-1">
-                            {ev.photos.map((ph, pi) => (
+                            {ev?.photos.map((ph, pi) => (
                                 <img key={pi} src={ph.dataUrl} alt={ph.name}
                                     className="w-12 h-12 object-cover rounded-md border border-slate-200" />
                             ))}
@@ -234,7 +234,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                             </FieldLabel>
                             <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-500 font-mono select-all">
                                 <Hash className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                {ev.evidenceId}
+                                {ev?.evidenceId}
                             </div>
                         </div>
 
@@ -243,7 +243,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                             <SelectField
                                 label={<>Type <span className="text-red-500 ml-0.5">*</span></>}
                                 options={EVIDENCE_TYPES}
-                                value={ev.type}
+                                value={ev?.type}
                                 onChange={(e) => {
                                     onUpdate("type", e.target.value);
                                     touch("type");
@@ -258,7 +258,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                             <TextField
                                 label={<>Date Collected <span className="text-red-500 ml-0.5">*</span></>}
                                 type="date"
-                                value={ev.dateCollected}
+                                value={ev?.dateCollected}
                                 max={new Date().toISOString().split("T")[0]}
                                 onChange={(e) => {
                                     onUpdate("dateCollected", e.target.value);
@@ -273,7 +273,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                         <div>
                             <TextField
                                 label={<>Collected By <span className="text-red-500 ml-0.5">*</span></>}
-                                value={ev.collectedBy}
+                                value={ev?.collectedBy}
                                 placeholder="Officer / Forensic team name"
                                 onChange={(e) => {
                                     onUpdate("collectedBy", e.target.value);
@@ -290,7 +290,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                     <TextareaField
                         label="Description"
                         rows={2}
-                        value={ev.description}
+                        value={ev?.description}
                         onChange={(e) => onUpdate("description", e.target.value)}
                         placeholder="Brief description of this evidence item…"
                     />
@@ -344,7 +344,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                                     className="flex items-center gap-2 flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer min-w-0"
                                 >
                                     <Upload className="h-4 w-4 shrink-0" />
-                                    <span className="truncate">{ev.fileName || "Upload file…"}</span>
+                                    <span className="truncate">{ev?.fileName || "Upload file…"}</span>
                                 </button>
                                 {(hasNew || hasExisting) && (
                                     <button
@@ -364,13 +364,13 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                                     </button>
                                 )}
                             </div>
-                            {ev.fileError && (
+                            {ev?.fileError && (
                                 <p className="flex items-center gap-1 mt-1.5 text-[11px] text-red-600">
                                     <AlertCircle className="h-3 w-3 shrink-0" />
-                                    {ev.fileError}
+                                    {ev?.fileError}
                                 </p>
                             )}
-                            {hasExisting && !hasNew && !ev.fileError && (
+                            {hasExisting && !hasNew && !ev?.fileError && (
                                 <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
                                     <FileText className="h-3 w-3" />
                                     Pick a new file to replace the saved one.
@@ -403,17 +403,17 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                                 className="flex items-center gap-2 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                             >
                                 <ImageIcon className="h-4 w-4 shrink-0" />
-                                {ev.photos?.length > 0
-                                    ? `${ev.photos.length} photo(s) added`
+                                {ev?.photos?.length > 0
+                                    ? `${ev?.photos.length} photo(s) added`
                                     : "Add photos…"}
                             </button>
                         </div>
                     </div>
 
                     {/* Photo thumbnails */}
-                    {ev.photos?.length > 0 && (
+                    {ev?.photos?.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                            {ev.photos.map((ph, pi) => (
+                            {ev?.photos.map((ph, pi) => (
                                 <div
                                     key={pi}
                                     className="relative group w-16 h-16 rounded-lg overflow-hidden border border-slate-200"
@@ -535,12 +535,12 @@ export const StepEvidence = forwardRef(function StepEvidence({ data = {}, setDat
 
             {evidences.map((ev, idx) => (
                 <EvidenceCard
-                    key={ev.id}
-                    ref={(el) => { if (el) cardRefs.current[ev.id] = el; else delete cardRefs.current[ev.id]; }}
+                    key={ev?.id}
+                    ref={(el) => { if (el) cardRefs.current[ev?.id] = el; else delete cardRefs.current[ev?.id]; }}
                     ev={ev}
                     idx={idx}
-                    isEditing={editingIds.has(ev.id)}
-                    onToggleEdit={() => toggleEdit(ev.id)}
+                    isEditing={editingIds.has(ev?.id)}
+                    onToggleEdit={() => toggleEdit(ev?.id)}
                     onRemove={() => removeEvidence(idx)}
                     onUpdate={(k, v) => update(idx, k, v)}
                     onPhotoAdd={(photo) => addPhoto(idx, photo)}

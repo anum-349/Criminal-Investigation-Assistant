@@ -45,7 +45,7 @@ export const validateVictims = (v) => {
   const PHONE_RE = /^(\+92|0)[-\s]?\d{3}[-\s]?\d{7}$/;
 
   if (!v) {
-    return { form: "Add at least one victim." };
+    return { form: "Add at least one victim?." };
   }
 
   /* ─────────────────────────────────────────────
@@ -249,7 +249,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
 
   // Resolve config: explicit `caseType` prop (from the wizard's top-level
   // formData) wins; otherwise per-victim caseType; otherwise full visibility.
-  const cfg = getCfg(caseType || victim.caseType);
+  const cfg = getCfg(caseType || victim?.caseType);
 
   // Helpers for array fields
   const setArr = (k, fn) => onUpdate(idx, k, fn(victim[k] || []));
@@ -280,7 +280,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
         </div>
         <TextField
           label="Primary Label" hint="e.g. Primary Victim - Murder"
-          value={victim.primaryLabel || ""} onChange={u("primaryLabel")}
+          value={victim?.primaryLabel || ""} onChange={u("primaryLabel")}
           placeholder="Primary Victim - Murder"
           error={errors.primaryLabel}
         />
@@ -292,17 +292,17 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
           <User className="h-3.5 w-3.5" /> Personal Information
         </h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField label="Full Name" error={errors.name} required value={victim.name || ""} onChange={u("name")} placeholder="As on CNIC" />
-          <TextField label="CNIC Number" error={errors.cnic} value={victim.cnic || ""} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" />
-          <TextField label="Age" error={errors.age} type="number" min="0" max="120" value={victim.age || ""} onChange={u("age")} />
-          <SelectField label="Gender" error={errors.gender} options={["Male", "Female", "Transgender / Other"]} value={victim.gender || ""} onChange={u("gender")} />
-          <TextField label="Contact Number" error={errors.contact} value={victim.contact || ""} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" />
-          <TextField label="Occupation" value={victim.occupation || ""} onChange={u("occupation")} placeholder="e.g. IT Professional, Teacher" />
+          <TextField label="Full Name" error={errors.name} required value={victim?.name || ""} onChange={u("name")} placeholder="As on CNIC" />
+          <TextField label="CNIC Number" error={errors.cnic} value={victim?.cnic || ""} onChange={u("cnic")} placeholder="XXXXX-XXXXXXX-X" />
+          <TextField label="Age" error={errors.age} type="number" min="0" max="120" value={victim?.age || ""} onChange={u("age")} />
+          <SelectField label="Gender" error={errors.gender} options={["Male", "Female", "Transgender / Other"]} value={victim?.gender || ""} onChange={u("gender")} />
+          <TextField label="Contact Number" error={errors.contact} value={victim?.contact || ""} onChange={u("contact")} placeholder="+92-XXX-XXXXXXX" />
+          <TextField label="Occupation" value={victim?.occupation || ""} onChange={u("occupation")} placeholder="e.g. IT Professional, Teacher" />
         </div>
         <TextareaField
           className="mt-4"
           label="Residential Address" rows={2}
-          value={victim.address || ""} onChange={u("address")}
+          value={victim?.address || ""} onChange={u("address")}
           placeholder="Full home address of victim"
           error={errors.address}
         />
@@ -325,15 +325,15 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
           }}
         />
 
-        {victim.photoUrl ? (
+        {victim?.photoUrl ? (
           // HAS photo — show thumbnail with replace/remove
           <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
             <img
-              src={typeof victim.photoUrl === 'string' ? victim.photoUrl : victim.photoUrl?.[0]?.dataUrl}
-              alt={victim.name}
+              src={typeof victim?.photoUrl === 'string' ? victim?.photoUrl : victim?.photoUrl?.[0]?.dataUrl}
+              alt={victim?.name}
               className="w-full h-full object-cover"
             />
-            {victim._hadPhoto && (
+            {victim?._hadPhoto && (
               <span className="absolute top-0 left-0 text-[8px] bg-emerald-600/80 text-white px-1 py-0.5 rounded-br-md">
                 saved
               </span>
@@ -373,18 +373,18 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
           <AlertTriangle className="h-3.5 w-3.5" /> Incident Details
         </h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <SelectField label="Victim Status" error={errors.status} options={VICTIM_STATUSES} value={victim.status || ""} onChange={u("status")} />
-          <SelectField label="Relation to Suspect (if known)" options={RELATION_TO_VICTIM} value={victim.relation || ""} onChange={u("relation")} />
+          <SelectField label="Victim Status" error={errors.status} options={VICTIM_STATUSES} value={victim?.status || ""} onChange={u("status")} />
+          <SelectField label="Relation to Suspect (if known)" options={RELATION_TO_VICTIM} value={victim?.relation || ""} onChange={u("relation")} />
           <TextField
             label="Case Type"
-            value={victim.caseType || caseType || ""} onChange={u("caseType")}
+            value={victim?.caseType || caseType || ""} onChange={u("caseType")}
             placeholder="e.g. Murder / Homicide"
             error={errors.caseType}
             hint={caseType ? "Inherited from case header — override only if needed" : null}
           />
           {/* Injury type only matters when injury card is shown */}
           {cfg.showInjury && (
-            <SelectField label="Nature of Injury / Harm" error={errors.injuryType} options={INJURY_TYPES} value={victim.injuryType || ""} onChange={u("injuryType")} />
+            <SelectField label="Nature of Injury / Harm" error={errors.injuryType} options={INJURY_TYPES} value={victim?.injuryType || ""} onChange={u("injuryType")} />
           )}
         </div>
 
@@ -393,7 +393,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
             className="mt-4"
             label="Nature of Injuries (detail)" rows={2}
             error={errors.natureOfInjuries}
-            value={victim.natureOfInjuries || ""} onChange={u("natureOfInjuries")}
+            value={victim?.natureOfInjuries || ""} onChange={u("natureOfInjuries")}
             placeholder="e.g. Multiple stab wounds to chest and abdomen"
           />
         )}
@@ -402,7 +402,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
             (a) the case-type config says so (murder/homicide), OR
             (b) the user manually marks status=Deceased on a non-fatal case
             (handles edge cases like robbery → death in robbery) */}
-        {(cfg.showDeceased || victim.status === "Deceased") && (
+        {(cfg.showDeceased || victim?.status === "Deceased") && (
           <div className="mt-4 border border-red-100 bg-red-50/40 rounded-xl p-4 space-y-4">
             <p className="text-xs font-bold text-red-700 flex items-center gap-2">
               <AlertTriangle className="h-3.5 w-3.5" /> Deceased — Additional Details
@@ -411,20 +411,20 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
               <TextField
                 label="Cause of Death"
                 error={errors.causeOfDeath}
-                value={victim.causeOfDeath || ""} onChange={u("causeOfDeath")}
+                value={victim?.causeOfDeath || ""} onChange={u("causeOfDeath")}
                 placeholder="As per postmortem report"
               />
               <SelectField
                 label="Declared Dead"
                 error={errors.declaredDead}
                 options={DECLARED_DEAD_OPTIONS}
-                value={victim.declaredDead || ""} onChange={u("declaredDead")}
+                value={victim?.declaredDead || ""} onChange={u("declaredDead")}
               />
               <SelectField
                 label="Postmortem / Autopsy Status"
                 options={POSTMORTEM_OPTIONS}
                 error={errors.postmortemAutopsy}
-                value={victim.postmortemAutopsy || ""} onChange={u("postmortemAutopsy")}
+                value={victim?.postmortemAutopsy || ""} onChange={u("postmortemAutopsy")}
                 className="sm:col-span-2"
               />
             </div>
@@ -436,12 +436,12 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <TextareaField
               label="Injury Summary" rows={2}
-              value={victim.injurySummary || ""} onChange={u("injurySummary")}
+              value={victim?.injurySummary || ""} onChange={u("injurySummary")}
               placeholder="Short summary of injuries"
             />
             <TextField
               label="Injury Recorded By"
-              value={victim.injuryRecordedBy || ""} onChange={u("injuryRecordedBy")}
+              value={victim?.injuryRecordedBy || ""} onChange={u("injuryRecordedBy")}
               placeholder="e.g. Inspector Ali"
             />
           </div>
@@ -450,15 +450,15 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
         {/* Boolean flags */}
         <div className="flex flex-wrap gap-5 mt-4">
           {cfg.showInjury && (
-            <CheckField label="Medical Report Filed" checked={!!victim.medicalReport} onChange={v => onUpdate(idx, "medicalReport", v)} />
+            <CheckField label="Medical Report Filed" checked={!!victim?.medicalReport} onChange={v => onUpdate(idx, "medicalReport", v)} />
           )}
-          {(cfg.showDeceased || victim.status === "Deceased") && (
-            <CheckField label="Postmortem / Autopsy Conducted" checked={!!victim.postmortem} onChange={v => onUpdate(idx, "postmortem", v)} />
+          {(cfg.showDeceased || victim?.status === "Deceased") && (
+            <CheckField label="Postmortem / Autopsy Conducted" checked={!!victim?.postmortem} onChange={v => onUpdate(idx, "postmortem", v)} />
           )}
           {cfg.showProtection && (
-            <CheckField label="Protection Required" checked={!!victim.protectionRequired} onChange={v => onUpdate(idx, "protectionRequired", v)} />
+            <CheckField label="Protection Required" checked={!!victim?.protectionRequired} onChange={v => onUpdate(idx, "protectionRequired", v)} />
           )}
-          <CheckField label="Cooperative" checked={victim.cooperative !== false} onChange={v => onUpdate(idx, "cooperative", v)} />
+          <CheckField label="Cooperative" checked={victim?.cooperative !== false} onChange={v => onUpdate(idx, "cooperative", v)} />
         </div>
       </div>
 
@@ -469,7 +469,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
             <FileSearch className="h-3.5 w-3.5" /> Forensic Findings
           </h5>
           <div className="space-y-2">
-            {(victim.forensic || []).map((f, i) => (
+            {(victim?.forensic || []).map((f, i) => (
               <div key={i} className="flex gap-2">
                 <input
                   type="text"
@@ -488,7 +488,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
                 <span className={errors[`forensic_${i}`] ? "border-red-400 bg-red-50 focus:ring-red-300" : "border-slate-300 bg-white focus:ring-deep-ocean/30 focus:border-deep-ocean"}>{errors[`forensic_${i}`]} </span>
               </div>
             ))}
-            {(victim.forensic || []).length === 0 && (
+            {(victim?.forensic || []).length === 0 && (
               <p className="text-xs text-slate-400 italic">No forensic findings added yet.</p>
             )}
             <button
@@ -508,7 +508,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
             <Clock className="h-3.5 w-3.5" /> Timeline of Events
           </h5>
           <div className="space-y-2">
-            {(victim.timeline || []).map((entry, i) => (
+            {(victim?.timeline || []).map((entry, i) => (
               <div key={i} className="flex gap-2">
                 <input
                   type="text"
@@ -535,7 +535,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
                 <span className={errors[`timeline_${i}_text`] ? "border-red-400 bg-red-50 focus:ring-red-300" : "border-slate-300 bg-white focus:ring-deep-ocean/30 focus:border-deep-ocean"}>{errors[`timeline_${i}_text`]} </span>
               </div>
             ))}
-            {(victim.timeline || []).length === 0 && (
+            {(victim?.timeline || []).length === 0 && (
               <p className="text-xs text-slate-400 italic">No timeline entries added yet.</p>
             )}
             <button
@@ -558,18 +558,18 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
             <SelectField
               label="Threat Level" options={THREAT_LEVELS}
               error={errors.threatLevel}
-              value={victim.threatLevel || ""} onChange={u("threatLevel")}
+              value={victim?.threatLevel || ""} onChange={u("threatLevel")}
             />
             <SelectField
               label="Protection Assigned" options={["Yes", "No", "Pending Review"]}
               error={errors.protectionAssigned}
-              value={victim.protectionAssigned || ""} onChange={u("protectionAssigned")}
+              value={victim?.protectionAssigned || ""} onChange={u("protectionAssigned")}
             />
           </div>
           <TextareaField
             className="mt-4"
             label="Protection Notes" rows={2}
-            value={victim.notes || ""} onChange={u("notes")}
+            value={victim?.notes || ""} onChange={u("notes")}
             placeholder="e.g. Victim had recent disagreements with colleague."
           />
         </div>
@@ -582,7 +582,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
             <Gavel className="h-3.5 w-3.5" /> Legal Status
           </h5>
           <div className="space-y-2">
-            {(victim.legal || []).map((item, i) => (
+            {(victim?.legal || []).map((item, i) => (
               <div key={i} className="flex gap-2 items-center">
                 <input
                   type="checkbox"
@@ -607,7 +607,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
                 <span className={errors[`legal_${i}_label`] ? "border-red-400 bg-red-50 focus:ring-red-300" : "border-slate-300 bg-white focus:ring-deep-ocean/30 focus:border-deep-ocean"}>{errors[`legal_${i}_label`]} </span>
               </div>
             ))}
-            {(victim.legal || []).length === 0 && (
+            {(victim?.legal || []).length === 0 && (
               <p className="text-xs text-slate-400 italic">No legal milestones added yet.</p>
             )}
             <button
@@ -624,7 +624,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
             <Input
               type="date"
               label="Next Follow-Up Date"
-              value={victim.nextFollowUp || ""} onChange={u("nextFollowUp")}
+              value={victim?.nextFollowUp || ""} onChange={u("nextFollowUp")}
               placeholder="e.g. 20 Dec 2025"
               error={errors.nextFollowUp}
             />
@@ -641,7 +641,7 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
           <TextareaField
             label="Victim Statement / Complaint" rows={3} maxLength={1000}
             error={errors.statement}
-            value={victim.statement || ""} onChange={u("statement")}
+            value={victim?.statement || ""} onChange={u("statement")}
             placeholder="Statement given by victim or complainant…"
           />
         </div>
@@ -662,7 +662,7 @@ function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseTy
             {idx + 1}
           </div>
           Victim #{idx + 1}
-          {victim._extractedByAI && (
+          {victim?._extractedByAI && (
             <span className="text-[10px] font-normal text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
               AI Extracted
             </span>
@@ -679,7 +679,7 @@ function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseTy
         )}
       </div>
 
-      <VictimFormFields victim={victim} idx={idx} onUpdate={onUpdate} caseType={caseType} />
+      <VictimFormFields victim={victim} idx={idx} onUpdate={onUpdate} caseType={caseType} errors={errors}/>
     </div>
   );
 }
@@ -688,7 +688,7 @@ function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseTy
 // Standalone-mode card — collapsed summary with Edit/Save toggle
 // ─────────────────────────────────────────────────────────────────────────────
 function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit, onUpdate, onRemove, caseType, errors }) {
-  const photoCount = (victim.photoUrl || []).length;
+  const photoCount = (victim?.photoUrl || []).length;
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -702,7 +702,7 @@ function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit,
           <h4 className="text-sm font-bold text-slate-700 shrink-0">Victim #{idx + 1}</h4>
           {!isEditing && (
             <span className="text-xs text-slate-400 truncate font-mono">
-              {victim.victimId || ""}{victim.name ? ` — ${victim.name}` : ""}
+              {victim?.victimId || ""}{victim?.name ? ` — ${victim?.name}` : ""}
             </span>
           )}
         </div>
@@ -734,32 +734,32 @@ function StandaloneVictimCard({ victim, idx, canRemove, isEditing, onToggleEdit,
       {!isEditing && (
         <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
           {[
-            { label: "Name", value: victim.name || "—" },
-            { label: "Age", value: victim.age || "—" },
-            { label: "Gender", value: victim.gender || "—" },
-            { label: "Contact", value: victim.contact || "—" },
-            { label: "Status", value: victim.status || "—" },
-            { label: "Photo", value: victim.photoUrl ? "1 attached" : "—" },].map(({ label, value }) => (
+            { label: "Name", value: victim?.name || "—" },
+            { label: "Age", value: victim?.age || "—" },
+            { label: "Gender", value: victim?.gender || "—" },
+            { label: "Contact", value: victim?.contact || "—" },
+            { label: "Status", value: victim?.status || "—" },
+            { label: "Photo", value: victim?.photoUrl ? "1 attached" : "—" },].map(({ label, value }) => (
               <div key={label}>
                 <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">{label}</span>
                 <span className="text-slate-700 font-medium">{value}</span>
               </div>
             ))}
-          {victim.injurySummary && (
+          {victim?.injurySummary && (
             <div className="col-span-2 sm:col-span-3">
               <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">Injury Summary</span>
-              <span className="text-slate-600 text-xs">{victim.injurySummary}</span>
+              <span className="text-slate-600 text-xs">{victim?.injurySummary}</span>
             </div>
           )}
-          {victim.statement && (
+          {victim?.statement && (
             <div className="col-span-2 sm:col-span-3">
               <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">Statement</span>
-              <span className="text-slate-600 text-xs">{victim.statement}</span>
+              <span className="text-slate-600 text-xs">{victim?.statement}</span>
             </div>
           )}
           {photoCount > 0 && (
             <div className="col-span-2 sm:col-span-3 mt-1">
-              <img src={victim.photoUrl} alt="victim photo"
+              <img src={victim?.photoUrl} alt="victim photo"
                 className="w-12 h-12 object-cover rounded-md border border-slate-200" />
             </div>
           )}
@@ -783,7 +783,7 @@ export function StepVictims({ data = {}, setData, mode = "register", validationE
   const victims = data.victims || [];
   // case-type from the wizard's top-level form (set on step 1) drives section
   // visibility for ALL victims by default. Each victim can still override
-  // via its own `victim.caseType` field.
+  // via its own `victim?.caseType` field.
   const caseType = data.caseType;
 
   const [editingIds, setEditingIds] = useState(new Set());
@@ -848,7 +848,7 @@ export function StepVictims({ data = {}, setData, mode = "register", validationE
       {victims.map((victim, idx) =>
         mode === "register" ? (
           <RegisterVictimCard
-            key={victim.id}
+            key={victim?.id}
             victim={victim} idx={idx}
             canRemove={victims.length > 1}
             onUpdate={update}
@@ -858,11 +858,11 @@ export function StepVictims({ data = {}, setData, mode = "register", validationE
           />
         ) : (
           <StandaloneVictimCard
-            key={victim.id}
+            key={victim?.id}
             victim={victim} idx={idx}
             canRemove={victims.length > 1 || mode === "standalone"}
-            isEditing={editingIds.has(victim.id)}
-            onToggleEdit={() => toggleEdit(victim.id)}
+            isEditing={editingIds.has(victim?.id)}
+            onToggleEdit={() => toggleEdit(victim?.id)}
             onUpdate={update}
             onRemove={() => removeVictim(idx)}
             caseType={caseType}
