@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-    FolderOpen, LayoutDashboard, CheckCircle2, X,
-    Loader2, AlertTriangle,
+    FolderOpen, LayoutDashboard,
+    Loader2, AlertTriangle, ChevronDown, CheckCircle2,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/Badge';
@@ -25,7 +25,7 @@ import { addEvidencesToCase, formatApiError } from "@/services/evidenceApi";
 import { addVictimsToCase } from '@/services/victimApi';
 import { addWitnessesToCase } from '@/services/witnessApi';
 import { addSuspectsToCase } from "@/services/suspectApi";
-
+import { useToast } from '@/context/ToastContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,23 +34,6 @@ const getAuthHeader = () => {
         localStorage.getItem('token') || sessionStorage.getItem('token');
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-function Toast({ message, onClose }) {
-    return (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium bg-deep-ocean text-white max-w-sm">
-            <CheckCircle2 className="h-4 w-4 text-emerald-300 shrink-0" />
-            <span className="flex-1">{message}</span>
-            <button
-                onClick={onClose}
-                className="p-0.5 rounded hover:bg-white/10 cursor-pointer"
-                aria-label="Dismiss"
-            >
-                <X className="h-3.5 w-3.5" />
-            </button>
-        </div>
-    );
-}
 
 // ─── Header status badge styling ─────────────────────────────────────────────
 
@@ -69,6 +52,129 @@ const getStatusPillClass = (label) => {
     return 'bg-forest-teal';
 };
 
+// ─── Static case status list ──────────────────────────────────────────────────
+// Mirrors lkp_case_statuses exactly. No API call needed — codes are stable.
+// is_terminal=true means the case is closed and the backend will lock further changes.
+
+const CASE_STATUSES = [
+    { code: 'OPEN',               label: 'Open',               is_terminal: false },
+    { code: 'UNDER_INVESTIGATION',label: 'Under Investigation', is_terminal: false },
+    { code: 'ACTIVE',             label: 'Active',             is_terminal: false },
+    { code: 'PENDING',            label: 'Pending',            is_terminal: false },
+    { code: 'COLD_CASE',          label: 'Cold Case',          is_terminal: false },
+    { code: 'CLOSED',             label: 'Closed',             is_terminal: true  },
+    { code: 'ARCHIVED',           label: 'Archived',           is_terminal: true  },
+];
+
+const getDotClass = (code) => {
+    if (code === 'CLOSED' || code === 'ARCHIVED') return 'bg-slate-400';
+    if (code === 'PENDING')                        return 'bg-amber-400';
+    return 'bg-forest-teal';
+};
+
+// ─── Status Update Dropdown ───────────────────────────────────────────────────
+
+const StatusUpdateDropdown = ({ caseId, currentStatus, onStatusUpdated }) => {
+    const [open,     setOpen]     = useState(false);
+    const [updating, setUpdating] = useState(false);
+    const ref   = useRef(null);
+    const toast = useToast();
+
+    // Close on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const handleSelect = async (s) => {
+        // Ignore clicks on the already-active status
+        if (s.label === currentStatus) { setOpen(false); return; }
+        setUpdating(true);
+        setOpen(false);
+        try {
+            const url = import.meta.env.VITE_API_URL;
+            await axios.patch(
+                `${url}/api/investigator/cases/${caseId}/status`,
+                { status_code: s.code },   // send code — backend resolves to id
+                { headers: getAuthHeader() },
+            );
+            toast.success(`Status updated to "${s.label}"`);
+            onStatusUpdated(s.label);
+        } catch (err) {
+            console.error('Status update failed:', err);
+            const detail = err?.response?.data?.detail || 'Failed to update status.';
+            toast.error(`Update failed: ${detail}`);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    return (
+        <div className="relative" ref={ref}>
+            {/* Trigger pill */}
+            <button
+                onClick={() => !updating && setOpen(o => !o)}
+                disabled={updating}
+                title="Update case status"
+                className={`
+                    inline-flex items-center gap-1.5 pl-3 pr-2 py-0.5 rounded-full text-xs font-medium
+                    text-white transition-all select-none
+                    ${updating ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:brightness-110 active:scale-95'}
+                    ${getStatusPillClass(currentStatus)}
+                `}
+            >
+                {updating
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : <>
+                        {currentStatus || '—'}
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+                      </>
+                }
+            </button>
+
+            {/* Dropdown */}
+            {open && (
+                <div className="absolute left-0 top-full mt-1.5 z-50 w-52 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
+                    <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400 border-b border-slate-100">
+                        Update Status
+                    </p>
+                    <ul className="py-1">
+                        {CASE_STATUSES.map((s) => {
+                            const isCurrent = s.label === currentStatus;
+                            return (
+                                <li key={s.code}>
+                                    <button
+                                        onClick={() => handleSelect(s)}
+                                        disabled={isCurrent}
+                                        className={`
+                                            w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 transition-colors
+                                            ${isCurrent
+                                                ? 'bg-slate-50 text-slate-400 cursor-default'
+                                                : 'text-slate-700 hover:bg-deep-ocean-50 hover:text-deep-ocean-700 cursor-pointer'}
+                                        `}
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${getDotClass(s.code)}`} />
+                                            {s.label}
+                                            {s.is_terminal && (
+                                                <span className="text-[10px] text-slate-400 font-medium">(terminal)</span>
+                                            )}
+                                        </span>
+                                        {isCurrent && <CheckCircle2 className="h-3.5 w-3.5 text-forest-teal shrink-0" />}
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ═════════════════════════════════════════════════════════════════════════════
 // CasePage
 // ═════════════════════════════════════════════════════════════════════════════
@@ -76,31 +182,22 @@ const getStatusPillClass = (label) => {
 const CasePage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const caseId = id; // For easier logging and potential future transformations
-    // ── Loaded data ────────────────────────────────────────────────────────
+    const caseId = id;
+
     const [header, setHeader] = useState(null);
     const [stats, setStats] = useState(null);
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
+    const toast = useToast();
 
-    // ── Tab state ──────────────────────────────────────────────────────────
     const [activeTab, setActiveTab] = useState('timeline');
 
-    // ── Dialog visibility ──────────────────────────────────────────────────
     const [showAddEvidence, setShowAddEvidence] = useState(false);
     const [showAddSuspect, setShowAddSuspect] = useState(false);
     const [showAddVictim, setShowAddVictim] = useState(false);
     const [showAddWitness, setShowAddWitness] = useState(false);
-    // ── Toast ──────────────────────────────────────────────────────────────
-    const [toast, setToast] = useState(null);
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(() => setToast(null), 3500);
-        return () => clearTimeout(t);
-    }, [toast]);
 
-    // ── Initial load ───────────────────────────────────────────────────────
     useEffect(() => {
         if (!caseId) return;
 
@@ -132,14 +229,14 @@ const CasePage = () => {
         fetchCase();
     }, [caseId]);
 
-    // Direct add for manual events coming from CaseTimeline's modal (kept
-    // local — manual timeline events aren't yet round-tripped through the
-    // backend; that endpoint is a separate addition).
+    // ── Called by StatusUpdateDropdown after a successful PATCH ────────────
+    const handleStatusUpdated = useCallback((newStatusLabel) => {
+        setHeader(prev => prev ? { ...prev, status: newStatusLabel } : prev);
+    }, []);
+
     const handleAddTimelineEvent = useCallback(async (ev) => {
         try {
             const url = import.meta.env.VITE_API_URL;
-            // Strip frontend-only fields (id, createdAt, eventSource) — backend
-            // generates its own canonical row. Send only the form payload.
             const body = {
                 eventType: ev.eventType,
                 title: ev.title,
@@ -154,32 +251,23 @@ const CasePage = () => {
                 followUpRequired: !!ev.followUpRequired,
                 followUpDate: ev.followUpDate || null,
             };
-
             const res = await axios.post(
                 `${url}/api/investigator/cases/${caseId}/timeline`,
                 body,
                 { headers: getAuthHeader() },
             );
-
             const created = res.data;
-            if (created?.id) {
-                setEvents(curr => [created, ...curr]);
-            }
-            setToast(`Timeline event added to ${caseId}`);
+            if (created?.id) setEvents(curr => [created, ...curr]);
+            toast.success(`Timeline event added to ${caseId}`);
             return created;
         } catch (err) {
             console.error('Add timeline failed:', err);
             const detail = err?.response?.data?.detail || err.message || 'Failed to save event.';
-            setToast(`Save failed: ${detail}`);
-            // Rethrow so AddTimelineDialog stays open and shows its own error UI
+            toast.error(`Save failed: ${detail}`);
             throw err;
         }
     }, [caseId]);
 
-    // ── Delete a manual timeline event ──────────────────────────────────────────
-    // CaseTimeline awaits this and only closes its inline confirm on success.
-    // On failure we show a toast and rethrow so CaseTimeline can keep the row
-    // visible.
     const handleDeleteTimelineEvent = useCallback(async (id) => {
         try {
             const url = import.meta.env.VITE_API_URL;
@@ -188,11 +276,11 @@ const CasePage = () => {
                 { headers: getAuthHeader() },
             );
             setEvents(curr => curr.filter(e => e.id !== id));
-            setToast(`Timeline event ${id} deleted`);
+            toast.success(`Timeline event ${id} deleted`);
         } catch (err) {
             console.error('Delete timeline failed:', err);
             const detail = err?.response?.data?.detail || err.message || 'Failed to delete event.';
-            setToast(`Delete failed: ${detail}`);
+            toast.error(`Delete failed: ${detail}`);
             throw err;
         }
     }, [caseId]);
@@ -203,20 +291,11 @@ const CasePage = () => {
         try {
             const result = await addSuspectsToCase(caseId, list);
             const count = result.created_ids?.length || 0;
-            if (result.timeline_events?.length) {
-                setEvents(curr => [...result.timeline_events, ...curr]);
-            }
-            setToast(`Added ${count} suspects item${count === 1 ? "" : "s"} to ${caseId}`);
-
-            setStats(curr => curr && ({
-                ...curr,
-                suspects: curr.suspects + (result.created_ids?.length || 0),
-            }));
-            if (result.photo_failures?.length) {
-                console.warn("Photo(s) failed:", result.photo_failures);
-            }
-
-            setShowAddSuspect(false)
+            if (result.timeline_events?.length) setEvents(curr => [...result.timeline_events, ...curr]);
+            toast.success(`Added ${count} suspect${count === 1 ? "" : "s"} to ${caseId}`);
+            setStats(curr => curr && ({ ...curr, suspects: curr.suspects + (result.created_ids?.length || 0) }));
+            if (result.photo_failures?.length) console.warn("Photo(s) failed:", result.photo_failures);
+            setShowAddSuspect(false);
             return { ok: true, ...result };
         } catch (err) {
             console.error("Add suspects failed:", err);
@@ -224,35 +303,21 @@ const CasePage = () => {
         }
     };
 
-
     const handleAddEvidenceSubmit = async (data) => {
         const list = data?.evidences || [];
         if (!list.length) return { ok: false, error: "No evidence items to submit." };
-
         try {
             const result = await addEvidencesToCase(caseId, list);
-
-            if (result.timeline_events?.length) {
-                setEvents(curr => [...result.timeline_events, ...curr]);
-            }
-            setStats(curr => curr && ({
-                ...curr,
-                evidence_collected: curr.evidence_collected + (result.created_ids?.length || 0),
-            }));
-
+            if (result.timeline_events?.length) setEvents(curr => [...result.timeline_events, ...curr]);
+            setStats(curr => curr && ({ ...curr, evidence_collected: curr.evidence_collected + (result.created_ids?.length || 0) }));
             const n = result.created_ids?.length || 0;
-            setToast(`Added ${n} evidence item${n === 1 ? "" : "s"} to ${caseId}`);
-
-            setShowAddEvidence(false)
-            return {
-                ok: true,
-                created_ids: result.created_ids,
-                photo_failures: result.photo_failures,
-            };
+            toast.success(`Added ${n} evidence item${n === 1 ? "" : "s"} to ${caseId}`);
+            setShowAddEvidence(false);
+            return { ok: true, created_ids: result.created_ids, photo_failures: result.photo_failures };
         } catch (err) {
             console.error("Add evidence failed:", err);
             const detail = formatApiError(err, "Failed to save evidence.");
-            setToast(`Save failed: ${detail}`);
+            toast.error(`Save failed: ${detail}`);
             return { ok: false, error: detail };
         }
     };
@@ -262,28 +327,16 @@ const CasePage = () => {
         if (!list.length) return { ok: false, error: "No victim items to submit." };
         try {
             const result = await addVictimsToCase(caseId, list);
-
-            if (result.timeline_events?.length) {
-                setEvents(curr => [...result.timeline_events, ...curr]);
-            }
-            setStats(curr => curr && ({
-                ...curr,
-                victims: curr.victims + (result.created_ids?.length || 0),
-            }));
-
+            if (result.timeline_events?.length) setEvents(curr => [...result.timeline_events, ...curr]);
+            setStats(curr => curr && ({ ...curr, victims: curr.victims + (result.created_ids?.length || 0) }));
             const n = result.created_ids?.length || 0;
-            setToast(`Added ${n} Victim item${n === 1 ? "" : "s"} to ${caseId}`);
-
-            setShowAddVictim(false)
-            return {
-                ok: true,
-                created_ids: result.created_ids,
-                photo_failures: result.photo_failures,
-            };
+            toast.success(`Added ${n} victim${n === 1 ? "" : "s"} to ${caseId}`);
+            setShowAddVictim(false);
+            return { ok: true, created_ids: result.created_ids, photo_failures: result.photo_failures };
         } catch (err) {
             console.error("Add Victim failed:", err);
             const detail = formatApiError(err, "Failed to save victim.");
-            setToast(`Save failed: ${detail}`);
+            toast.error(`Save failed: ${detail}`);
             return { ok: false, error: detail };
         }
     };
@@ -291,27 +344,18 @@ const CasePage = () => {
     const handleAddWitnessSubmit = async (data) => {
         const list = data?.witnesses || [];
         if (!list.length) return { ok: false, error: "No witness items to submit." };
-
         try {
             const result = await addWitnessesToCase(caseId, list);
             const count = result.created_ids?.length || 0;
-
-            if (result.timeline_events?.length) {
-                setEvents(curr => [...result.timeline_events, ...curr]);
-            }
-            setToast(`Added ${count} witness item${count === 1 ? "" : "s"} to ${caseId}`);
-
-            if (result.photo_failures?.length) {
-                const names = result.photo_failures.map(f => f.photoName).join(", ");
-                console.warn(`${count} witness(es) added but photo(s) failed: ${names}`);
-            }
-
-            setShowAddWitness(false)
+            if (result.timeline_events?.length) setEvents(curr => [...result.timeline_events, ...curr]);
+            toast.success(`Added ${count} witness${count === 1 ? "" : "es"} to ${caseId}`);
+            if (result.photo_failures?.length) console.warn(`Photo(s) failed:`, result.photo_failures);
+            setShowAddWitness(false);
             return { ok: true, ...result };
         } catch (err) {
             console.error('Add witnesses failed:', err);
             const detail = formatApiError(err, "Failed to save witness.");
-            setToast(`Save failed: ${detail}`);
+            toast.error(`Save failed: ${detail}`);
             return { ok: false, error: formatApiError(err, 'Failed to add witnesses.') };
         }
     };
@@ -357,9 +401,7 @@ const CasePage = () => {
                 <div className="max-w-xl mx-auto py-32 text-center">
                     <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-red-500" />
                     <h1 className="text-xl font-bold">Access denied</h1>
-                    <p className="text-sm text-muted-foreground mt-2">
-                        This case is assigned to another investigator.
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">This case is assigned to another investigator.</p>
                 </div>
             </div>
         );
@@ -377,7 +419,6 @@ const CasePage = () => {
         );
     }
 
-    // ─── Normal render ────────────────────────────────────────────────────
     const STATS_TILES = stats ? [
         `Evidence Collected: ${stats.evidence_collected}`,
         `Suspects: ${stats.suspects}`,
@@ -394,6 +435,7 @@ const CasePage = () => {
             <header className="bg-cool-silver p-6 border-b border-slate-300">
                 <div className="flex justify-between items-start">
                     <div>
+                        {/* Breadcrumb */}
                         <div className="flex items-center gap-2 mb-1">
                             <button
                                 onClick={() => navigate('/investigator')}
@@ -417,15 +459,19 @@ const CasePage = () => {
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Case ID: {header?.id || caseId}
                         </p>
-
                         <h1 className="text-2xl font-bold mt-1">{header?.title || '—'}</h1>
                         <p className="text-sm text-slate-600 mt-1">
                             Assigned: {header?.investigator || '—'}
                         </p>
-                        <div className="flex gap-2 mt-3">
-                            <span className={`text-white inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusPillClass(header?.status)}`}>
-                                {header?.status || '—'}
-                            </span>
+
+                        {/* Status badges row — status pill is now interactive */}
+                        <div className="flex items-center gap-2 mt-3">
+                            {/* ↓ Replaced plain status pill with the dropdown */}
+                            <StatusUpdateDropdown
+                                caseId={caseId}
+                                currentStatus={header?.status}
+                                onStatusUpdated={handleStatusUpdated}
+                            />
                             <Badge variant={getSeverityBadgeVariant(header?.severity)}>
                                 {header?.severity || '—'}
                             </Badge>
@@ -445,7 +491,6 @@ const CasePage = () => {
             </header>
 
             <main className="px-6 py-6">
-
                 {/* Stats / overview */}
                 <section className="bg-white rounded-lg shadow-sm p-6 border border-slate-200 mb-6 space-y-4">
                     <div>
@@ -454,7 +499,6 @@ const CasePage = () => {
                             {header?.description || '—'}
                         </p>
                     </div>
-
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         {STATS_TILES.map((stat, i) => (
                             <div
@@ -473,7 +517,6 @@ const CasePage = () => {
                         const tabKey = tab.toLowerCase();
                         const isActive = activeTab === tabKey;
                         const showNewDot = tabKey === 'timeline' && toast && activeTab !== 'timeline';
-
                         return (
                             <button
                                 key={tab}
@@ -510,21 +553,19 @@ const CasePage = () => {
                                             : null}
             </main>
 
-            {/* ── Dialogs ──────────────────────────────────────────────── */}
+            {/* ── Dialogs ───────────────────────────────────────────────── */}
             <AddEvidenceDialog
                 isOpen={showAddEvidence}
                 onClose={() => setShowAddEvidence(false)}
                 onSubmit={handleAddEvidenceSubmit}
                 caseId={caseId}
             />
-
             <AddSuspectDialog
                 isOpen={showAddSuspect}
                 onClose={() => setShowAddSuspect(false)}
                 onSubmit={handleAddSuspectSubmit}
                 caseId={caseId}
             />
-
             <AddVictimDialog
                 isOpen={showAddVictim}
                 onClose={() => setShowAddVictim(false)}
@@ -532,15 +573,12 @@ const CasePage = () => {
                 caseId={caseId}
                 caseType={header?.crime_type}
             />
-
             <AddWitnessDialog
                 isOpen={showAddWitness}
                 onClose={() => setShowAddWitness(false)}
                 onSubmit={handleAddWitnessSubmit}
                 caseId={caseId}
             />
-
-            {toast && <Toast message={toast} onClose={() => setToast(null)} />}
         </div>
     );
 };

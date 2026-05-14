@@ -11,6 +11,7 @@ import {
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/Card';
 import { AuthContext } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -61,15 +62,6 @@ const Toggle = ({ label, description, value, onChange }) => (
     </div>
 );
 
-// ── Toast ──────────────────────────────────────────────────────────────────────
-const Toast = ({ message, type }) => (
-    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium
-        ${type === 'success' ? 'bg-green-700 text-white' : 'bg-red-700 text-white'}`}>
-        {type === 'success' ? <Check className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-        {message}
-    </div>
-);
-
 const photoSrc = (rawUrl) => {
     if (!rawUrl) return '';
     if (rawUrl.startsWith('http')) return rawUrl;
@@ -82,6 +74,8 @@ const ProfilePage = () => {
     const navigate = useNavigate();
     const { logout } = useContext(AuthContext);
 
+    const toast = useToast();
+
     const getTokenData = () => {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (!token) return {};
@@ -91,12 +85,6 @@ const ProfilePage = () => {
     const tokenData = getTokenData();
 
     const [activeTab, setActiveTab] = useState('profile');
-    const [toast, setToast] = useState(null);
-
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3500);
-    };
 
     // ── Profile state ──────────────────────────────────────────────────────────
     // User fields (from /api/auth/me + investigator profile)
@@ -141,7 +129,7 @@ const ProfilePage = () => {
                 }));
             } catch (err) {
                 console.error('Failed to load profile:', err);
-                showToast('Could not load profile data', 'error');
+                toast.error("Profile failed to load. TRY AGAIN")
             } finally {
                 setFetchLoading(false);
             }
@@ -182,10 +170,11 @@ const ProfilePage = () => {
                 );
             }
 
-            showToast('Profile updated successfully');
+            toast.success('Profile updated successfully');
         } catch (err) {
             const msg = err?.response?.data?.detail || 'Failed to update profile';
-            showToast(msg, 'error');
+           console.error(msg)
+            toast.error('Failed to update profile');
         } finally {
             setProfileLoading(false);
         }
@@ -230,11 +219,11 @@ const ProfilePage = () => {
 
     const handlePasswordChange = async () => {
         if (passwords.new !== passwords.confirm) {
-            showToast('New passwords do not match', 'error');
+            toast.warning('New passwords do not match');
             return;
         }
         if (strength < 2) {
-            showToast('Password is too weak — add uppercase letters, numbers, or symbols', 'error');
+            toast.warning('Password is too weak — add uppercase letters, numbers, or symbols');
             return;
         }
         setPwLoading(true);
@@ -247,11 +236,11 @@ const ProfilePage = () => {
                 },
                 { headers: getAuthHeader() }
             );
-            showToast('Password changed successfully');
+            toast.success('Password changed successfully');
             setPasswords({ current: '', new: '', confirm: '' });
         } catch (err) {
             const msg = err?.response?.data?.detail || 'Failed to change password';
-            showToast(msg, 'error');
+            toast.error('Failed to change password');
         } finally {
             setPwLoading(false);
         }
@@ -296,10 +285,10 @@ const ProfilePage = () => {
                 { headers: getAuthHeader() },
             );
             setPrefs(res.data.preferences);   // sync with server-returned values
-            showToast('Preferences saved');
+            toast.success('Preferences saved');
         } catch (err) {
             const msg = err?.response?.data?.detail || 'Failed to save preferences';
-            showToast(msg, 'error');
+            toast.error('Failed to save preferences');
         } finally {
             setPrefsLoading(false);
         }
@@ -647,7 +636,6 @@ const ProfilePage = () => {
                 </div>
             </main>
 
-            {toast && <Toast message={toast.message} type={toast.type} />}
         </div>
     );
 };

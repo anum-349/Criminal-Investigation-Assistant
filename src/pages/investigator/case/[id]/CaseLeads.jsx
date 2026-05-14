@@ -1,36 +1,3 @@
-/**
- * CaseLeads.jsx — Investigation Leads tab (case detail page)
- * ─────────────────────────────────────────────────────────────────────────────
- * What changed in this version:
- *
- *  1. Add Manual Lead now actually waits for the API before showing the
- *     "Manual Lead Added" success screen in AddLeadDialog. The dialog used
- *     to flip to the success screen unconditionally; if the POST failed,
- *     the user saw "added!" but the row never appeared. The dialog now
- *     awaits a boolean from the parent and rolls back on failure.
- *
- *  2. Errors are surfaced via an inline toast strip at the top of the
- *     section instead of `alert()` modals. Consistent with the rest of
- *     the case-detail tabs.
- *
- *  3. Status PATCH now correctly refreshes the row from the server
- *     response (it already did) AND keeps the source-pill counts in
- *     sync if a lead transitions to/from "Dismissed". The counts come
- *     from the server; we re-fetch when a status flips to/from Dismissed
- *     so totals stay accurate.
- *
- *  4. Delete is wired to the existing DELETE /leads/{id} endpoint. AI
- *     leads can't be deleted server-side; the inline confirm now hides
- *     itself for AI leads (the trash button was already gated on
- *     `lead.editable`, but a stale state could still pop the confirm).
- *     We pass the full lead object instead of just the id so the
- *     warning copy can be specific.
- *
- *  5. View dialog is unchanged — it was already wired to render server
- *     data via lead.* fields.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import {
@@ -39,9 +6,11 @@ import {
   Loader2, CheckCircle2,
 } from 'lucide-react';
 
+import { useToast } from '@/context/ToastContext';
+
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
-import { Badge }      from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
 
 import {
   LEAD_STATUSES,
@@ -59,23 +28,23 @@ import AddLeadDialog from './forms/AddLead';
 const PAGE_SIZE = 5;
 
 const SEVERITY_FILTER = [
-  { value: 'all',      label: 'All Severities' },
+  { value: 'all', label: 'All Severities' },
   { value: 'Critical', label: 'Critical' },
-  { value: 'High',     label: 'High' },
-  { value: 'Medium',   label: 'Medium' },
-  { value: 'Low',      label: 'Low' },
+  { value: 'High', label: 'High' },
+  { value: 'Medium', label: 'Medium' },
+  { value: 'Low', label: 'Low' },
 ];
 
 const SOURCE_FILTER = [
-  { key: 'all',    label: 'All Leads' },
-  { key: 'ai',     label: 'AI-generated' },
+  { key: 'all', label: 'All Leads' },
+  { key: 'ai', label: 'AI-generated' },
   { key: 'manual', label: 'Manual' },
 ];
 
 const getSeverityClass = (s) => {
   if (s === 'Critical') return 'bg-orange-500 text-white';
-  if (s === 'High')     return 'bg-rose-800/90 text-white';
-  if (s === 'Medium')   return 'bg-amber-500 text-white';
+  if (s === 'High') return 'bg-rose-800/90 text-white';
+  if (s === 'Medium') return 'bg-amber-500 text-white';
   return 'bg-slate-500 text-white';
 };
 
@@ -161,11 +130,11 @@ const StatusMenu = ({ lead, onChange, onAskDelete, busy }) => {
 
 const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   // ── Filter inputs (live) ────────────────────────────────────────────────
-  const [keyword, setKeyword]               = useState('');
+  const [keyword, setKeyword] = useState('');
   const [leadTypeFilter, setLeadTypeFilter] = useState('');
-  const [dateFilter, setDateFilter]         = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
-  const [sourceFilter, setSourceFilter]     = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
 
   // Applied filters
   const [appliedFilters, setAppliedFilters] = useState({
@@ -175,28 +144,22 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Server data
-  const [leads, setLeads]   = useState([]);
-  const [total, setTotal]   = useState(0);
+  const [leads, setLeads] = useState([]);
+  const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState({ all: 0, ai: 0, manual: 0 });
   const [typeOptions, setTypeOptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
-  const [toast, setToast]     = useState(null);  // { kind: 'success' | 'error', text }
+  const [error, setError] = useState(null);
   const requestSeq = useRef(0);
 
   // UI state
-  const [showAdd, setShowAdd]             = useState(false);
-  const [dialogLead, setDialogLead]       = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [dialogLead, setDialogLead] = useState(null);
   const closeDialogBtnRef = useRef(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // { id, type } | null
-  const [busyLeadId, setBusyLeadId]       = useState(null);
+  const [busyLeadId, setBusyLeadId] = useState(null);
 
-  // ── Toast auto-dismiss ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  const toast = useToast()
 
   // ── Fetch ───────────────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
@@ -210,12 +173,12 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       const res = await axios.get(`${url}/api/investigator/cases/${caseId}/leads`, {
         headers: getAuthHeader(),
         params: {
-          keyword:   appliedFilters.keyword,
+          keyword: appliedFilters.keyword,
           lead_type: appliedFilters.leadType,
-          severity:  appliedFilters.severity,
-          source:    sourceFilter,
+          severity: appliedFilters.severity,
+          source: sourceFilter,
           date_from: appliedFilters.date,
-          page:      currentPage,
+          page: currentPage,
           page_size: PAGE_SIZE,
         },
       });
@@ -240,9 +203,9 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   // ── Filter handlers ─────────────────────────────────────────────────────
   const handleApply = useCallback(() => {
     setAppliedFilters({
-      keyword:  keyword.trim(),
+      keyword: keyword.trim(),
       leadType: leadTypeFilter,
-      date:     dateFilter,
+      date: dateFilter,
       severity: severityFilter,
     });
     setCurrentPage(1);
@@ -271,18 +234,18 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       const res = await axios.post(
         `${url}/api/investigator/cases/${caseId}/leads`,
         {
-          type:             lead.type,
-          severity:         lead.severity,
-          description:      lead.description,
-          nextStep:         lead.nextStep,
-          source:           lead.source,
+          type: lead.type,
+          severity: lead.severity,
+          description: lead.description,
+          nextStep: lead.nextStep,
+          source: lead.source,
           suggestedSuspect: lead.suggestedSuspect,
-          suspectBasis:     lead.suspectBasis,
-          similarCaseId:    lead.similarCaseId,
-          weaponPattern:    lead.weaponPattern,
-          locationArea:     lead.locationArea,
-          confidence:       lead.confidence,
-          status:           lead.status || 'New',
+          suspectBasis: lead.suspectBasis,
+          similarCaseId: lead.similarCaseId,
+          weaponPattern: lead.weaponPattern,
+          locationArea: lead.locationArea,
+          confidence: lead.confidence,
+          status: lead.status || 'New',
         },
         { headers: getAuthHeader() },
       );
@@ -299,12 +262,12 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         fetchLeads();
       }
 
-      setToast({ kind: 'success', text: `Lead added to ${caseId}` });
+      toast.success(`Lead added to ${caseId}`);
       return true;   // dialog will show its success screen
     } catch (err) {
       console.error('Add lead failed:', err);
       const msg = err?.response?.data?.detail || err.message || 'Save failed';
-      setToast({ kind: 'error', text: `Save failed: ${msg}` });
+      toast.error(`Save failed: ${msg}`);
       return false;  // dialog stays on the form
     }
   }, [caseId, fetchLeads]);
@@ -329,7 +292,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
 
       // Update the row in place with the server's canonical version
       setLeads(curr => curr.map(l => l.id === leadId ? res.data : l));
-      setToast({ kind: 'success', text: `Lead ${leadId} → ${newStatus}` });
+      toast.success(`Lead ${leadId} → ${newStatus}`);
 
       // Counts only need refetching if the change is meaningful enough to
       // affect them — today the counts don't split by status, so a status
@@ -345,7 +308,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
     } catch (err) {
       console.error('Status update failed:', err);
       const msg = err?.response?.data?.detail || err.message || 'Update failed';
-      setToast({ kind: 'error', text: `Status update failed: ${msg}` });
+      toast.error(`Status update failed: ${msg}`);
     } finally {
       setBusyLeadId(null);
     }
@@ -365,16 +328,16 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       setLeads(curr => curr.filter(l => l.id !== leadId));
       setCounts(c => ({
         ...c,
-        all:    Math.max(0, c.all - 1),
+        all: Math.max(0, c.all - 1),
         manual: Math.max(0, c.manual - 1),
       }));
       setTotal(t => Math.max(0, t - 1));
       setConfirmDelete(null);
-      setToast({ kind: 'success', text: `Lead ${leadId} deleted` });
+      toast.success(`Lead ${leadId} deleted`);
     } catch (err) {
       console.error('Delete failed:', err);
       const msg = err?.response?.data?.detail || err.message || 'Delete failed';
-      setToast({ kind: 'error', text: `Delete failed: ${msg}` });
+      toast.error(`Delete failed: ${msg}`);
     } finally {
       setBusyLeadId(null);
     }
@@ -382,8 +345,8 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
 
   // ── Pagination derivations ──────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const start      = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
-  const end        = Math.min(start + leads.length, total);
+  const start = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
+  const end = Math.min(start + leads.length, total);
 
   // ── Esc closes detail dialog ────────────────────────────────────────────
   useEffect(() => {
@@ -426,38 +389,10 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         </Button>
       </header>
 
-      {/* Toast strip — success or error */}
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`mx-6 mt-4 flex items-center gap-2 p-3 rounded-md border text-sm ${
-            toast.kind === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              : 'bg-red-50 border-red-200 text-red-700'
-          }`}
-        >
-          {toast.kind === 'success'
-            ? <CheckCircle2 className="h-4 w-4" />
-            : <AlertTriangle className="h-4 w-4" />}
-          <span className="flex-1">{toast.text}</span>
-          <button
-            onClick={() => setToast(null)}
-            className="text-current/70 hover:text-current cursor-pointer"
-            aria-label="Dismiss"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
 
-      {/* Persistent error banner (load failure) */}
-      {error && (
-        <div className="mx-6 mt-4 flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
-          <AlertTriangle className="h-4 w-4" />
-          {error}
-        </div>
-      )}
+      {
+        toast.error(`failed: ${error}`)
+      }
 
       {/* Source filter pills */}
       <div className="px-6 pt-4 pb-3 flex flex-wrap items-center gap-2 border-b border-slate-100">

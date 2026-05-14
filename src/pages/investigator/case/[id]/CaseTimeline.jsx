@@ -349,7 +349,6 @@ const CaseTimeline = ({
     if (!ev) return;
 
     const result = await onAddEvent?.(ev);
-    // Always reset to page 1 of whichever column the new event landed in
     if (ev.event_source === EVENT_SOURCE.MANUAL) setManualPage(1);
     else setSystemPage(1);
     setCombinedPage(1);
@@ -363,7 +362,6 @@ const CaseTimeline = ({
       await onDeleteEvent?.(id);
       setToDelete(null);
     } catch {
-      // Parent surfaces the error toast; we just close the inline confirm.
       setToDelete(null);
     } finally {
       setDeletingId(null);

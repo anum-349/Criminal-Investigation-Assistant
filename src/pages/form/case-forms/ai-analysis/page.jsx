@@ -1,18 +1,58 @@
-
+import { useEffect } from "react";
 import { Brain, AlertTriangle } from "lucide-react";
 import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
-export function StepAIAnalysis({ data }) {
+export default function StepAIAnalysis({ data, setData }) {
   const entities = data.extractedEntities || { persons: [], locations: [], weapons: [], vehicles: [], dates: [] };
-  const hasFIR = !!data.firFile || data.manualEntry;
+  const hasFIR = !!data.firFile || !!data.firFileName || data.manualEntry;
 
   const mockLeads = [
-    { id: "L-001", type: "Case Linkage",    desc: "Weapon pattern (pistol) matches Case C-2040 (Armed Robbery – Saddar, RWP)",             confidence: 82, severity: "High"     },
-    { id: "L-002", type: "Suspect Pattern", desc: "Three-suspect team MO matches Case C-2047 (Drug Trafficking – Port Area)",               confidence: 74, severity: "Medium"   },
-    { id: "L-003", type: "Location Pattern",desc: "Crime hotspot analysis shows 5 similar incidents within 2 km radius in last 30 days",   confidence: 90, severity: "Critical" },
+    {
+      type:         "Case Linkage",
+      severity:     "High",
+      description:  "Weapon pattern (pistol) matches Case C-2040 (Armed Robbery – Saddar, RWP)",
+      confidence:   82,
+      source:       "AI Analysis",
+      status:       "New",
+      weaponPattern: data.weaponUsed || "Pistol",
+      locationArea: data.area || data.city || "",
+      nextStep:     "Cross-reference suspect IDs from C-2040 with current case.",
+    },
+    {
+      type:         "Suspect Pattern",
+      severity:     "Medium",
+      description:  "Three-suspect team MO matches Case C-2047 (Drug Trafficking – Port Area)",
+      confidence:   74,
+      source:       "AI Analysis",
+      status:       "New",
+      similarCaseId: "C-2047",
+      nextStep:     "Pull suspect profiles from C-2047 and compare physical descriptions.",
+    },
+    {
+      type:         "Location Pattern",
+      severity:     "Critical",
+      description:  "Crime hotspot analysis shows 5 similar incidents within 2 km radius in last 30 days",
+      confidence:   90,
+      source:       "AI Analysis",
+      status:       "New",
+      locationArea: data.area || data.city || "",
+      nextStep:     "Request additional patrols in the area. Check CCTV from neighboring incidents.",
+    },
   ];
+
+  useEffect(() => {
+    if (!hasFIR) return;
+    if (Array.isArray(data.aiLeads) && data.aiLeads.length > 0) return;
+    if (typeof setData !== "function") return;          // backward compat
+
+    setData(d => ({ ...d, aiLeads: mockLeads }));
+  }, [hasFIR]);
+  
+  const displayLeads = Array.isArray(data.aiLeads) && data.aiLeads.length
+    ? data.aiLeads
+    : mockLeads;
 
   return (
     <div className="space-y-6">
@@ -26,15 +66,16 @@ export function StepAIAnalysis({ data }) {
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-slate-500">
           <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">Upload a FIR document in Step 1 to enable AI analysis</p>
+          <p className="text-xs mt-1">You can also skip this — the case will be registered without leads.</p>
         </div>
       ) : (
         <>
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: "AI Confidence",       value: `${data.confidence || 0}%`,                         color: "text-deep-ocean"   },
-              { label: "FIR Completeness",    value: `${data.completeness || 0}%`,                       color: "text-emerald-600"  },
-              { label: "Entities Extracted",  value: Object.values(entities).flat().length,              color: "text-purple-600"   },
+              { label: "AI Confidence",      value: `${data.confidence || 0}%`,                           color: "text-deep-ocean"  },
+              { label: "FIR Completeness",   value: `${data.completeness || 0}%`,                         color: "text-emerald-600" },
+              { label: "Entities Extracted", value: Object.values(entities).flat().length,                color: "text-purple-600"  },
             ].map(s => (
               <Card key={s.label} className="p-4 text-center">
                 <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
@@ -76,25 +117,35 @@ export function StepAIAnalysis({ data }) {
 
           {/* Leads */}
           <div>
-            <h4 className="text-sm font-bold text-slate-700 mb-3">Suggested Investigative Leads</h4>
+            <h4 className="text-sm font-bold text-slate-700 mb-3">
+              Suggested Investigative Leads
+              <span className="ml-2 text-xs font-normal text-slate-400">
+                — Will be saved to the case on submit
+              </span>
+            </h4>
             <div className="space-y-3">
-              {mockLeads.map(lead => (
-                <div key={lead.id} className="border border-slate-200 rounded-xl p-4 flex items-start gap-3 hover:bg-slate-50 transition-colors">
-                  <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${lead.severity === "Critical" ? "bg-red-500" : lead.severity === "High" ? "bg-orange-500" : "bg-yellow-500"}`} />
+              {displayLeads.map((lead, idx) => (
+                <div key={idx} className="border border-slate-200 rounded-xl p-4 flex items-start gap-3 hover:bg-slate-50 transition-colors">
+                  <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
+                    lead.severity === "Critical" ? "bg-red-500"
+                    : lead.severity === "High"   ? "bg-orange-500"
+                    : "bg-yellow-500"}`} />
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-xs font-semibold text-slate-500 uppercase">{lead.type}</span>
-                      <Badge variant={lead.severity === "Critical" ? "destructive" : lead.severity === "High" ? "warning" : "default"}>{lead.severity}</Badge>
+                      <Badge variant={lead.severity === "Critical" ? "destructive" : lead.severity === "High" ? "warning" : "default"}>
+                        {lead.severity}
+                      </Badge>
+                      {lead.confidence != null && (
+                        <span className="text-[10px] text-slate-500">· {lead.confidence}% confidence</span>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-700">{lead.desc}</p>
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs text-slate-500 mb-0.5">
-                        <span>Confidence</span><span>{lead.confidence}%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full bg-deep-ocean" style={{ width: `${lead.confidence}%` }} />
-                      </div>
-                    </div>
+                    <p className="text-sm text-slate-700">{lead.description}</p>
+                    {lead.nextStep && (
+                      <p className="text-xs text-slate-500 mt-1.5">
+                        <strong className="text-slate-600">Next step:</strong> {lead.nextStep}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -105,4 +156,5 @@ export function StepAIAnalysis({ data }) {
     </div>
   );
 }
-export default StepAIAnalysis;
+
+export { StepAIAnalysis as StepAIAnalysisNamed };

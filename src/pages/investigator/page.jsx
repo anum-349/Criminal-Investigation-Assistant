@@ -115,7 +115,7 @@ const ActiveCasesTable = ({ cases, loading }) => {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                cases.map((c, idx) => (
+                                cases.slice(0, 5).map((c, idx) => (
                                     <TableRow
                                         key={`${c.id}-${idx}`}
                                         className="hover:bg-gray-50 transition-colors"
@@ -188,7 +188,7 @@ const RecentActivities = ({ activities, loading }) => (
                     No recent activity.
                 </p>
             ) : (
-                activities.map((activity) => (
+                activities.slice(0, 6).map((activity) => (
                     <div
                         key={activity.id}
                         className={`p-3 rounded-md ${getActivityStyles(

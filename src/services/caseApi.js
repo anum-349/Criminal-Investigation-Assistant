@@ -1,46 +1,12 @@
-/**
- * src/services/caseApi.js
- * ─────────────────────────────────────────────────────────────────────────────
- * Centralized backend integration for the Case-Registration flow.
- *
- * The register-case wizard collects everything (case meta, location, crime
- * details, victims, suspects, witnesses, evidences) in one big form. To keep
- * things simple and match how the rest of the app already works, we register
- * in two phases:
- *
- *   Phase 1 — createCase(formData)
- *     POST /api/investigator/cases
- *       └ creates the Case row, the Location row, and the crime-type
- *         subtype row (Murder/Theft/SexualAssault) in ONE transaction,
- *         then returns the new `case_id` (e.g. "C-2053").
- *
- *   Phase 2 — addAllChildEntities(caseId, formData)
- *     Reuses the existing per-entity services in the order:
- *       victims  → suspects  → witnesses  → evidences
- *     Every entity API already takes a caseId and handles its own
- *     photo/file uploads. We collect every failure into one report
- *     object so the UI can surface partials without rolling back the case.
- *
- * The orchestrator `registerCaseFull(formData)` runs both phases and
- * returns `{ caseId, childResults, partialFailures }`.
- *
- * No AI extraction yet — the FIR file is uploaded as a regular file
- * for now; the autofill step will be wired in a later iteration as the
- * user requested.
- *
- * Author: backend-integration pass (May 2026)
- */
-
 import axios from "axios";
 
-// Reuse the entity APIs that are already wired up. This is what keeps
-// register-case in sync with AddVictimDialog / AddSuspectDialog / etc.
 import { addVictimsToCase }   from "@/services/victimApi";
 import { addSuspectsToCase }  from "@/services/suspectApi";
 import { addWitnessesToCase } from "@/services/witnessApi";
 import { addEvidencesToCase, fileToDataUrl } from "@/services/evidenceApi";
+import { addLeadsToCase }     from "@/services/leadApi";
+import { deleteDraft }        from "@/services/draftApi";
 
-// ── Auth header (same pattern as every other *Api.js) ──────────────────────
 export const getAuthHeader = () => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -48,10 +14,7 @@ export const getAuthHeader = () => {
 
 const apiBase = () => import.meta.env.VITE_API_URL;
 
-// ── Small helpers ──────────────────────────────────────────────────────────
 
-/** "" → undefined, " x " → "x". Backend treats undefined as "leave alone"
- *  and an empty string as "set to empty", so we always strip blanks. */
 const _s = (v) => {
     if (v === undefined || v === null) return undefined;
     if (typeof v !== "string") return v;
@@ -65,43 +28,27 @@ const _num = (v) => {
     return Number.isFinite(n) ? n : undefined;
 };
 
-// ───────────────────────────────────────────────────────────────────────────
-// Phase 1: build the createCase POST body
-// ───────────────────────────────────────────────────────────────────────────
-
-/** Maps frontend formData → /api/investigator/cases POST body.
- *  Keeps the camelCase field names the rest of the app uses; the backend
- *  Pydantic schema (CaseRegisterRequest) re-maps them to snake_case for
- *  the ORM. */
 export const buildCreateCasePayload = (f) => ({
-    // ── Case meta ──────────────────────────────────────────────────────
     firNumber:        _s(f.firNumber),
     caseTitle:        _s(f.caseTitle),
-    caseType:         _s(f.caseType),          // CaseType.label
-    priority:         _s(f.priority),          // Severity.label
+    caseType:         _s(f.caseType),
+    priority:         _s(f.priority),
     caseStatus:       _s(f.caseStatus) || "Open",
     ppcSections:      _s(f.ppcSections),
     description:      _s(f.description),
 
-    incidentDate:     _s(f.incidentDate),      // YYYY-MM-DD
+    incidentDate:     _s(f.incidentDate),
     incidentTime:     _s(f.incidentTime),
     reportingDate:    _s(f.reportingDate),
     reportingTime:    _s(f.reportingTime),
 
-    reportingOfficer: _s(f.reportingOfficer),
-    // assignedInvestigator is normally inferred from the logged-in user,
-    // but if the form has it explicitly the backend respects it (admins
-    // assigning cases). For investigators it's ignored server-side.
+    reportingOfficer:     _s(f.reportingOfficer),
     assignedInvestigator: _s(f.assignedInvestigator),
 
-    // ── FIR metadata. The actual file is uploaded separately (below)
-    //    to keep the JSON body small. If you don't have a FIR yet
-    //    (manual entry mode), these stay undefined. ──
     firLanguage:      _s(f.firLanguage) || "English",
     firType:          _s(f.firType) || "FIR",
     manualEntry:      !!f.manualEntry,
 
-    // ── Location step ──────────────────────────────────────────────────
     location: {
         province:       _s(f.province),
         city:           _s(f.city),
@@ -115,7 +62,6 @@ export const buildCreateCasePayload = (f) => ({
         landmarks:      _s(f.landmarks),
     },
 
-    // ── Crime details step ─────────────────────────────────────────────
     crime: {
         weaponUsed:       _s(f.weaponUsed),
         weaponDescription:_s(f.weaponDescription),
@@ -127,19 +73,16 @@ export const buildCreateCasePayload = (f) => ({
         cctv:             !!f.cctv,
         crimeDescription: _s(f.crimeDescription),
 
-        // Murder extras (only persisted when caseType is murder-ish)
         causeOfDeath:    _s(f.causeOfDeath),
         bodyLocation:    _s(f.bodyLocation),
         timeOfDeath:     _s(f.timeOfDeath),
         postmortemDone:  !!f.postmortemDone,
         forensicDone:    !!f.forensicDone,
 
-        // Sexual-assault extras
         medicalExam:      _s(f.medicalExam),
         victimCounseling: !!f.victimCounseling,
         protectionOrder:  !!f.protectionOrder,
 
-        // Theft extras
         stolenItems:    _s(f.stolenItems),
         stolenValue:    _num(f.stolenValue),
         recoveryStatus: _s(f.recoveryStatus),
@@ -147,22 +90,6 @@ export const buildCreateCasePayload = (f) => ({
     },
 });
 
-// ───────────────────────────────────────────────────────────────────────────
-// Phase 1: createCase
-// ───────────────────────────────────────────────────────────────────────────
-
-/** POST /api/investigator/cases.
- *
- *  Returns: { caseId, firNumber, timeline_events }
- *  Throws on backend validation errors (422), conflicts (409 — duplicate
- *  FIR number), or auth errors (401/403). Callers should catch and use
- *  `formatApiError` to surface a readable message.
- *
- *  After the JSON POST succeeds, if a FIR file was attached in the form
- *  we follow up with one multipart upload that fills the case's
- *  fir_file_path / fir_file_name columns. Keeping that separate means
- *  the JSON body stays small and the upload retries cleanly if it fails.
- */
 export const createCase = async (formData) => {
     const url     = apiBase();
     const headers = getAuthHeader();
@@ -181,12 +108,6 @@ export const createCase = async (formData) => {
         throw new Error("Server did not return a case_id");
     }
 
-    // ── Optional FIR file upload (one extra round-trip) ────────────────
-    // The FIR file lives on the formData as either:
-    //   - formData.firFile  (a File object), or
-    //   - formData.firFileDataUrl (already a data URL)
-    // For now we just push it as a data URL — same convention as the
-    // evidence file upload, so the backend reuses _decode_data_url.
     if (formData.firFile instanceof File || formData.firFileDataUrl) {
         try {
             const dataUrl =
@@ -206,8 +127,6 @@ export const createCase = async (formData) => {
                 );
             }
         } catch (err) {
-            // Non-fatal — case is registered, FIR file just didn't upload.
-            // Caller can surface this as a partial failure.
             console.warn("FIR file upload failed:", err);
             return {
                 caseId,
@@ -230,35 +149,15 @@ export const createCase = async (formData) => {
     };
 };
 
-// ───────────────────────────────────────────────────────────────────────────
-// Phase 2: orchestrate adding all child entities
-// ───────────────────────────────────────────────────────────────────────────
-
-/** A "blank" victim/suspect/witness slot is one with no name AND no cnic
- *  AND no contact — the form starts with one empty row by default, and
- *  we don't want to POST that to the server. */
 const _isBlankPerson = (p) =>
     !p?.name?.trim() && !p?.cnic?.trim() && !p?.contact?.trim();
 
 const _isBlankEvidence = (e) =>
     !e?.type && !e?.description && !e?.fileName && !(e?.file instanceof File);
 
-/** Adds victims, suspects, witnesses, evidences to a freshly-created case.
- *  Every per-entity service throws on its own bad request, but we don't
- *  want one bad row to kill the whole flow — so each phase is wrapped
- *  and its failure recorded in `partialFailures`. The case is already
- *  saved by this point, so the user keeps their work.
- *
- *  Returns: {
- *    childResults: {
- *      victims:    { created_ids, photo_failures, timeline_events },
- *      suspects:   { created_ids, photo_failures },
- *      witnesses:  { created_ids, photo_failures },
- *      evidences:  { created_ids, photo_failures, timeline_events },
- *    },
- *    partialFailures: [{ phase, error }, …]
- *  }
- */
+const _isBlankLead = (l) =>
+    !l?.type && !l?.description;
+
 export const addAllChildEntities = async (caseId, formData) => {
     if (!caseId) throw new Error("caseId is required");
 
@@ -266,16 +165,17 @@ export const addAllChildEntities = async (caseId, formData) => {
     const suspects  = (formData.suspects  || []).filter(s => !_isBlankPerson(s));
     const witnesses = (formData.witnesses || []).filter(w => !_isBlankPerson(w));
     const evidences = (formData.evidences || []).filter(e => !_isBlankEvidence(e));
+    const aiLeads   = (formData.aiLeads   || []).filter(l => !_isBlankLead(l));
 
     const childResults = {
         victims:   { created_ids: [], photo_failures: [], timeline_events: [] },
         suspects:  { created_ids: [], photo_failures: [] },
         witnesses: { created_ids: [], photo_failures: [] },
         evidences: { created_ids: [], photo_failures: [], timeline_events: [] },
+        leads:     { created: [], failures: [] },
     };
     const partialFailures = [];
 
-    // 1. Victims
     if (victims.length) {
         try {
             childResults.victims = await addVictimsToCase(caseId, victims);
@@ -287,7 +187,6 @@ export const addAllChildEntities = async (caseId, formData) => {
         }
     }
 
-    // 2. Suspects
     if (suspects.length) {
         try {
             childResults.suspects = await addSuspectsToCase(caseId, suspects);
@@ -299,7 +198,6 @@ export const addAllChildEntities = async (caseId, formData) => {
         }
     }
 
-    // 3. Witnesses
     if (witnesses.length) {
         try {
             childResults.witnesses = await addWitnessesToCase(caseId, witnesses);
@@ -311,7 +209,6 @@ export const addAllChildEntities = async (caseId, formData) => {
         }
     }
 
-    // 4. Evidences (last, so any earlier failure is visible before file uploads)
     if (evidences.length) {
         try {
             childResults.evidences = await addEvidencesToCase(caseId, evidences);
@@ -323,30 +220,31 @@ export const addAllChildEntities = async (caseId, formData) => {
         }
     }
 
+    if (aiLeads.length) {
+        try {
+            childResults.leads = await addLeadsToCase(caseId, aiLeads);
+           
+            for (const f of (childResults.leads.failures || [])) {
+                partialFailures.push({
+                    phase: "leads",
+                    error: `${f.lead?.type || "Lead"}: ${f.error}`,
+                });
+            }
+        } catch (err) {
+            partialFailures.push({
+                phase: "leads",
+                error: err?.response?.data?.detail || err.message || "Failed to add leads",
+            });
+        }
+    }
+
     return { childResults, partialFailures };
 };
 
-// ───────────────────────────────────────────────────────────────────────────
-// One-call orchestrator
-// ───────────────────────────────────────────────────────────────────────────
-
-/** End-to-end "register a case from the wizard" call.
- *
- *  Throws ONLY when phase 1 (case creation) fails — that's the deal-breaker.
- *  Phase 2 failures (victims/suspects/etc.) come back inside
- *  `partialFailures` and the case is still considered created.
- *
- *  Usage in the register-case page:
- *    const { caseId, partialFailures } = await registerCaseFull(formData);
- *    if (partialFailures.length) showToast(...);
- *    navigate(`/investigator/case/${caseId}`);
- */
 export const registerCaseFull = async (formData) => {
-    // Phase 1 — case + location + crime details (atomic on backend)
-    const caseResult = await createCase(formData);
+   const caseResult = await createCase(formData);
     const { caseId } = caseResult;
 
-    // Phase 2 — child entities (best-effort, partial-failure-tolerant)
     const { childResults, partialFailures } =
         await addAllChildEntities(caseId, formData);
 
@@ -355,6 +253,14 @@ export const registerCaseFull = async (formData) => {
             phase: "fir_file",
             error: caseResult.fir_file_error || "FIR file upload failed",
         });
+    }
+    
+    if (formData.draftId) {
+        try {
+            await deleteDraft(formData.draftId);
+        } catch (err) {
+            console.warn("Draft cleanup failed (non-fatal):", err);
+        }
     }
 
     return {
@@ -366,10 +272,6 @@ export const registerCaseFull = async (formData) => {
     };
 };
 
-// ───────────────────────────────────────────────────────────────────────────
-// Error utility — mirrors the one in evidenceApi.js so callers don't have
-// to import from a specific module.
-// ───────────────────────────────────────────────────────────────────────────
 export const formatApiError = (err, fallback = "Request failed") => {
     if (!err) return fallback;
     const detail = err?.response?.data?.detail;

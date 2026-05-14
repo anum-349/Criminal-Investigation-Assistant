@@ -1,29 +1,36 @@
 /**
  * StepFIRUpload.jsx  —  Step 1
  * Drag-and-drop FIR upload with AI extraction simulation.
- * Used in: RegisterCasePage (step 1 only — not shown in Update mode)
- *
- * Place at: src/pages/investigator/case-forms/StepFIRUpload.jsx
  *
  * Props:
- *   data        — formData slice (firFile, firFileName, etc.)
- *   setData     — full formData setter  (d => ({...d, ...}))
- *   onExtracted — callback(extractedFields) to merge into parent formData
+ *   data          — formData slice
+ *   setData       — full formData setter
+ *   onExtracted   — callback(extractedFields) to merge into parent formData
+ *   onNext        — advances wizard to Step 2 (manual entry flow)
+ *   onSkipAndSave — async fn: saves draft then submits case from extracted data
+ *   skipSaving    — bool: shows spinner on the skip link while in-flight
  */
 import { useRef, useState } from "react";
 import {
   Upload, FileText, CheckCircle2, AlertTriangle,
-  Loader2,
+  Loader2, ArrowRight, FastForward,
 } from "lucide-react";
 import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
 
-export default function StepFIRUpload({ data, setData, onExtracted }) {
-  const fileRef = useRef(null);
-  const [dragging, setDragging] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [done, setDone] = useState(false);
+export default function StepFIRUpload({
+  data,
+  setData,
+  onExtracted,
+  onNext,
+  onSkipAndSave,
+  skipSaving = false,
+}) {
+  const fileRef  = useRef(null);
+  const [dragging,    setDragging]    = useState(false);
+  const [processing,  setProcessing]  = useState(false);
+  const [done,        setDone]        = useState(false);
 
-  // ── File handler ────────────────────────────────────────────────────────────
+  // ── File handler ────────────────────────────────────────────────────────
   const handleFile = (file) => {
     if (!file) return;
     const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
@@ -31,11 +38,12 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
       alert("Please upload a PDF or image file (JPG/PNG).");
       return;
     }
+    setDone(false);
     setData(d => ({ ...d, firFile: file, firFileName: file.name, firLanguage: "English", firType: "FIR" }));
     simulateExtraction();
   };
 
-  // ── Simulate AI extraction (replace with real API call) ───────────────────
+  // ── Simulate AI extraction (replace with real API call) ─────────────────
   const simulateExtraction = () => {
     setProcessing(true);
     setDone(false);
@@ -72,6 +80,28 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
     }, 3000);
   };
 
+  // ── "Enter manually" — go to Step 2 with a blank slate ─────────────────
+  const handleManualEntry = () => {
+    setData(d => ({
+      ...d,
+      firFile:    null,
+      firFileName: "",
+      manualEntry: true,
+    }));
+    onExtracted({
+      firLanguage: "English",
+      firType: "FIR",
+      completeness: 0,
+      confidence: 0,
+      extractedEntities: { persons: [], locations: [], weapons: [], vehicles: [], dates: [] },
+      missingFields: [],
+    });
+    // Navigate to Step 2 so the user fills details themselves
+    onNext?.();
+  };
+
+  const extractionDone = done && !processing && data.extractedEntities;
+
   return (
     <div className="space-y-6">
       <SectionHeading
@@ -80,11 +110,11 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
         subtitle="Upload a scanned FIR document. Our AI will automatically extract all relevant information and pre-fill the form."
       />
 
-      {/* ── Drop zone ──────────────────────────────────────────────────────── */}
+      {/* ── Drop zone ────────────────────────────────────────────────────── */}
       <div
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragOver={e  => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
+        onDrop={e      => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
         onClick={() => fileRef.current?.click()}
         className={`relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all
           ${dragging
@@ -123,7 +153,7 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
         )}
       </div>
 
-      {/* ── Processing indicator ────────────────────────────────────────────── */}
+      {/* ── Processing indicator ─────────────────────────────────────────── */}
       {processing && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
           <div className="flex items-center gap-3 mb-4">
@@ -134,7 +164,12 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
             </div>
           </div>
           <div className="space-y-2">
-            {["Running OCR on document…", "Extracting named entities (NLP)…", "Detecting language (Urdu / English)…", "Checking completeness…"].map((t, i) => (
+            {[
+              "Running OCR on document…",
+              "Extracting named entities (NLP)…",
+              "Detecting language (Urdu / English)…",
+              "Checking completeness…",
+            ].map((t, i) => (
               <div key={i} className="flex items-center gap-2 text-sm text-blue-700">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 {t}
@@ -144,8 +179,8 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
         </div>
       )}
 
-      {/* ── Post-extraction summary ─────────────────────────────────────────── */}
-      {done && !processing && data.extractedEntities && (
+      {/* ── Post-extraction summary ──────────────────────────────────────── */}
+      {extractionDone && (
         <div className="space-y-4">
           {/* Success banner */}
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
@@ -183,9 +218,9 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
           {/* Entity tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
-              { label: "Persons",   key: "persons",   color: "bg-blue-100 text-blue-700"   },
-              { label: "Locations", key: "locations", color: "bg-green-100 text-green-700" },
-              { label: "Weapons",   key: "weapons",   color: "bg-red-100 text-red-700"     },
+              { label: "Persons",   key: "persons",   color: "bg-blue-100 text-blue-700"    },
+              { label: "Locations", key: "locations", color: "bg-green-100 text-green-700"  },
+              { label: "Weapons",   key: "weapons",   color: "bg-red-100 text-red-700"      },
               { label: "Vehicles",  key: "vehicles",  color: "bg-orange-100 text-orange-700"},
               { label: "Dates",     key: "dates",     color: "bg-purple-100 text-purple-700"},
             ].map(e => (
@@ -215,25 +250,60 @@ export default function StepFIRUpload({ data, setData, onExtracted }) {
               </div>
             </div>
           )}
+
+          {/* ── Skip & Register now ─────────────────────────────────────────
+              Shown only after successful extraction. Registers the case
+              immediately using the AI-extracted data, then navigates to
+              the case detail page. Draft is saved first so work isn't lost. */}
+          <div className="bg-deep-ocean/5 border border-deep-ocean/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-deep-ocean">Ready to register with extracted data?</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Register the case now using the AI-extracted information.
+                You can add suspects, victims, and evidence from the case detail page later.
+              </p>
+            </div>
+            <button
+              onClick={onSkipAndSave}
+              disabled={skipSaving}
+              className={`
+                inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold
+                whitespace-nowrap transition-all cursor-pointer shrink-0
+                ${skipSaving
+                  ? "bg-deep-ocean/40 text-white cursor-not-allowed"
+                  : "bg-deep-ocean text-white hover:bg-deep-ocean-900 active:scale-95"}
+              `}
+            >
+              {skipSaving
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Registering…</>
+                : <><FastForward className="h-4 w-4" /> Skip & Register Now</>
+              }
+            </button>
+          </div>
+
+          {/* Continue filling in details link */}
+          <p className="text-xs text-slate-500 text-center">
+            Want to review and complete the details first?{" "}
+            <button
+              className="text-deep-ocean font-semibold hover:underline cursor-pointer inline-flex items-center gap-1"
+              onClick={() => onNext?.()}
+            >
+              Continue filling in details <ArrowRight className="h-3 w-3" />
+            </button>
+          </p>
         </div>
       )}
 
-      {/* ── Manual entry fallback ───────────────────────────────────────────── */}
+      {/* ── Bottom utility row ───────────────────────────────────────────────
+          Always visible. Two actions:
+          • Enter FIR details manually → goes to Step 2, saves draft
+          • (if file uploaded but not yet processed, nothing extra shown)   */}
       <div className="border-t border-slate-200 pt-4">
         <p className="text-xs text-slate-500 text-center">
           No physical FIR available?{" "}
           <button
             className="text-deep-ocean font-semibold hover:underline cursor-pointer"
-            onClick={() => {
-              setData(d => ({ ...d, firFile: null, firFileName: "", manualEntry: true }));
-              onExtracted({
-                firNumber: "FIR-2026-" + Math.floor(Math.random() * 9000 + 1000),
-                firLanguage: "English", firType: "FIR",
-                completeness: 0, confidence: 0,
-                extractedEntities: { persons: [], locations: [], weapons: [], vehicles: [], dates: [] },
-                missingFields: [],
-              });
-            }}
+            onClick={handleManualEntry}
           >
             Enter FIR details manually
           </button>

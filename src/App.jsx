@@ -2,6 +2,8 @@ import { BrowserRouter, HashRouter, useNavigate } from 'react-router-dom'
 import AppRoutes from './routes/page'
 import { AuthProvider } from './context/AuthContext'
 import { useEffect } from 'react';
+import { ToastProvider } from './context/ToastContext';
+import { ToastContainer } from './components/ToastContainer';
 
 const ShortcutHandler = () => {
     const navigate = useNavigate();
@@ -49,17 +51,20 @@ const ShortcutHandler = () => {
 };
 
 function App() {
-  // Show main application if authenticated
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <BrowserRouter>
-        <AuthProvider>
-          <ShortcutHandler />
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </div>
-  )
+    // Show main application if authenticated
+    return (
+        <div className="min-h-screen bg-gray-100">
+            <BrowserRouter>
+                <AuthProvider>
+                    <ToastProvider soundEnabled={true}>
+                        <ShortcutHandler />
+                        <AppRoutes />
+                        <ToastContainer />
+                    </ToastProvider>
+                </AuthProvider>
+            </BrowserRouter>
+        </div>
+    )
 }
 
 export default App
