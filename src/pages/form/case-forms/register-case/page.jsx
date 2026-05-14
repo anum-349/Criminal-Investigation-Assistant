@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import axios from "axios";
 import {
   Upload, FileText, MapPin, User, Users, Gavel,
   Camera, Brain, CheckCircle2, ChevronRight, ChevronLeft,
@@ -8,25 +9,25 @@ import {
 } from "lucide-react";
 import { CASE_STEPS, emptyFormData } from "@/pages/form/case-forms/caseFormConstants/page";
 
-// ── Steps ─────────────────────────────────────────────────────────────────────
-import StepFIRUpload      from "../fir-upload/page";
-import StepCaseDetails    from "../case-details/page";
-import StepLocation       from "../step-location/page";
-import StepVictims        from "../step-victim/page";
-import StepSuspects       from "../step-suspects/page";
-import StepCrimeDetails   from "../crime-details/page";
-import StepEvidence       from "../step-evidence/page";
-import StepWitnesses      from "../step-witness/page";
-import StepAIAnalysis     from "../ai-analysis/page";
-import StepReview         from "../review/page";
-import Header             from "@/components/Header";
+// ── Step components ───────────────────────────────────────────────────────────
+import StepFIRUpload from "../fir-upload/page";
+import StepCaseDetails from "../case-details/page";
+import StepCrimeDetails from "../crime-details/page";
+import { StepEvidence } from "../step-evidence/page";
+import StepAIAnalysis from "../ai-analysis/page";
+import { StepReview } from "../review/page";
+import StepSuspects from "../step-suspects/page";
+import StepVictims from "../step-victim/page";
+import StepWitnesses from "../step-witness/page";
+import StepLocation from "../step-location/page";
 
 // ── Services ──────────────────────────────────────────────────────────────────
 import { registerCaseFull, formatApiError } from "@/services/caseApi";
-import { saveDraft, getDraft }              from "@/services/draftApi";
-import axios from "axios";
+import { saveDraft, getDraft } from "@/services/draftApi";
+import Header from "@/components/Header";
+import { useToast } from "@/context/ToastContext";
 
-// ── Icon map ──────────────────────────────────────────────────────────────────
+// ── Icon map (step icons from constants are strings) ─────────────────────────
 const ICON_MAP = { Upload, FileText, MapPin, User, Users, Gavel, Camera, Brain, CheckCircle2, File };
 
 const AUTH_HEADER = () => {
@@ -34,13 +35,16 @@ const AUTH_HEADER = () => {
   return t ? { Authorization: `Bearer ${t}` } : {};
 };
 
+// Tick rate for the optional autosave timer. 30s is a sweet spot: long
+// enough that we're not hammering the server with every keystroke,
+// short enough that a crash never costs more than 30 seconds of typing.
 const AUTOSAVE_INTERVAL_MS = 30_000;
+
 
 // ── Step Progress Bar ─────────────────────────────────────────────────────────
 const StepProgressBar = ({ currentStep, completedSteps, onStepClick }) => (
   <div className="sticky top-14 z-30 bg-white border-b border-slate-200 shadow-sm">
     <div className="max-w-6xl mx-auto px-4 py-3">
-      {/* Mobile: linear progress bar */}
       <div className="sm:hidden">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-semibold text-slate-600">Step {currentStep} of {CASE_STEPS.length}</span>
@@ -54,28 +58,24 @@ const StepProgressBar = ({ currentStep, completedSteps, onStepClick }) => (
         </div>
       </div>
 
-      {/* Desktop: icon steps */}
       <div className="hidden sm:flex items-center justify-between">
         {CASE_STEPS.map((step, idx) => {
-          const Icon        = ICON_MAP[step.icon] || FileText;
+          const Icon = ICON_MAP[step.icon] || FileText;
           const isCompleted = completedSteps.includes(step.id);
-          const isCurrent   = currentStep === step.id;
+          const isCurrent = currentStep === step.id;
           return (
             <div key={step.id} className="flex items-center flex-1 last:flex-none">
               <button
                 onClick={() => (isCompleted || isCurrent) && onStepClick(step.id)}
                 disabled={!isCompleted && !isCurrent}
-                className={`flex flex-col items-center gap-1 transition-all ${
-                  (isCompleted || isCurrent) ? "cursor-pointer" : "cursor-not-allowed opacity-40"
-                }`}
+                className={`flex flex-col items-center gap-1 transition-all ${(isCompleted || isCurrent) ? "cursor-pointer" : "cursor-not-allowed opacity-40"
+                  }`}
                 title={step.label}
               >
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all
-                  ${isCompleted
-                    ? "bg-emerald-600 border-emerald-600 text-white"
-                    : isCurrent
-                    ? "bg-deep-ocean border-deep-ocean text-white shadow-lg shadow-deep-ocean/30"
-                    : "bg-white border-slate-300 text-slate-400"}`}>
+                  ${isCompleted ? "bg-emerald-600 border-emerald-600 text-white"
+                    : isCurrent ? "bg-deep-ocean border-deep-ocean text-white shadow-lg shadow-deep-ocean/30"
+                      : "bg-white border-slate-300 text-slate-400"}`}>
                   {isCompleted ? <Check className="h-4 w-4" /> : <Icon className="h-3.5 w-3.5" />}
                 </div>
                 <span className={`text-[9px] font-semibold uppercase tracking-wide transition-colors
@@ -99,18 +99,18 @@ const StepProgressBar = ({ currentStep, completedSteps, onStepClick }) => (
 const validateStep = (step, formData) => {
   const e = {};
   if (step === 2) {
-    if (!formData.firNumber?.trim())    e.firNumber    = "FIR number is required";
-    if (!formData.caseTitle?.trim())    e.caseTitle    = "Case title is required";
-    if (!formData.incidentDate)         e.incidentDate = "Date of incident is required";
-    if (!formData.reportingDate)        e.reportingDate = "Reporting date is required";
-    if (!formData.caseType)             e.caseType     = "Case type is required";
-    if (!formData.priority)             e.priority     = "Priority is required";
-    if (!formData.description?.trim())  e.description  = "Description is required";
+    if (!formData.firNumber?.trim()) e.firNumber = "FIR number is required";
+    if (!formData.caseTitle?.trim()) e.caseTitle = "Case title is required";
+    if (!formData.incidentDate) e.incidentDate = "Date of incident is required";
+    if (!formData.reportingDate) e.reportingDate = "Reporting date is required";
+    if (!formData.caseType) e.caseType = "Case type is required";
+    if (!formData.priority) e.priority = "Priority is required";
+    if (!formData.description?.trim()) e.description = "Description is required";
   }
   if (step === 3) {
-    if (!formData.province)             e.province = "Province is required";
-    if (!formData.city?.trim())         e.city     = "City is required";
-    if (!formData.address?.trim())      e.address  = "Crime scene address is required";
+    if (!formData.province) e.province = "Province is required";
+    if (!formData.city?.trim()) e.city = "City is required";
+    if (!formData.address?.trim()) e.address = "Crime scene address is required";
   }
   if (step === 6) {
     if (!formData.crimeDescription?.trim()) e.crimeDescription = "Crime description is required";
@@ -124,34 +124,35 @@ const validateAll = (formData) => ({
   ...validateStep(6, formData),
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function RegisterCasePage() {
-  const navigate       = useNavigate();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const topRef         = useRef(null);
+  const topRef = useRef(null);
 
-  const [currentStep,    setCurrentStep]    = useState(1);
+  const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState([]);
-  const [errors,         setErrors]         = useState({});
-  const [submitting,     setSubmitting]     = useState(false);
-  const [submitted,      setSubmitted]      = useState(false);
-  const [formData,       setFormData]       = useState(emptyFormData());
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [formData, setFormData] = useState(emptyFormData());
 
-  const [submitError,   setSubmitError]   = useState(null);
-  const [submitResult,  setSubmitResult]  = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [submitResult, setSubmitResult] = useState(null);
 
-  // Draft state
-  const [draftSaving,     setDraftSaving]     = useState(false);
-  const [draftError,      setDraftError]      = useState(null);
-  const [draftSavedAt,    setDraftSavedAt]    = useState(null);
+  // ── Draft state ──────────────────────────────────────────────────────────
+  // `draftSaving` is the spinner for the manual Save Draft button.
+  // `draftSavedAt` powers the "Draft auto-saved · just now" badge.
+  // `autoSaveEnabled` is mirrored from /api/auth/preferences (auto_save_drafts).
+  // `lastSavedRef` carries the formData snapshot from the last save so we
+  // can skip the autosave POST when nothing changed.
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftError, setDraftError] = useState(null);
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
-  const [loadingDraft,    setLoadingDraft]    = useState(false);
-
-  // Skip & Register state — separate spinner so the normal Submit button
-  // stays idle when the user uses the skip shortcut.
-  const [skipSaving, setSkipSaving] = useState(false);
-
+  const [loadingDraft, setLoadingDraft] = useState(false);
   const lastSavedRef = useRef("");
+  const toast = useToast()
 
   const scrollTop = () => topRef.current?.scrollIntoView({ behavior: "smooth" });
 
@@ -159,7 +160,11 @@ export default function RegisterCasePage() {
 
   const goNext = useCallback(() => {
     const e = validateStep(currentStep, formData);
-    if (Object.keys(e).length) { setErrors(e); scrollTop(); return; }
+    if (Object.keys(e).length) {
+      setErrors(e);
+      toast.warning(`Please fix ${Object.keys(e).length} field(s) before continuing.`);
+      scrollTop(); return;
+    }
     setErrors({});
     setCompletedSteps(cs => cs.includes(currentStep) ? cs : [...cs, currentStep]);
     setCurrentStep(s => Math.min(s + 1, CASE_STEPS.length));
@@ -171,7 +176,10 @@ export default function RegisterCasePage() {
     scrollTop();
   }, []);
 
-  // ── Load existing draft ───────────────────────────────────────────────────
+  // ── Load existing draft on mount (when ?draftId=… is present) ────────────
+  // The Drafts page links here as /register-case?draftId=DR-XXXX. We hydrate
+  // formData from the saved snapshot and keep the draftId in state so future
+  // autosaves overwrite the same row.
   useEffect(() => {
     const did = searchParams.get("draftId");
     if (!did) return;
@@ -181,34 +189,50 @@ export default function RegisterCasePage() {
     getDraft(did)
       .then(res => {
         if (cancelled) return;
+        // res.formData is whatever the wizard saved last time. We merge
+        // it on top of a fresh emptyFormData() to make sure any newly-
+        // added fields (after a frontend upgrade) get their defaults.
         setFormData({ ...emptyFormData(), ...(res?.formData || {}), draftId: did });
+        // Mark every step that already has its required content as complete,
+        // so the progress bar reflects progress on resume.
         const completed = [];
         if (res?.formData?.firFileName || res?.formData?.manualEntry) completed.push(1);
         if (!Object.keys(validateStep(2, res?.formData || {})).length) completed.push(2);
         if (!Object.keys(validateStep(3, res?.formData || {})).length) completed.push(3);
         if (!Object.keys(validateStep(6, res?.formData || {})).length) completed.push(6);
         setCompletedSteps(completed);
-        const firstIncomplete = [1,2,3,4,5,6,7,8,9,10].find(s => !completed.includes(s)) || 1;
+        // Send the user to the earliest incomplete step so they pick up
+        // where they left off without scrolling through filled-in pages.
+        const firstIncomplete = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].find(s => !completed.includes(s)) || 1;
         setCurrentStep(firstIncomplete);
       })
       .catch(err => {
         console.error("Failed to load draft:", err);
-        setSubmitError("Couldn't load that draft. It may have been deleted.");
+        const msg = "Couldn't load that draft. It may have been deleted.";
+        setSubmitError(msg);
+        toast.error(msg);
       })
       .finally(() => { if (!cancelled) setLoadingDraft(false); });
 
     return () => { cancelled = true; };
   }, [searchParams]);
 
-  // ── Load auto-save preference ─────────────────────────────────────────────
+  // ── Load auto_save_drafts preference once on mount ───────────────────────
+  // We don't fail loudly if the call errors out — autosave just stays off.
+  // The manual Save Draft button always works regardless.
   useEffect(() => {
     const url = import.meta.env.VITE_API_URL;
     axios.get(`${url}/api/auth/preferences`, { headers: AUTH_HEADER() })
-      .then(res => setAutoSaveEnabled(!!res?.data?.preferences?.auto_save_drafts))
-      .catch(() => {/* silent */});
+      .then(res => {
+        const v = res?.data?.preferences?.auto_save_drafts;
+        setAutoSaveEnabled(!!v);
+      })
+      .catch(() => {/* silent — defaults to false */ });
   }, []);
 
-  // ── Save Draft ────────────────────────────────────────────────────────────
+  // ── Manual Save Draft ───────────────────────────────────────────────────
+  // Returns true on success so the goSaveDraftAndExit handler below can
+  // decide whether to navigate away.
   const handleSaveDraft = useCallback(async ({ silent = false } = {}) => {
     if (draftSaving) return false;
     setDraftError(null);
@@ -216,7 +240,12 @@ export default function RegisterCasePage() {
 
     try {
       const snapshot = JSON.stringify(formData);
-      if (silent && snapshot === lastSavedRef.current) return true;
+      // Autosave optimisation: skip the network round-trip if nothing
+      // changed since the last save. Compared as JSON strings so the
+      // deep tree of victims/suspects/etc. is covered without a util.
+      if (silent && snapshot === lastSavedRef.current) {
+        return true;
+      }
 
       const res = await saveDraft(formData);
       const draftId = res?.draftId;
@@ -225,10 +254,15 @@ export default function RegisterCasePage() {
       }
       lastSavedRef.current = snapshot;
       setDraftSavedAt(new Date());
+      if (!silent) {
+        toast.success("Draft saved.");
+      }
       return true;
     } catch (err) {
       console.error("Save draft failed:", err);
-      setDraftError(formatApiError(err, "Could not save draft."));
+      const msg = formatApiError(err, "Could not save draft.");
+      setDraftError(msg);
+      if (!silent) toast.error(msg);
       return false;
     } finally {
       if (!silent) setDraftSaving(false);
@@ -240,65 +274,63 @@ export default function RegisterCasePage() {
     if (ok) navigate("/investigator/drafts");
   }, [handleSaveDraft, navigate]);
 
-  // ── Manual Entry shortcut ─────────────────────────────────────────────────
-  // Called when user clicks "Enter FIR details manually" in StepFIRUpload.
-  // We mark Step 1 complete (they're choosing to skip the upload), save a
-  // draft silently so their intent is persisted, then advance to Step 2.
-  const handleGoToManualEntry = useCallback(async () => {
-    // Mark step 1 done so the progress bar shows it complete
-    setCompletedSteps(cs => cs.includes(1) ? cs : [...cs, 1]);
-    setCurrentStep(2);
-    scrollTop();
-
-    // Best-effort silent draft save — don't block the navigation
-    try {
-      await handleSaveDraft({ silent: true });
-    } catch {
-      // silent — the user is now on Step 2, no need to surface this
-    }
-  }, [handleSaveDraft]);
-
-  // ── Skip & Register Now ───────────────────────────────────────────────────
-  // Registers the case immediately from AI-extracted data, skipping all other
-  // steps. A draft is saved first so the full formData (including the uploaded
-  // FIR file reference) is preserved in case the API call fails.
   const handleSkipAndSave = useCallback(async () => {
-    if (skipSaving || submitting) return;
-    setSkipSaving(true);
+    if (submitting) return;
+
+    const allErrors = validateAll(formData);
+    if (Object.keys(allErrors).length) {
+      // Shouldn't happen — AI extraction fills every required field.
+      // But if a future extraction returns partial data we surface it
+      // the same way as the normal Submit path.
+      setErrors(allErrors);
+      toast.warning("Some required fields are missing. Please review and submit normally.");
+      return;
+    }
+
+    setErrors({});
     setSubmitError(null);
+    setSubmitting(true);
 
     try {
-      // 1. Persist a draft first — if the submit fails, the user can come back
-      await handleSaveDraft({ silent: true });
-
-      // 2. Submit — the backend only requires the fields that came from the
-      //    FIR extraction, so we pass the full formData and let the API
-      //    ignore optional missing fields.
       const result = await registerCaseFull(formData);
 
-      setFormData(d => ({
-        ...d,
-        caseId:    result.caseId,
-        firNumber: result.firNumber || d.firNumber,
-      }));
-      setSubmitResult(result);
-      setSubmitted(true);
+      // Primary success toast.
+      toast.success(`Case ${result.caseId} registered successfully.`);
+
+      // Secondary info toast confirming the dashboard side-effects. The
+      // backend already wrote the Activity row in _log_registration and
+      // (after the backend patch below) pushes a Notification too — this
+      // toast just tells the user where to look for them.
+      toast.info("Added to Recent Activities and notifications.", {
+        duration: 3500,
+      });
+
+      // Partial-failure warning — case IS saved, but some children
+      // (leads/photos/etc.) didn't make it.
+      if (result.partialFailures?.length) {
+        toast.warning(
+          `Case saved, but ${result.partialFailures.length} item(s) need attention. Open the case to fix.`,
+          { duration: 6000 }
+        );
+      }
+
+      // Off to All Cases so the new row is visible immediately.
+      navigate("/investigator/cases?tab=all");
     } catch (err) {
       console.error("Skip & Register failed:", err);
+      toast.error(formatApiError(err, "Could not register the case. Please retry."));
       setSubmitError(formatApiError(err, "Could not register the case. Please retry."));
-      scrollTop();
     } finally {
-      setSkipSaving(false);
+      setSubmitting(false);
     }
-  }, [skipSaving, submitting, formData, handleSaveDraft]);
+  }, [submitting, formData, navigate, toast]);
 
-  // ── Autosave loop ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!autoSaveEnabled) return;
-    if (submitted) return;
+    if (submitted) return;       // success screen — don't keep saving
 
     const hasContent = formData.firNumber || formData.caseTitle ||
-                       formData.description || formData.firFileName;
+      formData.description || formData.firFileName;
     if (!hasContent) return;
 
     const id = setInterval(() => {
@@ -308,18 +340,22 @@ export default function RegisterCasePage() {
     return () => clearInterval(id);
   }, [autoSaveEnabled, submitted, formData, handleSaveDraft]);
 
-  // ── Full Submit (Step 10) ─────────────────────────────────────────────────
+  // ── Submit ──────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (submitting) return;
 
     const allErrors = validateAll(formData);
     if (Object.keys(allErrors).length) {
       setErrors(allErrors);
+
       const firstFailingStep =
-        Object.keys(allErrors).some(k => ["firNumber","caseTitle","incidentDate","reportingDate","caseType","priority","description"].includes(k)) ? 2
-        : Object.keys(allErrors).some(k => ["province","city","address"].includes(k)) ? 3
-        : 6;
+        Object.keys(allErrors).some(k => ["firNumber", "caseTitle", "incidentDate", "reportingDate", "caseType", "priority", "description"].includes(k)) ? 2
+          : Object.keys(allErrors).some(k => ["province", "city", "address"].includes(k)) ? 3
+            : 6;
       setCurrentStep(firstFailingStep);
+      toast.warning(
+        `Please fix ${Object.keys(allErrors).length} required field(s) before submitting.`
+      );
       scrollTop();
       return;
     }
@@ -330,9 +366,10 @@ export default function RegisterCasePage() {
 
     try {
       const result = await registerCaseFull(formData);
+
       setFormData(d => ({
         ...d,
-        caseId:    result.caseId,
+        caseId: result.caseId,
         firNumber: result.firNumber || d.firNumber,
       }));
       setSubmitResult(result);
@@ -346,16 +383,17 @@ export default function RegisterCasePage() {
     }
   };
 
-  // Draft label (re-computed on every render, no interval needed)
+  // Pretty "saved a moment ago" string. Refreshes on each re-render which
+  // is fine because state changes naturally tick this — no setInterval needed.
   const draftSavedLabel = (() => {
     if (!draftSavedAt) return null;
     const secs = Math.max(1, Math.round((Date.now() - draftSavedAt.getTime()) / 1000));
-    if (secs < 60)   return `Draft saved ${secs}s ago`;
+    if (secs < 60) return `Draft saved ${secs}s ago`;
     if (secs < 3600) return `Draft saved ${Math.round(secs / 60)}m ago`;
     return `Draft saved ${Math.round(secs / 3600)}h ago`;
   })();
 
-  // ── Loading draft splash ──────────────────────────────────────────────────
+  // ── Loading draft splash ────────────────────────────────────────────────
   if (loadingDraft) {
     return (
       <div className="min-h-screen bg-soft-mist font-sans mt-14">
@@ -368,9 +406,10 @@ export default function RegisterCasePage() {
     );
   }
 
-  // ── Success screen ────────────────────────────────────────────────────────
+  // ── Success screen ──────────────────────────────────────────────────────────
   if (submitted) {
     const partialFailures = submitResult?.partialFailures || [];
+
     return (
       <div className="min-h-screen bg-soft-mist font-sans mt-14">
         <Header />
@@ -415,8 +454,7 @@ export default function RegisterCasePage() {
               className="flex items-center gap-2 px-6 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-medium hover:bg-deep-ocean-900 cursor-pointer transition-colors">
               <FolderOpen className="h-4 w-4" /> View Case
             </button>
-            <button
-              onClick={() => navigate("/investigator/cases")}
+            <button onClick={() => navigate("/investigator/cases")}
               className="px-6 py-2.5 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm hover:bg-slate-50 cursor-pointer transition-colors">
               All Cases
             </button>
@@ -439,44 +477,32 @@ export default function RegisterCasePage() {
     );
   }
 
-  // ── Main wizard ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-soft-mist font-sans mt-14" ref={topRef}>
       <Header />
-      <StepProgressBar
-        currentStep={currentStep}
-        completedSteps={completedSteps}
-        onStepClick={setCurrentStep}
-      />
+      <StepProgressBar currentStep={currentStep} completedSteps={completedSteps} onStepClick={setCurrentStep} />
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs text-slate-500">
-          <button
-            onClick={() => navigate("/investigator")}
-            className="flex items-center gap-1.5 hover:text-slate-800 cursor-pointer transition-colors"
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" />Dashboard
-          </button>
+          <button onClick={() => navigate("/investigator")} className="flex items-center gap-1.5 hover:text-slate-800 cursor-pointer transition-colors"><LayoutDashboard className="h-3.5 w-3.5" />Dashboard</button>
           <ChevronRight className="h-3 w-3" />
-          <button
-            onClick={() => navigate("/investigator/cases")}
-            className="flex items-center gap-1.5 hover:text-slate-800 cursor-pointer transition-colors"
-          >
-            <FolderOpen className="h-3.5 w-3.5" />All Cases
-          </button>
+          <button onClick={() => navigate("/investigator/cases")} className="flex items-center gap-1.5 hover:text-slate-800 cursor-pointer transition-colors"><FolderOpen className="h-3.5 w-3.5" />All Cases</button>
           <ChevronRight className="h-3 w-3" />
           <span className="text-slate-800 font-medium">Register New Case</span>
         </nav>
 
-        {/* Title + draft badge */}
+        {/* Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Register New Case</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Step {currentStep} of {CASE_STEPS.length} — {CASE_STEPS[currentStep - 1]?.label}
-            </p>
+            <p className="text-sm text-slate-500 mt-1">Step {currentStep} of {CASE_STEPS.length} — {CASE_STEPS[currentStep - 1]?.label}</p>
           </div>
+
+          {/* Draft status badge. Three states:
+                - Saving spinner
+                - Saved-at label (autosave or manual)
+                - Idle (autosave on, nothing saved yet) — explains the feature */}
           <div className="self-start sm:self-auto">
             {draftSaving ? (
               <span className="flex items-center gap-2 text-xs text-deep-ocean bg-deep-ocean/10 border border-deep-ocean/20 px-3 py-1.5 rounded-full">
@@ -502,10 +528,8 @@ export default function RegisterCasePage() {
               <p className="text-sm font-semibold text-red-800">Could not register case</p>
               <p className="text-xs text-red-700 mt-1">{submitError}</p>
             </div>
-            <button
-              onClick={() => setSubmitError(null)}
-              className="text-xs text-red-700 hover:text-red-900 underline cursor-pointer"
-            >
+            <button onClick={() => setSubmitError(null)}
+              className="text-xs text-red-700 hover:text-red-900 underline cursor-pointer">
               Dismiss
             </button>
           </div>
@@ -516,10 +540,8 @@ export default function RegisterCasePage() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-800 flex-1">{draftError}</p>
-            <button
-              onClick={() => setDraftError(null)}
-              className="text-xs text-amber-800 hover:text-amber-900 underline cursor-pointer"
-            >
+            <button onClick={() => setDraftError(null)}
+              className="text-xs text-amber-800 hover:text-amber-900 underline cursor-pointer">
               Dismiss
             </button>
           </div>
@@ -540,64 +562,55 @@ export default function RegisterCasePage() {
 
         {/* Step card */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8">
+          {/* StepFIRUpload now receives onNext so its "Enter manually" and
+              "Skip for now" buttons can advance the wizard themselves. */}
           {currentStep === 1 && (
             <StepFIRUpload
               data={formData}
               setData={setFormData}
               onExtracted={handleExtracted}
-              onNext={handleGoToManualEntry}   // "Enter manually" → Step 2 + draft save
-              onSkipAndSave={handleSkipAndSave} // "Skip & Register Now" → submit immediately
-              skipSaving={skipSaving}
+              onNext={goNext}
+              onSkipAndSave={handleSkipAndSave}
+              skipSaving={submitting}
             />
           )}
-          {currentStep === 2  && <StepCaseDetails  data={formData} setData={setFormData} errors={errors} mode="register" />}
-          {currentStep === 3  && <StepLocation     data={formData} setData={setFormData} errors={errors} />}
-          {currentStep === 4  && <StepVictims      data={formData} setData={setFormData} mode="register" />}
-          {currentStep === 5  && <StepSuspects     data={formData} setData={setFormData} mode="register" />}
-          {currentStep === 6  && <StepCrimeDetails data={formData} setData={setFormData} errors={errors} />}
-          {currentStep === 7  && <StepEvidence     data={formData} setData={setFormData} mode="register" />}
-          {currentStep === 8  && <StepWitnesses    data={formData} setData={setFormData} mode="register" />}
-          {currentStep === 9  && <StepAIAnalysis   data={formData} setData={setFormData} />}
-          {currentStep === 10 && <StepReview       data={formData} mode="register" />}
+          {currentStep === 2 && <StepCaseDetails data={formData} setData={setFormData} errors={errors} mode="register" />}
+          {currentStep === 3 && <StepLocation data={formData} setData={setFormData} errors={errors} />}
+          {currentStep === 4 && <StepVictims data={formData} setData={setFormData} mode="register" />}
+          {currentStep === 5 && <StepSuspects data={formData} setData={setFormData} mode="register" />}
+          {currentStep === 6 && <StepCrimeDetails data={formData} setData={setFormData} errors={errors} />}
+          {currentStep === 7 && <StepEvidence data={formData} setData={setFormData} mode="register" />}
+          {currentStep === 8 && <StepWitnesses data={formData} setData={setFormData} mode="register" />}
+          {currentStep === 9 && <StepAIAnalysis data={formData} setData={setFormData} />}
+          {currentStep === 10 && <StepReview data={formData} mode="register" />}
         </div>
 
         {/* Navigation */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-10">
-          <button
-            onClick={goBack}
-            disabled={currentStep === 1 || submitting || skipSaving}
-            className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full sm:w-auto justify-center cursor-pointer"
-          >
+          <button onClick={goBack} disabled={currentStep === 1 || submitting}
+            className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full sm:w-auto justify-center cursor-pointer">
             <ChevronLeft className="h-4 w-4" /> Back
           </button>
-
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
-              onClick={handleSaveDraftAndExit}
-              disabled={submitting || draftSaving || skipSaving}
-              className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-1 sm:flex-none justify-center cursor-pointer"
-            >
-              {draftSaving
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Save className="h-4 w-4" />}
+            {/* Save Draft is now a real call — wired to draftApi.saveDraft.
+                Manual click → save + navigate to /investigator/drafts so the
+                user sees their saved work. Autosave (if pref enabled) silently
+                updates in the background. */}
+            <button onClick={handleSaveDraftAndExit}
+              disabled={submitting || draftSaving}
+              className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-1 sm:flex-none justify-center cursor-pointer">
+              {draftSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Save Draft
             </button>
-
             {currentStep < CASE_STEPS.length ? (
-              <button
-                onClick={goNext}
-                disabled={submitting || skipSaving}
-                className="flex items-center gap-2 px-6 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 transition-colors flex-1 sm:flex-none justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <button onClick={goNext} disabled={submitting}
+                className="flex items-center gap-2 px-6 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 transition-colors flex-1 sm:flex-none justify-center cursor-pointer">
                 Next <ChevronRight className="h-4 w-4" />
               </button>
             ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting || skipSaving}
+              <button onClick={handleSubmit} disabled={submitting}
                 className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors flex-1 sm:flex-none justify-center cursor-pointer
-                  ${submitting ? "bg-emerald-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"} text-white`}
-              >
+                  ${submitting ? "bg-emerald-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"} text-white`}>
                 {submitting
                   ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</>
                   : <><CheckCircle2 className="h-4 w-4" />Submit Case</>}

@@ -1,3 +1,31 @@
+/**
+ * StepAIAnalysis — Step 9
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Reviews AI-extracted entities and shows suggested leads BEFORE the user
+ * hits Submit.
+ *
+ * What changed:
+ *   Previously the leads list was hard-coded in the component and discarded
+ *   on submit — they never made it to the database. The component now
+ *   COMMITS those leads into `formData.aiLeads` (via setData) the first
+ *   time it mounts after FIR processing finishes, so registerCaseFull
+ *   actually persists them.
+ *
+ *   The commit is gated on:
+ *     - `hasFIR` so we don't seed leads when the user skipped the FIR.
+ *     - `formData.aiLeads` being empty so a user can edit/remove leads on
+ *       Step 9 (in a future iteration) without us overwriting their edits
+ *       every render.
+ *
+ *   When the real AI extraction endpoint exists, replace `mockLeads` with
+ *   the response from that endpoint — `formData.aiLeads` is already the
+ *   contract with caseApi.js, so nothing downstream needs to change.
+ *
+ * Props:
+ *   data    — formData
+ *   setData — full formData setter (NEW; previous version was read-only)
+ */
+
 import { useEffect } from "react";
 import { Brain, AlertTriangle } from "lucide-react";
 import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
@@ -8,6 +36,11 @@ export default function StepAIAnalysis({ data, setData }) {
   const entities = data.extractedEntities || { persons: [], locations: [], weapons: [], vehicles: [], dates: [] };
   const hasFIR = !!data.firFile || !!data.firFileName || data.manualEntry;
 
+  // Suggested leads — currently mocked off the case fields. When the real
+  // AI lead pipeline lands, swap this for the API response. Shape matches
+  // what services/leadApi.js → buildLeadPayload expects, so caseApi.js can
+  // ship these straight to /api/investigator/cases/{caseId}/leads after
+  // the case is created.
   const mockLeads = [
     {
       type:         "Case Linkage",
@@ -42,14 +75,23 @@ export default function StepAIAnalysis({ data, setData }) {
     },
   ];
 
+  // ── Commit AI leads to formData on first mount of this step ──────────────
+  // Only writes when (a) we actually have FIR context and (b) there's
+  // nothing already on aiLeads (so we don't overwrite future edits on
+  // every re-render). This is what makes the leads survive Submit.
   useEffect(() => {
     if (!hasFIR) return;
     if (Array.isArray(data.aiLeads) && data.aiLeads.length > 0) return;
     if (typeof setData !== "function") return;          // backward compat
 
     setData(d => ({ ...d, aiLeads: mockLeads }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasFIR]);
-  
+
+  // What we render is whatever's currently in formData.aiLeads, falling
+  // back to the local mock for the no-setData (legacy) call site. This
+  // way, if a future iteration adds inline edit/delete for AI leads on
+  // this step, the user sees their edits reflected.
   const displayLeads = Array.isArray(data.aiLeads) && data.aiLeads.length
     ? data.aiLeads
     : mockLeads;
@@ -157,4 +199,5 @@ export default function StepAIAnalysis({ data, setData }) {
   );
 }
 
+// Keep the named export for callers that imported `{ StepAIAnalysis }`.
 export { StepAIAnalysis as StepAIAnalysisNamed };

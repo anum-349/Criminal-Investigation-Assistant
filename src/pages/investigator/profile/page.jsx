@@ -173,7 +173,7 @@ const ProfilePage = () => {
             toast.success('Profile updated successfully');
         } catch (err) {
             const msg = err?.response?.data?.detail || 'Failed to update profile';
-           console.error(msg)
+            console.error(msg)
             toast.error('Failed to update profile');
         } finally {
             setProfileLoading(false);
@@ -284,11 +284,16 @@ const ProfilePage = () => {
                 { preferences: prefs },
                 { headers: getAuthHeader() },
             );
-            setPrefs(res.data.preferences);   // sync with server-returned values
-            toast.success('Preferences saved');
+            const saved = res.data.preferences;   // ← add this
+            setPrefs(saved);
+            if (typeof saved.sound_alerts === "boolean") {
+                toast.setSoundEnabled(saved.sound_alerts);
+            }
+
+            toast.success("Preferences saved.");
         } catch (err) {
-            const msg = err?.response?.data?.detail || 'Failed to save preferences';
-            toast.error('Failed to save preferences');
+            const msg = err?.response?.data?.detail || "Failed to save preferences";
+            toast.error(msg);
         } finally {
             setPrefsLoading(false);
         }

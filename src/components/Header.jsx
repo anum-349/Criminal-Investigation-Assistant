@@ -11,10 +11,10 @@ import { getAuthHeader } from "@/services/caseApi";
 import { useToast } from "@/context/ToastContext";
 
 const navItems = [
-  { label: "File",      items: [{ label: "New Case",       path: "/register-case" }] },
-  { label: "Cases",     items: [{ label: "All Cases",      path: "/investigator/cases?tab=all" }, { label: "Active", path: "/investigator/cases?tab=Active" }, { label: "Closed", path: "/investigator/cases?tab=Closed" }] },
-  { label: "Analytics", items: [{ label: "Dashboard",      path: "/investigator" }, { label: "Generate Report", path: "/investigator/report" }, { label: "Trends", path: "/investigator/trends?tab=trends" }, { label: "Predictions", path: "/investigator/trends?tab=predictions" }] },
-  { label: "Settings",  items: [{ label: "Profile",        path: "/investigator/profile" }, { label: "Help", path: "/investigator/help" }] },
+  { label: "File", items: [{ label: "New Case", path: "/register-case" }, { label: "Drafts", path: "/investigator/drafts" },] },
+  { label: "Cases", items: [{ label: "All Cases", path: "/investigator/cases?tab=all" }, { label: "Active", path: "/investigator/cases?tab=Active" }, { label: "Closed", path: "/investigator/cases?tab=Closed" }] },
+  { label: "Analytics", items: [{ label: "Dashboard", path: "/investigator" }, { label: "Generate Report", path: "/investigator/report" }, { label: "Trends", path: "/investigator/trends?tab=trends" }, { label: "Predictions", path: "/investigator/trends?tab=predictions" }] },
+  { label: "Settings", items: [{ label: "Profile", path: "/investigator/profile" }, { label: "Help", path: "/investigator/help" }] },
 ];
 
 const photoSrc = (rawUrl) => {
@@ -24,49 +24,31 @@ const photoSrc = (rawUrl) => {
   return rawUrl;
 };
 
-const useNotificationSound = (enabled) => {
-  const audioRef = useRef(null);
-  useEffect(() => {
-    const audio = new Audio();
-    audio.volume = 0.4;
-    audio.addEventListener("canplaythrough", () => { audioRef.current = audio; }, { once: true });
-    audio.addEventListener("error",          () => { audioRef.current = null;  }, { once: true });
-    audio.src = "/sounds/alert.mp3";
-  }, []);
-  return useCallback(() => {
-    if (!enabled || !audioRef.current) return;
-    audioRef.current.currentTime = 0;
-    audioRef.current.play().catch(() => {});
-  }, [enabled]);
-};
-
 const severityDot = (sev) => {
   if (!sev) return "bg-slate-300";
   const s = sev.toLowerCase();
   if (s === "critical") return "bg-red-500";
-  if (s === "high")     return "bg-orange-400";
+  if (s === "high") return "bg-orange-400";
   return "bg-blue-400";
 };
 
 const NotificationsDropdown = () => {
-  const [items, setItems]             = useState([]);
+  const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading]         = useState(true);
-  const [tab, setTab]                 = useState("all");
-  const [prefs, setPrefs]             = useState(null);
-  const playSound = useNotificationSound(prefs?.sound_alerts ?? false);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("all");
+  const [prefs, setPrefs] = useState(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const data = await fetchNotifications({ page: 1, page_size: 30, unread_only: tab === "unread" });
-      if (silent && data.unreadCount > unreadCount) playSound();
       setItems(data.items);
       setUnreadCount(data.unreadCount);
-    } catch {} finally {
+    } catch { } finally {
       if (!silent) setLoading(false);
     }
-  }, [tab, unreadCount, playSound]);
+  }, [tab, unreadCount]);
 
   useEffect(() => { load(false); }, [tab]);
   useEffect(() => {
@@ -76,12 +58,12 @@ const NotificationsDropdown = () => {
 
   useEffect(() => {
     if (tab !== "prefs" || prefs !== null) return;
-    fetchPreferences().then(setPrefs).catch(() => {});
+    fetchPreferences().then(setPrefs).catch(() => { });
   }, [tab, prefs]);
 
-  const handleMarkRead    = async (id) => { await markRead(id).catch(() => {}); setItems(p => p.map(n => n.id === id ? { ...n, isRead: true } : n)); setUnreadCount(c => Math.max(0, c - 1)); };
-  const handleMarkAllRead = async ()   => { await markAllRead().catch(() => {}); setItems(p => p.map(n => ({ ...n, isRead: true }))); setUnreadCount(0); };
-  const handleDelete      = async (id) => { await deleteNotification(id).catch(() => {}); const was = items.find(n => n.id === id && !n.isRead); setItems(p => p.filter(n => n.id !== id)); if (was) setUnreadCount(c => Math.max(0, c - 1)); };
+  const handleMarkRead = async (id) => { await markRead(id).catch(() => { }); setItems(p => p.map(n => n.id === id ? { ...n, isRead: true } : n)); setUnreadCount(c => Math.max(0, c - 1)); };
+  const handleMarkAllRead = async () => { await markAllRead().catch(() => { }); setItems(p => p.map(n => ({ ...n, isRead: true }))); setUnreadCount(0); };
+  const handleDelete = async (id) => { await deleteNotification(id).catch(() => { }); const was = items.find(n => n.id === id && !n.isRead); setItems(p => p.filter(n => n.id !== id)); if (was) setUnreadCount(c => Math.max(0, c - 1)); };
 
   return (
     <div className="fixed top-14 right-0 w-80 h-[calc(100vh-56px)] bg-white shadow-xl z-50 border-l border-slate-200 flex flex-col">
@@ -90,9 +72,9 @@ const NotificationsDropdown = () => {
         {unreadCount > 0 && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold">{unreadCount} unread</span>}
       </div>
       <div className="flex border-b border-slate-200 shrink-0">
-        {[["all","All"],["unread","Unread"]].map(([id,label]) => (
+        {[["all", "All"], ["unread", "Unread"]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex-1 py-2.5 text-xs font-medium cursor-pointer transition-colors ${tab===id ? "border-b-2 border-[#1b3c53] text-[#1b3c53]" : "text-slate-500 hover:text-slate-700"}`}>
+            className={`flex-1 py-2.5 text-xs font-medium cursor-pointer transition-colors ${tab === id ? "border-b-2 border-[#1b3c53] text-[#1b3c53]" : "text-slate-500 hover:text-slate-700"}`}>
             {label}
           </button>
         ))}
@@ -119,7 +101,7 @@ const NotificationsDropdown = () => {
                 <div className="flex-1 min-w-0">
                   <p className={`text-xs leading-snug ${n.isRead ? "font-normal text-slate-700" : "font-semibold text-slate-900"}`}>{n.title}</p>
                   {n.message && <p className="text-[10px] text-slate-500 mt-0.5 leading-snug line-clamp-2">{n.message}</p>}
-                  <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   {!n.isRead && <button onClick={() => handleMarkRead(n.id)} title="Mark as read" className="p-1 rounded hover:bg-slate-200 cursor-pointer"><Check className="h-3 w-3 text-slate-500" /></button>}
@@ -135,44 +117,52 @@ const NotificationsDropdown = () => {
 };
 
 const Header = () => {
-  const [openMenu, setOpenMenu]                   = useState(null);
+  const [openMenu, setOpenMenu] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [keywords, setKeywords]                   = useState("");
-  const [unreadCount, setUnreadCount]             = useState(0);
-  const [currentUser, setCurrentUser]             = useState(null);
-  const [prefs, setPrefs]                         = useState(null);
+  const [keywords, setKeywords] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [prefs, setPrefs] = useState(null);
 
-  const menuRef              = useRef();
+  const menuRef = useRef();
   const notificationPanelRef = useRef();
-  const bellButtonRef        = useRef();
-  const prevUnreadIdsRef     = useRef(new Set());
-  const navigate             = useNavigate();
-  const toast                = useToast();
+  const bellButtonRef = useRef();
+  const prevUnreadIdsRef = useRef(new Set());
+  const navigate = useNavigate();
+  const toast = useToast();
 
-  const playSound = useNotificationSound(prefs?.sound_alerts ?? false);
-
-  useEffect(() => { fetchPreferences().then(setPrefs).catch(() => {}); }, []);
+  useEffect(() => { fetchPreferences().then(setPrefs).catch(() => { }); }, []);
 
   useEffect(() => {
     (async () => {
       try {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/investigator/profile`, { headers: getAuthHeader() });
         setCurrentUser(res.data.user);
-      } catch {}
+      } catch { }
     })();
   }, []);
 
+  const toastRef = useRef(toast);
+  const prefsRef = useRef(prefs);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
+  useEffect(() => { prefsRef.current = prefs; }, [prefs]);
+
   const refreshNotifications = useCallback(async (silent = false) => {
     try {
-      const data      = await fetchNotifications({ page: 1, page_size: 30, unread_only: false });
+      const data = await fetchNotifications({ page: 1, page_size: 30, unread_only: false });
       const currentIds = new Set(prevUnreadIdsRef.current);
-      const brandNew  = (data.items ?? []).filter(n => !n.isRead && !currentIds.has(n.id));
+      const brandNew = (data.items ?? []).filter(n => !n.isRead && !currentIds.has(n.id));
 
       if (silent && brandNew.length > 0) {
-        playSound();
-        if (prefs === null || prefs?.email_notifications !== false) {
+        // No manual playSound() here — the toast plays its own sound
+        // based on the global soundEnabled state, which is itself
+        // driven by the user's `sound_alerts` preference. Single
+        // source of truth.
+        const livePrefs = prefsRef.current;
+        const liveToast = toastRef.current;
+        if (livePrefs === null || livePrefs?.email_notifications !== false) {
           brandNew.slice(0, 3).forEach(n => {
-            toast.notification(n.message ?? n.title, {
+            liveToast.notification(n.message ?? n.title, {
               title: n.message ? n.title : undefined,
               severity: n.severity,
               duration: 5000,
@@ -182,17 +172,22 @@ const Header = () => {
         brandNew.forEach(n => currentIds.add(n.id));
         prevUnreadIdsRef.current = currentIds;
       } else if (!silent) {
-        prevUnreadIdsRef.current = new Set((data.items ?? []).filter(n => !n.isRead).map(n => n.id));
+        prevUnreadIdsRef.current = new Set(
+          (data.items ?? []).filter(n => !n.isRead).map(n => n.id)
+        );
       }
       setUnreadCount(data.unreadCount ?? 0);
-    } catch {}
-  }, [playSound, prefs, toast]);
+    } catch {
+      // Swallow — a transient network blip shouldn't blow up the header.
+      // The next 30s tick will retry.
+    }
+  }, []);   // ← empty deps: poller is a singleton, reads live state via refs
 
   useEffect(() => {
     refreshNotifications(false);
     const id = setInterval(() => refreshNotifications(true), 30_000);
     return () => clearInterval(id);
-  }, [refreshNotifications]);
+  }, []);
 
   useEffect(() => {
     const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null); };

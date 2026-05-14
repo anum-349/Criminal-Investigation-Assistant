@@ -8,6 +8,7 @@ import {
     TextareaField, FieldLabel,
 } from "@/pages/form/case-forms/CaseFormFields/page";
 import { defaultEvidence, EVIDENCE_TYPES } from "@/pages/form/case-forms/caseFormConstants/page";
+import InvestigatorPicker from "@/components/InvestigatorPicker";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -17,18 +18,18 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export const createDefaultEvidence = () => ({
     ...defaultEvidence(),
-    id:               Date.now() + Math.random(),
-    evidenceId:       'Auto genrated',
-    type:             EVIDENCE_TYPES[0] || "Physical Object",
-    dateCollected:    new Date().toISOString().split("T")[0],
-    collectedBy:      "",
-    description:      "",
-    file:             null,
-    fileName:         "",
-    fileMime:         "",
-    fileDataUrl:      null,
+    id: Date.now() + Math.random(),
+    evidenceId: 'Auto genrated',
+    type: EVIDENCE_TYPES[0] || "Physical Object",
+    dateCollected: new Date().toISOString().split("T")[0],
+    collectedBy: "",
+    description: "",
+    file: null,
+    fileName: "",
+    fileMime: "",
+    fileDataUrl: null,
     existingFileName: null,
-    photos:           [],
+    photos: [],
 });
 
 // ── Per-field validators ──────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ const validators = {
 
     collectedBy: (v) => {
         if (!v || !v.trim()) return "Collected by is required.";
-        if (/\d/.test(v))    return "Name must not contain numbers.";
+        if (/\d/.test(v)) return "Name must not contain numbers.";
         if (!/^[a-zA-Z\s\-'.]+$/.test(v))
             return "Name may only contain letters, spaces, hyphens, and apostrophes.";
         return null;
@@ -53,9 +54,9 @@ const validators = {
 
 /** Returns an object of { fieldName: errorString | null } for the whole card. */
 const validateEvidence = (ev) => ({
-    type:          validators.type(ev?.type),
+    type: validators.type(ev?.type),
     dateCollected: validators.dateCollected(ev?.dateCollected),
-    collectedBy:   validators.collectedBy(ev?.collectedBy),
+    collectedBy: validators.collectedBy(ev?.collectedBy),
 });
 
 /** True only when every rule passes. */
@@ -84,7 +85,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
     { ev, idx, isEditing, onToggleEdit, onRemove, onUpdate, onPhotoAdd, onPhotoRemove },
     ref,
 ) {
-    const fileRef  = useRef(null);
+    const fileRef = useRef(null);
     const photoRef = useRef(null);
 
     // touched tracks which fields the user has interacted with so we don't
@@ -99,8 +100,8 @@ const EvidenceCard = forwardRef(function EvidenceCard(
 
     // Expose helpers to the parent via ref
     useImperativeHandle(ref, () => ({
-        validate:  () => { setShowAllErrors(true); return cardIsValid; },
-        isValid:   () => cardIsValid,
+        validate: () => { setShowAllErrors(true); return cardIsValid; },
+        isValid: () => cardIsValid,
     }));
 
     const touch = (field) => setTouched((t) => ({ ...t, [field]: true }));
@@ -110,7 +111,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
     const errorFor = (field) =>
         (touched[field] || showAllErrors) ? fieldErrors[field] : null;
 
-    const hasNew      = !!ev?.file || ev?.fileDataUrl?.startsWith?.("data:");
+    const hasNew = !!ev?.file || ev?.fileDataUrl?.startsWith?.("data:");
     const hasExisting = !!ev?.existingFileName;
 
     // ── Save (collapse) button handler ────────────────────────────────────────
@@ -186,11 +187,11 @@ const EvidenceCard = forwardRef(function EvidenceCard(
                 <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
                     {[
                         { label: "Evidence ID", value: <span className="font-mono text-xs">{ev?.evidenceId}</span> },
-                        { label: "Type",         value: ev?.type || "—" },
-                        { label: "Date",         value: ev?.dateCollected || "—" },
+                        { label: "Type", value: ev?.type || "—" },
+                        { label: "Date", value: ev?.dateCollected || "—" },
                         { label: "Collected By", value: ev?.collectedBy || "—" },
-                        { label: "File",         value: <span className="truncate block max-w-40">{ev?.fileName || "None"}</span> },
-                        { label: "Photos",       value: `${ev?.photos?.length || 0} photo(s)` },
+                        { label: "File", value: <span className="truncate block max-w-40">{ev?.fileName || "None"}</span> },
+                        { label: "Photos", value: `${ev?.photos?.length || 0} photo(s)` },
                     ].map(({ label, value }) => (
                         <div key={label}>
                             <span className="text-[10px] text-slate-400 block uppercase tracking-wide mb-0.5">
@@ -271,18 +272,17 @@ const EvidenceCard = forwardRef(function EvidenceCard(
 
                         {/* Collected By — required, no numbers */}
                         <div>
-                            <TextField
+                            <InvestigatorPicker
                                 label={<>Collected By <span className="text-red-500 ml-0.5">*</span></>}
-                                value={ev?.collectedBy}
-                                placeholder="Officer / Forensic team name"
-                                onChange={(e) => {
-                                    onUpdate("collectedBy", e.target.value);
+                                storeAs="displayLabel"
+                                hint="Officer or forensic team that collected this item"
+                                value={ev?.collectedBy || ""}
+                                onChange={(v) => {
+                                    onUpdate("collectedBy", v);
                                     touch("collectedBy");
                                 }}
-                                onBlur={() => touch("collectedBy")}
-                                className={errorFor("collectedBy") ? "border-red-400 focus:ring-red-200" : ""}
+                                error={errorFor("collectedBy")}
                             />
-                            <FieldError message={errorFor("collectedBy")} />
                         </div>
                     </div>
 
@@ -455,7 +455,7 @@ const EvidenceCard = forwardRef(function EvidenceCard(
  *   hasOpenCards() — returns true if any card is still in edit mode.
  */
 export const StepEvidence = forwardRef(function StepEvidence({ data = {}, setData }, ref) {
-    const evidences  = data.evidences || [];
+    const evidences = data.evidences || [];
     const [editingIds, setEditingIds] = useState(new Set());
 
     // One ref per card, keyed by evidence.id

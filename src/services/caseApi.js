@@ -93,21 +93,22 @@ export const buildCreateCasePayload = (f) => ({
 export const createCase = async (formData) => {
     const url     = apiBase();
     const headers = getAuthHeader();
-
+ 
     const body = buildCreateCasePayload(formData);
-
+ 
     const res = await axios.post(
-        `${url}/api/investigator/cases`,
+        `${url}/api/investigator/cases/register`,
         body,
         { headers },
     );
-
+ 
     const data   = res.data || {};
     const caseId = data.case_id || data.caseId;
     if (!caseId) {
         throw new Error("Server did not return a case_id");
     }
-
+ 
+    // ── Optional FIR file upload ──────────────────────────────────────
     if (formData.firFile instanceof File || formData.firFileDataUrl) {
         try {
             const dataUrl =
@@ -140,7 +141,7 @@ export const createCase = async (formData) => {
             };
         }
     }
-
+ 
     return {
         caseId,
         firNumber: data.fir_number || data.firNumber,
@@ -242,19 +243,25 @@ export const addAllChildEntities = async (caseId, formData) => {
 };
 
 export const registerCaseFull = async (formData) => {
-   const caseResult = await createCase(formData);
+    // Phase 1
+    const caseResult = await createCase(formData);
     const { caseId } = caseResult;
-
+ 
+    // Phase 2
     const { childResults, partialFailures } =
         await addAllChildEntities(caseId, formData);
-
+ 
     if (caseResult.fir_file_failed) {
         partialFailures.unshift({
             phase: "fir_file",
             error: caseResult.fir_file_error || "FIR file upload failed",
         });
     }
-    
+ 
+    // Phase 0 cleanup: if this submission came from a draft, throw the
+    // draft away now that we have a real case. Best-effort — a failure
+    // here doesn't matter to the user (worst case: a stale draft they
+    // can delete manually).
     if (formData.draftId) {
         try {
             await deleteDraft(formData.draftId);
@@ -262,7 +269,7 @@ export const registerCaseFull = async (formData) => {
             console.warn("Draft cleanup failed (non-fatal):", err);
         }
     }
-
+ 
     return {
         caseId,
         firNumber: caseResult.firNumber,
@@ -271,7 +278,10 @@ export const registerCaseFull = async (formData) => {
         partialFailures,
     };
 };
-
+ 
+// ───────────────────────────────────────────────────────────────────────────
+// Error utility
+// ───────────────────────────────────────────────────────────────────────────
 export const formatApiError = (err, fallback = "Request failed") => {
     if (!err) return fallback;
     const detail = err?.response?.data?.detail;

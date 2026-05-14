@@ -14,6 +14,7 @@ import {
   SelectField, TextareaField, TextField,
 } from "@/pages/form/case-forms/CaseFormFields/page";
 import { Input } from "@/components/ui/Input";
+import InvestigatorPicker from "@/components/InvestigatorPicker";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Case-type → section visibility map (mirrors CaseVictims.jsx CASE_TYPE_CONFIG)
@@ -439,10 +440,16 @@ function VictimFormFields({ victim, idx, onUpdate, caseType, errors }) {
               value={victim?.injurySummary || ""} onChange={u("injurySummary")}
               placeholder="Short summary of injuries"
             />
-            <TextField
+            {/* Scrollable, searchable investigator dropdown — replaces the
+                        old plain text input. Stores `username` (backend ID) but
+                        displays "Insp. A. Khan · Cybercrime" to the investigator. */}
+            <InvestigatorPicker
               label="Injury Recorded By"
-              value={victim?.injuryRecordedBy || ""} onChange={u("injuryRecordedBy")}
-              placeholder="e.g. Inspector Ali"
+              storeAs="displayLabel"
+              hint="Search the roster, or pick to fill the name"
+              value={victim?.injuryRecordedBy || ""}
+              onChange={(v) => onUpdate(idx, "injuryRecordedBy", v)}
+              error={errors?.injuryRecordedBy}
             />
           </div>
         )}
@@ -679,7 +686,7 @@ function RegisterVictimCard({ victim, idx, canRemove, onUpdate, onRemove, caseTy
         )}
       </div>
 
-      <VictimFormFields victim={victim} idx={idx} onUpdate={onUpdate} caseType={caseType} errors={errors}/>
+      <VictimFormFields victim={victim} idx={idx} onUpdate={onUpdate} caseType={caseType} errors={errors} />
     </div>
   );
 }

@@ -33,6 +33,7 @@ import {
     SEVERITIES,
     createManualEvent,
 } from "../caseEventConstants";
+import InvestigatorPicker from "@/components/InvestigatorPicker";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Primitive field components
@@ -102,7 +103,7 @@ const Textarea = ({ error, rows = 3, className = "", ...props }) => (
 
 const TODAY = () => new Date().toISOString().split("T")[0];
 
-const NAME_RE  = /^[a-zA-Z\s\-'.]+$/;   // letters, spaces, hyphens, apostrophes
+const NAME_RE = /^[a-zA-Z\s\-'.]+$/;   // letters, spaces, hyphens, apostrophes
 const DIGIT_RE = /\d/;
 
 const validators = {
@@ -112,35 +113,35 @@ const validators = {
     },
 
     title(v) {
-        if (!v || !v.trim())   return "Title is required.";
-        if (DIGIT_RE.test(v))  return "Title must not contain numbers.";
+        if (!v || !v.trim()) return "Title is required.";
+        if (DIGIT_RE.test(v)) return "Title must not contain numbers.";
         if (v.trim().length > 150) return "Title must be 150 characters or fewer.";
         return null;
     },
 
     description(v) {
-        if (!v || !v.trim())   return "Description is required.";
+        if (!v || !v.trim()) return "Description is required.";
         if (v.trim().length > 2000) return "Description must be 2 000 characters or fewer.";
         return null;
     },
 
     date(v) {
-        if (!v)        return "Date is required.";
+        if (!v) return "Date is required.";
         if (v > TODAY()) return "Date cannot be in the future.";
         return null;
     },
 
     officerName(v) {
-        if (!v || !v.trim())    return "Officer name is required.";
-        if (DIGIT_RE.test(v))   return "Name must not contain numbers.";
-        if (!NAME_RE.test(v))   return "Name may only contain letters, spaces, hyphens, and apostrophes.";
+        if (!v || !v.trim()) return "Officer name is required.";
+        if (DIGIT_RE.test(v)) return "Name must not contain numbers.";
+        if (!NAME_RE.test(v)) return "Name may only contain letters, spaces, hyphens, and apostrophes.";
         return null;
     },
 
     followUpDate(v, followUpRequired) {
         if (!followUpRequired) return null;
-        if (!v)                return "Follow-up date is required when follow-up is enabled.";
-        if (v < TODAY())       return "Follow-up date must be today or in the future.";
+        if (!v) return "Follow-up date is required when follow-up is enabled.";
+        if (v < TODAY()) return "Follow-up date must be today or in the future.";
         return null;
     },
 };
@@ -149,12 +150,12 @@ const validators = {
 const runValidation = (form) => {
     const e = {};
     const push = (k, msg) => { if (msg) e[k] = msg; };
-    push("eventType",   validators.eventType(form.eventType));
-    push("title",       validators.title(form.title));
+    push("eventType", validators.eventType(form.eventType));
+    push("title", validators.title(form.title));
     push("description", validators.description(form.description));
-    push("date",        validators.date(form.date));
+    push("date", validators.date(form.date));
     push("officerName", validators.officerName(form.officerName));
-    push("followUpDate",validators.followUpDate(form.followUpDate, form.followUpRequired));
+    push("followUpDate", validators.followUpDate(form.followUpDate, form.followUpRequired));
     return e;
 };
 
@@ -164,18 +165,18 @@ const runValidation = (form) => {
 
 const emptyForm = (caseId) => ({
     caseId,
-    eventType:        "",
-    title:            "",
-    description:      "",
-    date:             TODAY(),
-    time:             new Date().toTimeString().slice(0, 5),
-    location:         "",
-    officerName:      "",
-    outcome:          "",
+    eventType: "",
+    title: "",
+    description: "",
+    date: TODAY(),
+    time: new Date().toTimeString().slice(0, 5),
+    location: "",
+    officerName: "",
+    outcome: "",
     followUpRequired: false,
-    followUpDate:     "",
-    attachmentNote:   "",
-    severity:         "Normal",
+    followUpDate: "",
+    attachmentNote: "",
+    severity: "Normal",
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,17 +187,17 @@ export default function AddTimelineDialog({
     isOpen,
     onClose,
     onSubmit,
-    caseId      = "",
+    caseId = "",
     initialData = null,
 }) {
     const closeButtonRef = useRef(null);
 
-    const [form,        setForm]        = useState(() => emptyForm(caseId));
-    const [errors,      setErrors]      = useState({});
-    const [touched,     setTouched]     = useState({});   // which fields user has interacted with
-    const [showAll,     setShowAll]     = useState(false); // reveal all errors on failed submit
-    const [saving,      setSaving]      = useState(false);
-    const [submitted,   setSubmitted]   = useState(false);
+    const [form, setForm] = useState(() => emptyForm(caseId));
+    const [errors, setErrors] = useState({});
+    const [touched, setTouched] = useState({});   // which fields user has interacted with
+    const [showAll, setShowAll] = useState(false); // reveal all errors on failed submit
+    const [saving, setSaving] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
     const [submitError, setSubmitError] = useState("");
 
     const isUpdate = !!initialData;
@@ -206,19 +207,19 @@ export default function AddTimelineDialog({
         if (!isOpen) return;
         if (initialData) {
             setForm({
-                caseId:           initialData.caseId           || caseId,
-                eventType:        initialData.eventType        || "",
-                title:            initialData.title            || "",
-                description:      initialData.description      || "",
-                date:             initialData.date             || TODAY(),
-                time:             initialData.time             || new Date().toTimeString().slice(0, 5),
-                location:         initialData.location         || "",
-                officerName:      initialData.officerName      || "",
-                outcome:          initialData.outcome          || "",
+                caseId: initialData.caseId || caseId,
+                eventType: initialData.eventType || "",
+                title: initialData.title || "",
+                description: initialData.description || "",
+                date: initialData.date || TODAY(),
+                time: initialData.time || new Date().toTimeString().slice(0, 5),
+                location: initialData.location || "",
+                officerName: initialData.officerName || "",
+                outcome: initialData.outcome || "",
                 followUpRequired: !!initialData.followUpRequired,
-                followUpDate:     initialData.followUpDate     || "",
-                attachmentNote:   initialData.attachmentNote   || "",
-                severity:         initialData.severity         || "Normal",
+                followUpDate: initialData.followUpDate || "",
+                attachmentNote: initialData.attachmentNote || "",
+                severity: initialData.severity || "Normal",
             });
         } else {
             setForm(emptyForm(caseId));
@@ -544,20 +545,15 @@ export default function AddTimelineDialog({
                                         />
                                     </FieldLabel>
 
-                                    <FieldLabel
+                                    <InvestigatorPicker
                                         label="Officer in Charge"
-                                        required
+                                        storeAs="displayLabel"
+                                        hint="Pick the responsible officer (no numbers in the name)"
+                                        value={form.officerName}
+                                        onChange={(v) => setForm(f => ({ ...f, officerName: v }))}
                                         error={errorFor("officerName")}
-                                        hint="No numbers allowed"
-                                    >
-                                        <Input
-                                            value={form.officerName}
-                                            onChange={setField("officerName")}
-                                            onBlur={touchField("officerName")}
-                                            placeholder="Name of responsible officer"
-                                            error={errorFor("officerName")}
-                                        />
-                                    </FieldLabel>
+                                    />
+
                                 </div>
                             </section>
 

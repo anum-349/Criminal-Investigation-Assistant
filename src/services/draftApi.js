@@ -1,30 +1,4 @@
-/**
- * src/services/draftApi.js
- * ─────────────────────────────────────────────────────────────────────────────
- * Case-registration drafts.
- *
- * A draft is a snapshot of the wizard's `formData` saved to the server while
- * the investigator is still working on the case. It's NOT a row in the
- * `cases` table — drafts live in their own `case_drafts` table so:
- *   - Drafts don't pollute All Cases / search / hotspots / reports.
- *   - Investigators can have multiple drafts in flight at once.
- *   - Deleting a draft is a clean DELETE — no orphaned suspect/victim rows.
- *
- * When the investigator finally clicks "Submit Case" on a draft, the
- * frontend just calls the existing registerCaseFull(formData) — the draft
- * is automatically deleted on the backend once a real case is created
- * with the same draft_id (see deleteDraft below).
- *
- * Endpoints (backend: schemas/case_draft_schema.py + services/case_draft_service.py):
- *   POST   /api/investigator/case-drafts             → save or replace a draft
- *   GET    /api/investigator/case-drafts             → list drafts for current user
- *   GET    /api/investigator/case-drafts/{draftId}   → load one draft (full formData)
- *   DELETE /api/investigator/case-drafts/{draftId}   → throw away a draft
- *
- * The body for save/replace is just the wizard's formData (camelCase) plus
- * an optional `draftId`. Pass back the `draftId` from a previous response
- * to update in place; omit it to create a new draft row.
- */
+
 
 import axios from "axios";
 
@@ -106,7 +80,7 @@ export const saveDraft = async (formData) => {
     const safe    = _sanitizeForDraft(formData);
 
     const res = await axios.post(
-        `${url}/api/investigator/case-drafts`,
+        `${url}/api/investigator/cases/case-drafts`,
         {
             draftId:   formData.draftId || undefined,
             // Best-effort human-readable title for the Drafts list.
@@ -129,7 +103,7 @@ export const saveDraft = async (formData) => {
  */
 export const listDrafts = async () => {
     const res = await axios.get(
-        `${apiBase()}/api/investigator/case-drafts`,
+        `${apiBase()}/api/investigator/cases/case-drafts`,
         { headers: getAuthHeader() },
     );
     return res.data?.items || [];
@@ -147,7 +121,7 @@ export const listDrafts = async () => {
 export const getDraft = async (draftId) => {
     if (!draftId) throw new Error("draftId is required");
     const res = await axios.get(
-        `${apiBase()}/api/investigator/case-drafts/${encodeURIComponent(draftId)}`,
+        `${apiBase()}/api/investigator/cases/case-drafts/${encodeURIComponent(draftId)}`,
         { headers: getAuthHeader() },
     );
     // { draftId, title, formData, updatedAt }
@@ -165,7 +139,7 @@ export const getDraft = async (draftId) => {
 export const deleteDraft = async (draftId) => {
     if (!draftId) return { deleted: false };
     const res = await axios.delete(
-        `${apiBase()}/api/investigator/case-drafts/${encodeURIComponent(draftId)}`,
+        `${apiBase()}/api/investigator/cases/case-drafts/${encodeURIComponent(draftId)}`,
         { headers: getAuthHeader() },
     );
     return res.data;     // { deleted: true, draftId }

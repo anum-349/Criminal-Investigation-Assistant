@@ -20,6 +20,7 @@ const AuditLogsPage = lazy(() => import('@/pages/admin/admin-audit/page'));
 
 import LoginPage from "@/pages/login/page";
 import ProtectedRoute from "./protected-routes/page";
+import DraftsPage from "@/pages/investigator/drafts/page";
 
 export default function AppRoutes() {
     return (
@@ -35,6 +36,11 @@ export default function AppRoutes() {
             <Route path="/investigator/case/:id" element={
                 <ProtectedRoute requiredRole="investigator">
                     <CasePage />
+                </ProtectedRoute>} />
+
+            <Route path="/investigator/drafts" element={
+                <ProtectedRoute requiredRole="investigator">
+                    <DraftsPage />
                 </ProtectedRoute>} />
 
             <Route path="/search-case" element={

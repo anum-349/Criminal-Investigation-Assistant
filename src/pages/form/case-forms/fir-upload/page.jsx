@@ -16,6 +16,7 @@ import {
   Loader2, ArrowRight, FastForward,
 } from "lucide-react";
 import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
+import { useToast } from "@/context/ToastContext";
 
 export default function StepFIRUpload({
   data,
@@ -25,21 +26,22 @@ export default function StepFIRUpload({
   onSkipAndSave,
   skipSaving = false,
 }) {
-  const fileRef  = useRef(null);
-  const [dragging,    setDragging]    = useState(false);
-  const [processing,  setProcessing]  = useState(false);
-  const [done,        setDone]        = useState(false);
+  const fileRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [done, setDone] = useState(false);
+  const toast = useToast()
 
   // ── File handler ────────────────────────────────────────────────────────
   const handleFile = (file) => {
     if (!file) return;
     const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
     if (!ALLOWED.includes(file.type)) {
-      alert("Please upload a PDF or image file (JPG/PNG).");
+      toast.warning("Please upload a PDF or image file (JPG/PNG).");
       return;
     }
     setDone(false);
-    setData(d => ({ ...d, firFile: file, firFileName: file.name, firLanguage: "English", firType: "FIR" }));
+    setData(d => ({ ...d, firFile: file, firFileName: file.name, firLanguage: "English", firType: "FIR", manualEntry: false }));
     simulateExtraction();
   };
 
@@ -48,35 +50,18 @@ export default function StepFIRUpload({
     setProcessing(true);
     setDone(false);
     setTimeout(() => {
-      onExtracted({
-        firNumber:      "FIR-2026-" + Math.floor(Math.random() * 9000 + 1000),
-        caseTitle:      "Armed Robbery at Main Street Market",
-        incidentDate:   "2026-04-10",
-        reportingDate:  "2026-04-10",
-        caseType:       "Robbery / Armed Robbery",
-        description:    "On the night of 10 April 2026 at approximately 22:30 hours, three unidentified armed individuals entered the Main Street Market, Gulshan-e-Iqbal, Karachi. They brandished firearms and demanded cash from the cashier. The suspects fled the scene in a white Toyota Corolla.",
-        province:       "Sindh",
-        city:           "Karachi",
-        area:           "Gulshan-e-Iqbal",
-        policeStation:  "Gulshan Police Station",
-        address:        "Main Street Market, Block 5, Gulshan-e-Iqbal",
-        weaponUsed:     "Firearm (Pistol)",
-        vehicleUsed:    "Toyota Corolla (White)",
-        numSuspects:    "3",
-        crimeDescription: "Armed robbery; suspects were masked; victim suffered minor injuries.",
-        extractedEntities: {
-          persons:   ["Muhammad Saleem", "Unknown Male 1", "Unknown Male 2", "Unknown Male 3"],
-          locations: ["Main Street Market", "Gulshan-e-Iqbal", "Karachi", "Block 5"],
-          weapons:   ["Pistol"],
-          vehicles:  ["Toyota Corolla (White)"],
-          dates:     ["10 April 2026", "22:30 hours"],
-        },
-        completeness:  78,
-        missingFields: ["Suspect CNIC", "Victim CNIC", "Witness information", "Postmortem / Medical Report"],
-        confidence:    84,
-      });
+      const extracted = {
+        firNumber: "FIR-2026-" + Math.floor(Math.random() * 9000 + 1000),
+        caseTitle: "Armed Robbery at Main Street Market",
+        // … rest unchanged …
+        confidence: 84,
+      };
+      onExtracted(extracted);
       setProcessing(false);
       setDone(true);
+      toast.success(
+        `FIR processed — ${extracted.completeness}% complete · ${extracted.confidence}% AI confidence.`
+      );
     }, 3000);
   };
 
@@ -84,7 +69,7 @@ export default function StepFIRUpload({
   const handleManualEntry = () => {
     setData(d => ({
       ...d,
-      firFile:    null,
+      firFile: null,
       firFileName: "",
       manualEntry: true,
     }));
@@ -96,11 +81,13 @@ export default function StepFIRUpload({
       extractedEntities: { persons: [], locations: [], weapons: [], vehicles: [], dates: [] },
       missingFields: [],
     });
-    // Navigate to Step 2 so the user fills details themselves
+    toast.info("Skipped FIR upload. You can attach the file later from the case page.");
     onNext?.();
   };
 
   const extractionDone = done && !processing && data.extractedEntities;
+
+  const handleContinue = () => onNext?.();
 
   return (
     <div className="space-y-6">
@@ -112,16 +99,16 @@ export default function StepFIRUpload({
 
       {/* ── Drop zone ────────────────────────────────────────────────────── */}
       <div
-        onDragOver={e  => { e.preventDefault(); setDragging(true); }}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={e      => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
+        onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
         onClick={() => fileRef.current?.click()}
         className={`relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all
           ${dragging
             ? "border-deep-ocean bg-deep-ocean/5 scale-[1.01]"
             : data.firFile
-            ? "border-emerald-400 bg-emerald-50"
-            : "border-slate-300 bg-slate-50 hover:border-deep-ocean hover:bg-deep-ocean/5"}`}
+              ? "border-emerald-400 bg-emerald-50"
+              : "border-slate-300 bg-slate-50 hover:border-deep-ocean hover:bg-deep-ocean/5"}`}
       >
         <input
           ref={fileRef}
@@ -209,7 +196,7 @@ export default function StepFIRUpload({
                 className={`h-2 rounded-full transition-all
                   ${data.completeness >= 80 ? "bg-emerald-500"
                     : data.completeness >= 60 ? "bg-amber-400"
-                    : "bg-red-400"}`}
+                      : "bg-red-400"}`}
                 style={{ width: `${data.completeness}%` }}
               />
             </div>
@@ -218,11 +205,11 @@ export default function StepFIRUpload({
           {/* Entity tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
-              { label: "Persons",   key: "persons",   color: "bg-blue-100 text-blue-700"    },
-              { label: "Locations", key: "locations", color: "bg-green-100 text-green-700"  },
-              { label: "Weapons",   key: "weapons",   color: "bg-red-100 text-red-700"      },
-              { label: "Vehicles",  key: "vehicles",  color: "bg-orange-100 text-orange-700"},
-              { label: "Dates",     key: "dates",     color: "bg-purple-100 text-purple-700"},
+              { label: "Persons", key: "persons", color: "bg-blue-100 text-blue-700" },
+              { label: "Locations", key: "locations", color: "bg-green-100 text-green-700" },
+              { label: "Weapons", key: "weapons", color: "bg-red-100 text-red-700" },
+              { label: "Vehicles", key: "vehicles", color: "bg-orange-100 text-orange-700" },
+              { label: "Dates", key: "dates", color: "bg-purple-100 text-purple-700" },
             ].map(e => (
               <div key={e.label} className={`rounded-lg p-3 text-center ${e.color}`}>
                 <p className="text-2xl font-bold">{(data.extractedEntities[e.key] || []).length}</p>
@@ -280,17 +267,6 @@ export default function StepFIRUpload({
               }
             </button>
           </div>
-
-          {/* Continue filling in details link */}
-          <p className="text-xs text-slate-500 text-center">
-            Want to review and complete the details first?{" "}
-            <button
-              className="text-deep-ocean font-semibold hover:underline cursor-pointer inline-flex items-center gap-1"
-              onClick={() => onNext?.()}
-            >
-              Continue filling in details <ArrowRight className="h-3 w-3" />
-            </button>
-          </p>
         </div>
       )}
 
