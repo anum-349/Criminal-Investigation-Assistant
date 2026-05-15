@@ -27,7 +27,7 @@ import axios from "axios";
 
 // ── Auth header (same pattern as the rest of the app) ──────────────────────
 export const getAuthHeader = () => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 

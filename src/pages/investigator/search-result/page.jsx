@@ -16,7 +16,7 @@ const PAGE_SIZE = 5;
 
 const getAuthHeader = () => {
   const token =
-    localStorage.getItem("token") || sessionStorage.getItem("token");
+    localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 

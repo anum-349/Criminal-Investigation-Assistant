@@ -29,7 +29,7 @@
 import axios from "axios";
 
 export const getAuthHeader = () => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 

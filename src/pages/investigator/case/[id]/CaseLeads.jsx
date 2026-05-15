@@ -389,10 +389,11 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         </Button>
       </header>
 
-
-      {
-        toast.error(`failed: ${error}`)
-      }
+      {error && (
+        <div className="mx-6 mt-3 flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+          <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
+        </div>
+      )}
 
       {/* Source filter pills */}
       <div className="px-6 pt-4 pb-3 flex flex-wrap items-center gap-2 border-b border-slate-100">

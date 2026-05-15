@@ -6,7 +6,7 @@ import {
   X,
 } from "lucide-react";
 import {
-  defaultWitness, generateWitnessId,
+  defaultWitness,
   WITNESS_TYPES, WITNESS_CREDIBILITY, WITNESS_STATUSES,
   WITNESS_RELATIONS,
 } from "@/pages/form/case-forms/caseFormConstants/page";

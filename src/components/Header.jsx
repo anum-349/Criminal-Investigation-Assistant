@@ -1,3 +1,19 @@
+// src/components/Header.jsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Top navigation bar with notification bell.
+//
+// Notification strategy (changed):
+//   - 1 fetch on mount   → seeds the unread badge + items
+//   - 1 SSE connection   → /api/notifications/stream
+//   - On every SSE event → silent refetch (drives toasts + badge updates)
+//   - No 30-second polling anywhere. The parent and the dropdown share
+//     the SAME data via props — no duplicate fetchers.
+//
+// If the backend stream isn't reachable (network, server restart, etc.)
+// the EventSource auto-reconnects. We don't fall back to polling; the
+// initial fetch + reconnect is enough for our use case.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { Button } from "@/components/ui/Button";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -11,16 +27,16 @@ import { getAuthHeader } from "@/services/caseApi";
 import { useToast } from "@/context/ToastContext";
 
 const navItems = [
-  { label: "File", items: [{ label: "New Case", path: "/register-case" }, { label: "Drafts", path: "/investigator/drafts" },] },
+  { label: "File", items: [{ label: "New Case", path: "/register-case" }, { label: "Drafts", path: "/investigator/drafts" }] },
   { label: "Cases", items: [{ label: "All Cases", path: "/investigator/cases?tab=all" }, { label: "Active", path: "/investigator/cases?tab=Active" }, { label: "Closed", path: "/investigator/cases?tab=Closed" }] },
   { label: "Analytics", items: [{ label: "Dashboard", path: "/investigator" }, { label: "Generate Report", path: "/investigator/report" }, { label: "Trends", path: "/investigator/trends?tab=trends" }, { label: "Predictions", path: "/investigator/trends?tab=predictions" }] },
   { label: "Settings", items: [{ label: "Profile", path: "/investigator/profile" }, { label: "Help", path: "/investigator/help" }] },
 ];
 
 const photoSrc = (rawUrl) => {
-  if (!rawUrl) return '';
-  if (rawUrl.startsWith('http')) return rawUrl;
-  if (rawUrl.startsWith('/uploads')) return `${import.meta.env.VITE_API_URL}${rawUrl}`;
+  if (!rawUrl) return "";
+  if (rawUrl.startsWith("http")) return rawUrl;
+  if (rawUrl.startsWith("/uploads")) return `${import.meta.env.VITE_API_URL}${rawUrl}`;
   return rawUrl;
 };
 
@@ -32,98 +48,156 @@ const severityDot = (sev) => {
   return "bg-blue-400";
 };
 
-const NotificationsDropdown = () => {
-  const [items, setItems] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("all");
-  const [prefs, setPrefs] = useState(null);
-
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const data = await fetchNotifications({ page: 1, page_size: 30, unread_only: tab === "unread" });
-      setItems(data.items);
-      setUnreadCount(data.unreadCount);
-    } catch { } finally {
-      if (!silent) setLoading(false);
+// Grab the JWT the same way the rest of the API helpers do.
+// NOTE: there's an inconsistency in the codebase — notificationApi.js
+// reads "cia_token" while everything else reads "token". We use "token"
+// here to match what your login flow actually writes.
+const getRawToken = () => {
+  for (const store of [localStorage, sessionStorage]) {
+    for (let i = 0; i < store.length; i++) {
+      const v = store.getItem(store.key(i));
+      if (v && v.startsWith("eyJ") && v.split(".").length === 3) {
+        return v;
+      }
     }
-  }, [tab, unreadCount]);
+  }
+  return "";
+};
+// ═══════════════════════════════════════════════════════════════════════════
+// NotificationsDropdown
+// ═══════════════════════════════════════════════════════════════════════════
+// Pure presentational component now — it receives items / unreadCount /
+// handlers from the parent. No fetching, no polling, no timers.
+// ═══════════════════════════════════════════════════════════════════════════
+const NotificationsDropdown = ({
+  items, unreadCount, loading,
+  onMarkRead, onMarkAllRead, onDelete,
+}) => {
+  const [tab, setTab] = useState("all");
 
-  useEffect(() => { load(false); }, [tab]);
-  useEffect(() => {
-    const id = setInterval(() => load(true), 30_000);
-    return () => clearInterval(id);
-  }, [load]);
-
-  useEffect(() => {
-    if (tab !== "prefs" || prefs !== null) return;
-    fetchPreferences().then(setPrefs).catch(() => { });
-  }, [tab, prefs]);
-
-  const handleMarkRead = async (id) => { await markRead(id).catch(() => { }); setItems(p => p.map(n => n.id === id ? { ...n, isRead: true } : n)); setUnreadCount(c => Math.max(0, c - 1)); };
-  const handleMarkAllRead = async () => { await markAllRead().catch(() => { }); setItems(p => p.map(n => ({ ...n, isRead: true }))); setUnreadCount(0); };
-  const handleDelete = async (id) => { await deleteNotification(id).catch(() => { }); const was = items.find(n => n.id === id && !n.isRead); setItems(p => p.filter(n => n.id !== id)); if (was) setUnreadCount(c => Math.max(0, c - 1)); };
+  // Filter client-side based on the All / Unread tab.
+  const visibleItems = tab === "unread"
+    ? items.filter(n => !n.isRead)
+    : items;
 
   return (
     <div className="fixed top-14 right-0 w-80 h-[calc(100vh-56px)] bg-white shadow-xl z-50 border-l border-slate-200 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
         <span className="font-semibold text-sm text-slate-800">Notifications</span>
-        {unreadCount > 0 && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold">{unreadCount} unread</span>}
+        {unreadCount > 0 && (
+          <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+            {unreadCount} unread
+          </span>
+        )}
       </div>
+
       <div className="flex border-b border-slate-200 shrink-0">
         {[["all", "All"], ["unread", "Unread"]].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)}
-            className={`flex-1 py-2.5 text-xs font-medium cursor-pointer transition-colors ${tab === id ? "border-b-2 border-[#1b3c53] text-[#1b3c53]" : "text-slate-500 hover:text-slate-700"}`}>
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex-1 py-2.5 text-xs font-medium cursor-pointer transition-colors ${tab === id
+                ? "border-b-2 border-[#1b3c53] text-[#1b3c53]"
+                : "text-slate-500 hover:text-slate-700"
+              }`}
+          >
             {label}
           </button>
         ))}
       </div>
+
       <div className="flex-1 overflow-y-auto">
-        {(tab === "all" || tab === "unread") && (
-          <>
-            {tab === "all" && unreadCount > 0 && (
-              <div className="px-4 py-2 border-b border-slate-100 flex justify-end">
-                <button onClick={handleMarkAllRead} className="text-[11px] text-[#1b3c53] hover:underline cursor-pointer">Mark all as read</button>
+        {tab === "all" && unreadCount > 0 && (
+          <div className="px-4 py-2 border-b border-slate-100 flex justify-end">
+            <button
+              onClick={onMarkAllRead}
+              className="text-[11px] text-[#1b3c53] hover:underline cursor-pointer"
+            >
+              Mark all as read
+            </button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center h-32 text-xs text-slate-400">
+            Loading…
+          </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 text-slate-400 space-y-2">
+            <Bell className="h-8 w-8 opacity-25" />
+            <p className="text-xs">
+              {tab === "unread" ? "No unread notifications" : "No notifications yet"}
+            </p>
+          </div>
+        ) : (
+          visibleItems.map(n => (
+            <div
+              key={n.id}
+              className={`group flex gap-3 px-4 py-3 border-b border-slate-100 transition-colors ${n.isRead
+                  ? "bg-white hover:bg-slate-50"
+                  : "bg-blue-50 border-l-[3px] border-l-[#1b3c53] hover:bg-blue-100"
+                }`}
+            >
+              <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${severityDot(n.severity)}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs leading-snug ${n.isRead ? "font-normal text-slate-700" : "font-semibold text-slate-900"
+                  }`}>
+                  {n.title}
+                </p>
+                {n.message && (
+                  <p className="text-[10px] text-slate-500 mt-0.5 leading-snug line-clamp-2">
+                    {n.message}
+                  </p>
+                )}
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {new Date(n.createdAt).toLocaleString("en-GB", {
+                    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+                  })}
+                </p>
               </div>
-            )}
-            {loading ? (
-              <div className="flex items-center justify-center h-32 text-xs text-slate-400">Loading…</div>
-            ) : items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 text-slate-400 space-y-2">
-                <Bell className="h-8 w-8 opacity-25" />
-                <p className="text-xs">{tab === "unread" ? "No unread notifications" : "No notifications yet"}</p>
+              <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                {!n.isRead && (
+                  <button
+                    onClick={() => onMarkRead(n.id)}
+                    title="Mark as read"
+                    className="p-1 rounded hover:bg-slate-200 cursor-pointer"
+                  >
+                    <Check className="h-3 w-3 text-slate-500" />
+                  </button>
+                )}
+                <button
+                  onClick={() => onDelete(n.id)}
+                  title="Delete"
+                  className="p-1 rounded hover:bg-red-50 cursor-pointer"
+                >
+                  <Trash2 className="h-3 w-3 text-red-400" />
+                </button>
               </div>
-            ) : items.map(n => (
-              <div key={n.id}
-                className={`group flex gap-3 px-4 py-3 border-b border-slate-100 transition-colors ${n.isRead ? "bg-white hover:bg-slate-50" : "bg-blue-50 border-l-[3px] border-l-[#1b3c53] hover:bg-blue-100"}`}>
-                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${severityDot(n.severity)}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs leading-snug ${n.isRead ? "font-normal text-slate-700" : "font-semibold text-slate-900"}`}>{n.title}</p>
-                  {n.message && <p className="text-[10px] text-slate-500 mt-0.5 leading-snug line-clamp-2">{n.message}</p>}
-                  <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
-                </div>
-                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  {!n.isRead && <button onClick={() => handleMarkRead(n.id)} title="Mark as read" className="p-1 rounded hover:bg-slate-200 cursor-pointer"><Check className="h-3 w-3 text-slate-500" /></button>}
-                  <button onClick={() => handleDelete(n.id)} title="Delete" className="p-1 rounded hover:bg-red-50 cursor-pointer"><Trash2 className="h-3 w-3 text-red-400" /></button>
-                </div>
-              </div>
-            ))}
-          </>
+            </div>
+          ))
         )}
       </div>
     </div>
   );
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Header
+// ═══════════════════════════════════════════════════════════════════════════
 const Header = () => {
+  // ── UI state ────────────────────────────────────────────────────────────
   const [openMenu, setOpenMenu] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [keywords, setKeywords] = useState("");
-  const [unreadCount, setUnreadCount] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
   const [prefs, setPrefs] = useState(null);
 
+  // ── Notification state (single source of truth) ────────────────────────
+  const [items, setItems] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(true);
+
+  // ── Refs ────────────────────────────────────────────────────────────────
   const menuRef = useRef();
   const notificationPanelRef = useRef();
   const bellButtonRef = useRef();
@@ -131,33 +205,51 @@ const Header = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  useEffect(() => { fetchPreferences().then(setPrefs).catch(() => { }); }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/investigator/profile`, { headers: getAuthHeader() });
-        setCurrentUser(res.data.user);
-      } catch { }
-    })();
-  }, []);
-
+  // Keep latest toast/prefs in refs so the SSE callback (set up once)
+  // always reads current values without needing to re-subscribe.
   const toastRef = useRef(toast);
   const prefsRef = useRef(prefs);
   useEffect(() => { toastRef.current = toast; }, [toast]);
   useEffect(() => { prefsRef.current = prefs; }, [prefs]);
 
+  // ── One-time mounts ────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchPreferences().then(setPrefs).catch(() => { });
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/auth/investigator/profile`,
+          { headers: getAuthHeader() },
+        );
+        setCurrentUser(res.data.user);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // ── Notification fetch (stable callback, no state deps) ────────────────
+  // `silent=true` is used by SSE-triggered refetches — it skips the
+  // loading spinner so the dropdown doesn't flash.
   const refreshNotifications = useCallback(async (silent = false) => {
+    if (!silent) setNotifLoading(true);
     try {
-      const data = await fetchNotifications({ page: 1, page_size: 30, unread_only: false });
+      const data = await fetchNotifications({
+        page: 1, page_size: 30, unread_only: false,
+      });
+
+      const newItems = data.items ?? [];
+
+      // Identify notifications that are unread AND weren't here last time.
+      // These are the ones we surface as toasts.
       const currentIds = new Set(prevUnreadIdsRef.current);
-      const brandNew = (data.items ?? []).filter(n => !n.isRead && !currentIds.has(n.id));
+      const brandNew = newItems.filter(n => !n.isRead && !currentIds.has(n.id));
 
       if (silent && brandNew.length > 0) {
-        // No manual playSound() here — the toast plays its own sound
-        // based on the global soundEnabled state, which is itself
-        // driven by the user's `sound_alerts` preference. Single
-        // source of truth.
+        // The toast plays its own sound based on the global soundEnabled
+        // state (driven by the user's `sound_alerts` preference). Single
+        // source of truth — don't playSound() here.
         const livePrefs = prefsRef.current;
         const liveToast = toastRef.current;
         if (livePrefs === null || livePrefs?.email_notifications !== false) {
@@ -172,25 +264,60 @@ const Header = () => {
         brandNew.forEach(n => currentIds.add(n.id));
         prevUnreadIdsRef.current = currentIds;
       } else if (!silent) {
+        // Initial / non-silent fetch: seed the "seen" set without toasting.
         prevUnreadIdsRef.current = new Set(
-          (data.items ?? []).filter(n => !n.isRead).map(n => n.id)
+          newItems.filter(n => !n.isRead).map(n => n.id),
         );
       }
+
+      setItems(newItems);
       setUnreadCount(data.unreadCount ?? 0);
     } catch {
-      // Swallow — a transient network blip shouldn't blow up the header.
-      // The next 30s tick will retry.
+      // Transient network issue — the next SSE event will trigger a retry.
+    } finally {
+      if (!silent) setNotifLoading(false);
     }
-  }, []);   // ← empty deps: poller is a singleton, reads live state via refs
+  }, []);   // empty deps: callback is stable, reads live state via refs
 
   useEffect(() => {
     refreshNotifications(false);
-    const id = setInterval(() => refreshNotifications(true), 30_000);
-    return () => clearInterval(id);
-  }, []);
 
+    const token = getRawToken();
+  
+    if (!token) {
+      console.warn("[SSE] NO TOKEN — bailing out, no /stream request will be made");
+      return;
+    }
+
+    const url = `${import.meta.env.VITE_API_URL}` +
+      `/api/notifications/stream?token=${encodeURIComponent(token)}`;
+
+    let es;
+    try {
+      es = new EventSource(url);
+    } catch (err) {
+      console.error("[SSE] EventSource constructor threw:", err);
+      return;
+    }
+
+    const onNotification = () => {
+      refreshNotifications(true);
+    };
+    es.addEventListener("notification", onNotification);
+    es.addEventListener("ready", (e) => ("[SSE] ready event:", e.data));
+    es.onerror = (e) => console.error("[SSE] connection ERROR, readyState:", es.readyState, e);
+
+    return () => {
+      es.removeEventListener("notification", onNotification);
+      es.close();
+    };
+  }, [refreshNotifications]);
+
+  // ── Outside-click handlers ─────────────────────────────────────────────
   useEffect(() => {
-    const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null); };
+    const h = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null);
+    };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
@@ -198,18 +325,48 @@ const Header = () => {
   useEffect(() => {
     if (!showNotifications) return;
     const h = (e) => {
-      if (!notificationPanelRef.current?.contains(e.target) && !bellButtonRef.current?.contains(e.target))
+      if (!notificationPanelRef.current?.contains(e.target) &&
+        !bellButtonRef.current?.contains(e.target)) {
         setShowNotifications(false);
+      }
     };
     const t = setTimeout(() => document.addEventListener("mousedown", h), 0);
-    return () => { clearTimeout(t); document.removeEventListener("mousedown", h); };
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", h);
+    };
   }, [showNotifications]);
 
-  const handleSearch = () => {
-    const q = keywords.trim();
-    if (q) { navigate(`/search-case?q=${encodeURIComponent(q)}`); setKeywords(""); }
+  // ── Notification actions (optimistic — no refetch needed) ──────────────
+  const handleMarkRead = async (id) => {
+    await markRead(id).catch(() => { });
+    setItems(p => p.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setUnreadCount(c => Math.max(0, c - 1));
   };
 
+  const handleMarkAllRead = async () => {
+    await markAllRead().catch(() => { });
+    setItems(p => p.map(n => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+  };
+
+  const handleDelete = async (id) => {
+    await deleteNotification(id).catch(() => { });
+    const was = items.find(n => n.id === id && !n.isRead);
+    setItems(p => p.filter(n => n.id !== id));
+    if (was) setUnreadCount(c => Math.max(0, c - 1));
+  };
+
+  // ── Search ──────────────────────────────────────────────────────────────
+  const handleSearch = () => {
+    const q = keywords.trim();
+    if (q) {
+      navigate(`/search-case?q=${encodeURIComponent(q)}`);
+      setKeywords("");
+    }
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────
   return (
     <>
       <header className="fixed top-0 left-0 w-full h-14 z-40 bg-deep-ocean shadow shadow-black/80">
@@ -221,15 +378,22 @@ const Header = () => {
                   className={`cursor-pointer text-sm font-medium hover:bg-gray-400 hover:text-deep-ocean-500
                     ${openMenu === item.label ? "bg-cool-silver text-gray-700" : "text-white"}
                     rounded-md px-3 py-2 flex items-center`}
-                  onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)}>
+                  onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)}
+                >
                   {item.label}
-                  <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${openMenu === item.label ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${openMenu === item.label ? "rotate-180" : ""
+                    }`} />
                 </button>
                 {openMenu === item.label && (
                   <div className="absolute left-0 w-48 text-nowrap bg-cool-silver rounded-md border-deep-ocean border shadow-lg z-20">
                     {item.items.map(sub => (
-                      <button key={sub.label} onClick={() => { navigate(sub.path); setOpenMenu(null); }}
-                        className="cursor-pointer block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">{sub.label}</button>
+                      <button
+                        key={sub.label}
+                        onClick={() => { navigate(sub.path); setOpenMenu(null); }}
+                        className="cursor-pointer block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                      >
+                        {sub.label}
+                      </button>
                     ))}
                   </div>
                 )}
@@ -240,15 +404,24 @@ const Header = () => {
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-              <input type="text" value={keywords} onChange={e => setKeywords(e.target.value)}
+              <input
+                type="text"
+                value={keywords}
+                onChange={e => setKeywords(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleSearch()}
                 placeholder="search case, evidence, suspect"
-                className="pl-9 w-md h-9 border-white text-white px-4 py-2 border focus:outline-none placeholder:text-gray-300 focus:border-white rounded-full" />
+                className="pl-9 w-md h-9 border-white text-white px-4 py-2 border focus:outline-none placeholder:text-gray-300 focus:border-white rounded-full"
+              />
             </div>
 
-            <Button ref={bellButtonRef} variant="ghost" size="icon"
+            <Button
+              ref={bellButtonRef}
+              variant="ghost"
+              size="icon"
               onClick={() => setShowNotifications(v => !v)}
-              className={`${showNotifications ? "bg-slate-blue" : ""} hover:bg-slate-blue cursor-pointer relative border-0 p-2 rounded-full transition`}>
+              className={`${showNotifications ? "bg-slate-blue" : ""
+                } hover:bg-slate-blue cursor-pointer relative border-0 p-2 rounded-full transition`}
+            >
               <Bell className="h-7 w-7 text-white" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
@@ -257,14 +430,21 @@ const Header = () => {
               )}
             </Button>
 
-            <button onClick={() => navigate("/investigator/profile")}
-              className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 transition-transform shrink-0">
+            <button
+              onClick={() => navigate("/investigator/profile")}
+              className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 transition-transform shrink-0"
+            >
               {currentUser?.picture_url ? (
-                <img src={photoSrc(currentUser.picture_url)} alt={currentUser.name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-white/30" />
+                <img
+                  src={photoSrc(currentUser.picture_url)}
+                  alt={currentUser.name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-white/30"
+                />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-white text-xs font-bold select-none">
-                  {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : <User className="h-4 w-4" />}
+                  {currentUser?.name
+                    ? currentUser.name.slice(0, 2).toUpperCase()
+                    : <User className="h-4 w-4" />}
                 </div>
               )}
             </button>
@@ -274,7 +454,14 @@ const Header = () => {
 
       {showNotifications && (
         <div ref={notificationPanelRef}>
-          <NotificationsDropdown />
+          <NotificationsDropdown
+            items={items}
+            unreadCount={unreadCount}
+            loading={notifLoading}
+            onMarkRead={handleMarkRead}
+            onMarkAllRead={handleMarkAllRead}
+            onDelete={handleDelete}
+          />
         </div>
       )}
     </>

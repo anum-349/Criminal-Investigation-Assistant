@@ -8,7 +8,7 @@ import { addLeadsToCase }     from "@/services/leadApi";
 import { deleteDraft }        from "@/services/draftApi";
 
 export const getAuthHeader = () => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
@@ -149,9 +149,22 @@ export const createCase = async (formData) => {
         fir_file_failed: false,
     };
 };
-
-const _isBlankPerson = (p) =>
-    !p?.name?.trim() && !p?.cnic?.trim() && !p?.contact?.trim();
+const _isBlankPerson = (p) => {
+    // Drop ONLY when literally everything is empty. A suspect with just
+    // a reason, physical description, or status counts as real and must
+    // be sent to the server.
+    return (
+        !p?.name?.trim() &&
+        !p?.cnic?.trim() &&
+        !p?.contact?.trim() &&
+        !p?.address?.trim() &&
+        !p?.reason?.trim() &&                // suspects often have only this
+        !p?.physicalDescription?.trim() &&   // and this
+        !p?.relationToCase?.trim() &&
+        !p?.alibi?.trim() &&
+        !p?.notes?.trim()
+    );
+};
 
 const _isBlankEvidence = (e) =>
     !e?.type && !e?.description && !e?.fileName && !(e?.file instanceof File);

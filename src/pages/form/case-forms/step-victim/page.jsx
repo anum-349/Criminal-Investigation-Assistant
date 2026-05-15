@@ -39,204 +39,154 @@ const getCfg = (caseType) => {
   if (!caseType) return DEFAULT_CFG;
   return CASE_TYPE_CONFIG[String(caseType).toLowerCase().trim()] ?? DEFAULT_CFG;
 };
-export const validateVictims = (v) => {
+
+export const validateVictims = (v, opts = {}) => {
+  const mode = opts.mode || "create";   // "create" | "update"
   const errors = {};
 
   const CNIC_RE = /^\d{5}-\d{7}-\d$/;
   const PHONE_RE = /^(\+92|0)[-\s]?\d{3}[-\s]?\d{7}$/;
 
+  // Nothing to check.
   if (!v) {
-    return { form: "Add at least one victim?." };
+    return mode === "create" ? { form: "Add at least one victim." } : {};
   }
 
-  /* ─────────────────────────────────────────────
-     1. Identification
-  ───────────────────────────────────────────── */
+  // Helper: only enforce "required" in create mode.
+  const isCreate = mode === "create";
 
-  if (!v.primaryLabel?.trim()) {
+  // ── 1. Identification ────────────────────────────────────────────────
+  if (isCreate && !v.primaryLabel?.trim()) {
     errors.primaryLabel = "Primary Label is required";
   }
 
-  /* ─────────────────────────────────────────────
-     2. Personal Information
-  ───────────────────────────────────────────── */
-
-  if (!v.name?.trim()) {
+  // ── 2. Personal Information ─────────────────────────────────────────
+  if (isCreate && !v.name?.trim()) {
     errors.name = "Victim name is required";
-  } else if (v.name.trim().length < 3 || /\d/.test(v.name)) {
-    errors.name =
-      "Enter a valid name (minimum 3 characters, no numbers)";
-  }
-
-  if (v.cnic && !CNIC_RE.test(v.cnic.trim())) {
-    errors.cnic = "Format: XXXXX-XXXXXXX-X";
-  }
-
-  if (v.contact && !PHONE_RE.test(v.contact.trim())) {
-    errors.contact =
-      "Format: 0300-1234567 or +92-300-1234567";
-  }
-
-  if (v.age !== undefined && v.age !== "") {
-    const age = Number(v.age);
-
-    if (isNaN(age)) {
-      errors.age = "Age must be a number";
-    } else if (age < 0) {
-      errors.age = "Age cannot be negative";
-    } else if (age > 120) {
-      errors.age = "Age must be 120 or less";
+  } else if (v.name?.trim()) {
+    // Format check whenever the user has typed something.
+    if (v.name.trim().length < 3 || /\d/.test(v.name)) {
+      errors.name = "Enter a valid name (min 3 chars, no numbers)";
     }
   }
 
-  if (!v.gender?.trim()) {
+  if (v.cnic?.trim() && !CNIC_RE.test(v.cnic.trim())) {
+    errors.cnic = "Format: XXXXX-XXXXXXX-X";
+  }
+
+  if (v.contact?.trim() && !PHONE_RE.test(v.contact.trim())) {
+    errors.contact = "Format: 0300-1234567 or +92-300-1234567";
+  }
+
+  if (v.age !== undefined && v.age !== "" && v.age !== null) {
+    const age = Number(v.age);
+    if (Number.isNaN(age)) errors.age = "Age must be a number";
+    else if (age < 0) errors.age = "Age cannot be negative";
+    else if (age > 120) errors.age = "Age must be 120 or less";
+  }
+
+  if (isCreate && !v.gender?.trim()) {
     errors.gender = "Gender is required";
   }
 
-  if (v.address && v.address.trim().length < 5) {
+  if (v.address?.trim() && v.address.trim().length < 5) {
     errors.address = "Enter a more complete address";
   }
 
-  /* ─────────────────────────────────────────────
-     3. Photograph
-  ───────────────────────────────────────────── */
-
+  // ── 3. Photograph (format only — same rule both modes) ──────────────
   if (v.photoUrl) {
-    const photo =
-      typeof v.photoUrl === "string"
-        ? null
-        : v.photoUrl?.[0];
-
-    if (photo?.dataUrl && !photo.dataUrl.startsWith("data:image/")) {
+    const photo = typeof v.photoUrl === "string" ? null : v.photoUrl?.[0];
+    if (photo?.dataUrl && photo.dataUrl.startsWith("data:") && !photo.dataUrl.startsWith("data:image/")) {
       errors.photoUrl = "Only image files are allowed";
     }
   }
 
-  /* ─────────────────────────────────────────────
-     4. Incident Details
-  ───────────────────────────────────────────── */
-
-  if (!v.status?.trim()) {
+  // ── 4. Incident Details ─────────────────────────────────────────────
+  if (isCreate && !v.status?.trim()) {
     errors.status = "Victim status is required";
   }
 
-  if (!v.caseType?.trim()) {
+  if (isCreate && !v.caseType?.trim()) {
     errors.caseType = "Case type is required";
   }
 
-  if (v.injuryType && v.injuryType.trim().length < 2) {
+  if (v.injuryType?.trim() && v.injuryType.trim().length < 2) {
     errors.injuryType = "Enter a valid injury type";
   }
 
-  if (
-    v.natureOfInjuries &&
-    v.natureOfInjuries.trim().length < 5
-  ) {
-    errors.natureOfInjuries =
-      "Provide more detailed injury information";
+  if (v.natureOfInjuries?.trim() && v.natureOfInjuries.trim().length < 5) {
+    errors.natureOfInjuries = "Provide more detailed injury information";
   }
 
-  /* ─────────────────────────────────────────────
-     5. Deceased Validation
-  ───────────────────────────────────────────── */
-
-  if (v.status === "Deceased") {
-    if (!v.causeOfDeath?.trim()) {
-      errors.causeOfDeath = "Cause of death is required";
-    }
-
-    if (!v.declaredDead?.trim()) {
-      errors.declaredDead =
-        "Please specify who declared the victim dead";
-    }
-
-    if (!v.postmortemAutopsy?.trim()) {
-      errors.postmortemAutopsy =
-        "Postmortem / autopsy status is required";
-    }
+  // ── 5. Deceased Validation ──────────────────────────────────────────
+  // Only fire when the user explicitly chose Deceased AND we're in
+  // create mode. In update mode we trust whatever the backend already
+  // has and let the user fix one field at a time.
+  if (isCreate && v.status === "Deceased") {
+    if (!v.causeOfDeath?.trim()) errors.causeOfDeath = "Cause of death is required";
+    if (!v.declaredDead?.trim()) errors.declaredDead = "Specify who declared the victim dead";
+    if (!v.postmortemAutopsy?.trim()) errors.postmortemAutopsy = "Postmortem / autopsy status is required";
   }
 
-  /* ─────────────────────────────────────────────
-     6. Protection Validation
-  ───────────────────────────────────────────── */
-
-  if (v.protectionRequired) {
-    if (!v.threatLevel?.trim()) {
-      errors.threatLevel =
-        "Threat level is required if protection is needed";
-    }
-
-    if (!v.protectionAssigned?.trim()) {
-      errors.protectionAssigned =
-        "Specify protection assignment status";
-    }
+  // ── 6. Protection Validation ────────────────────────────────────────
+  // Same logic: only enforce on create OR if user just toggled it on
+  // during this dialog session AND left the dependent fields empty.
+  if (isCreate && v.protectionRequired) {
+    if (!v.threatLevel?.trim()) errors.threatLevel = "Threat level is required";
+    if (!v.protectionAssigned?.trim()) errors.protectionAssigned = "Specify protection assignment status";
   }
 
-  /* ─────────────────────────────────────────────
-     7. Statement Validation
-  ───────────────────────────────────────────── */
-
-  if (
-    v.statement &&
-    v.statement.trim().length > 1000
-  ) {
-    errors.statement =
-      "Statement cannot exceed 1000 characters";
+  // ── 7. Statement length (both modes) ────────────────────────────────
+  if (v.statement && v.statement.trim().length > 1000) {
+    errors.statement = "Statement cannot exceed 1000 characters";
   }
 
-  /* ─────────────────────────────────────────────
-     8. Timeline Validation
-  ───────────────────────────────────────────── */
-
+  // ── 8. Timeline ─────────────────────────────────────────────────────
   if (Array.isArray(v.timeline)) {
     v.timeline.forEach((item, i) => {
-      if (!item.date?.trim()) {
-        errors[`timeline_${i}_date`] =
-          "Timeline date is required";
-      }
-
-      if (!item.text?.trim()) {
-        errors[`timeline_${i}_text`] =
-          "Timeline description is required";
-      }
+      // Skip rows that are entirely blank (user clicked "Add" then abandoned)
+      if (!item) return;
+      const hasDate = !!item.date?.trim();
+      const hasText = !!item.text?.trim();
+      if (!hasDate && !hasText) return;
+      if (!hasDate) errors[`timeline_${i}_date`] = "Timeline date is required";
+      if (!hasText) errors[`timeline_${i}_text`] = "Timeline description is required";
     });
   }
 
-  /* ─────────────────────────────────────────────
-     9. Legal Milestones Validation
-  ───────────────────────────────────────────── */
-
+  // ── 9. Legal Milestones ─────────────────────────────────────────────
   if (Array.isArray(v.legal)) {
     v.legal.forEach((item, i) => {
-      if (!item.label?.trim()) {
-        errors[`legal_${i}_label`] =
-          "Legal milestone cannot be empty";
+      if (!item) return;
+      if (typeof item.label === "string" && !item.label.trim()) {
+        errors[`legal_${i}_label`] = "Legal milestone cannot be empty";
       }
     });
   }
 
-  /* ─────────────────────────────────────────────
-     10. Follow-Up Date Validation
-  ───────────────────────────────────────────── */
-
-  if (v.nextFollowUp) {
-    const today = new Date().toISOString().split("T")[0];
-
-    if (v.nextFollowUp < today) {
-      errors.nextFollowUp =
-        "Follow-up date cannot be in the past";
+  // ── 10. Follow-Up Date ──────────────────────────────────────────────
+  // Format check only — and only past-date check on create. Backend dates
+  // on existing victims may legitimately be in the past, so we don't
+  // flag those during update.
+  if (v.nextFollowUp?.trim()) {
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRe.test(v.nextFollowUp.trim())) {
+      errors.nextFollowUp = "Date must be YYYY-MM-DD";
+    } else if (isCreate) {
+      const today = new Date().toISOString().split("T")[0];
+      if (v.nextFollowUp < today) {
+        errors.nextFollowUp = "Follow-up date cannot be in the past";
+      }
     }
   }
 
-  /* ─────────────────────────────────────────────
-     11. Forensic Findings Validation
-  ───────────────────────────────────────────── */
-
+  // ── 11. Forensic Findings ──────────────────────────────────────────
   if (Array.isArray(v.forensic)) {
     v.forensic.forEach((finding, i) => {
-      if (!finding?.trim()) {
-        errors[`forensic_${i}`] =
-          "Forensic finding cannot be empty";
+      // Empty entries are silently dropped on save; we only flag rows the
+      // user explicitly typed something into and then erased.
+      if (finding !== undefined && finding !== null && typeof finding === "string" && !finding.trim() && finding.length > 0) {
+        errors[`forensic_${i}`] = "Forensic finding cannot be empty";
       }
     });
   }

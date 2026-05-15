@@ -2,7 +2,7 @@ import axios from "axios";
 
 // ── Auth header ────────────────────────────────────────────────────────────
 export const getAuthHeader = () => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
@@ -49,6 +49,18 @@ export const victimToCreatePayload = (v) => ({
     declaredDead: v?.declaredDead || undefined,
     postmortemAutopsy: v?.postmortemAutopsy || undefined,
     statement: v?.statement || undefined,
+    nextFollowUp: v?.nextFollowUp || undefined,
+    threatLevel: v?.threatLevel || undefined,
+    protectionAssigned: v?.protectionAssigned || undefined,
+    notes: v?.notes || undefined,  
+    injurySummary: v?.injurySummary || undefined,
+    injuryRecordedBy: v?.injuryRecordedBy || undefined,
+    relation: v?.relation || undefined,
+    caseType: v?.caseType || undefined,
+    medicalReport: v?.medicalReport !== undefined ? !!v.medicalReport : undefined,
+    postmortem: v?.postmortem !== undefined ? !!v.postmortem : undefined,
+    protectionRequired: v?.protectionRequired !== undefined ? !!v.protectionRequired : undefined,
+    cooperative: v?.cooperative !== undefined ? !!v.cooperative : undefined,
 });
 
 /** PATCH body for an update. Only present fields are forwarded — every

@@ -126,23 +126,11 @@ export const WITNESS_RELATIONS = [
   "Other",
 ];
 
-// ── Auto-ID generator (mirrors generateSuspectId / generateVictimId) ────────
-
-const _genWitnessId = () => {
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `WIT-${ts}-${rand}`;
-};
-
-export const generateWitnessId = () => _genWitnessId();
-
-// ── Default factory ─────────────────────────────────────────────────────────
-
 export const defaultWitness = () => ({
   // React key (numeric, never displayed)
   id: Date.now() + Math.random(),
   // Display ID (e.g. "WIT-LZ4...-X9K")
-  witnessId: _genWitnessId(),
+  witnessId: 'Auto generate',
 
   // Personal
   name: "",
@@ -172,18 +160,9 @@ export const defaultWitness = () => ({
   dateAdded: new Date().toISOString().split("T")[0],
 });
 
-const _genSuspectId = () => {
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `SUS-${ts}-${rand}`;
-};
- 
-// ✅ Returns a plain string — NOT an object
-export const generateSuspectId = () => _genSuspectId();
-
 export const defaultSuspect = () => ({
-  id: _genSuspectId(),
-  name: "Aliat",
+  id: 'Auto generate',
+  name: "",
   age: "",
   gender: "",
   cnic: "",
@@ -203,17 +182,9 @@ export const defaultSuspect = () => ({
   relationToCase: "",
 });
 
-const _genVictimId = () => {
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `VIC-${ts}-${rand}`;
-};
-
-export const generateVictimId = () => _genVictimId();
-
 export const defaultVictim = () => ({
   id: Date.now() + Math.random(),
-  victimId: _genVictimId(),
+  victimId: "auto generate",
 
   // Personal
   name: "", age: "", gender: "", cnic: "",

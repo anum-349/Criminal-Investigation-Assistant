@@ -28,11 +28,6 @@ export const deleteNotification = (id) =>
     }).then(r => r.data);
 
 export const fetchPreferences = () =>
-    axios.get(`${apiBase()}/api/notifications/preferences`, {
-        headers: getAuthHeader(),
-    }).then(r => r.data);
-
-export const updatePreferences = (prefs) =>
-    axios.patch(`${apiBase()}/api/notifications/preferences`, prefs, {
+    axios.get(`${apiBase()}/api/auth/preferences`, {
         headers: getAuthHeader(),
     }).then(r => r.data);

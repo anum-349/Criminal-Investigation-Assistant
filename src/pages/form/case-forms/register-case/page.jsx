@@ -31,7 +31,7 @@ import { useToast } from "@/context/ToastContext";
 const ICON_MAP = { Upload, FileText, MapPin, User, Users, Gavel, Camera, Brain, CheckCircle2, File };
 
 const AUTH_HEADER = () => {
-  const t = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const t = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
   return t ? { Authorization: `Bearer ${t}` } : {};
 };
 
@@ -374,6 +374,7 @@ export default function RegisterCasePage() {
       }));
       setSubmitResult(result);
       setSubmitted(true);
+      navigate("/investigator/cases")
     } catch (err) {
       console.error("Case registration failed:", err);
       setSubmitError(formatApiError(err, "Could not register the case. Please retry."));
