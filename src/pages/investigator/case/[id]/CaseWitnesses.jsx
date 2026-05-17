@@ -193,6 +193,7 @@ const CaseWitnesses = () => {
       if (photo_failures?.length) {
         console.warn('Photo upload failed:', photo_failures);
       }
+      await fetchWitnesses()
     } catch (err) {
       console.error('Update failed:', err);
       alert(`Update failed: ${formatApiError(err)}`);

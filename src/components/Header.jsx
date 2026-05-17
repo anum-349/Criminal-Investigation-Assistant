@@ -9,8 +9,8 @@ import { Search, Bell, ChevronDown, Check, Trash2, User } from "lucide-react";
 import axios from "axios";
 import { getAuthHeader } from "@/services/caseApi";
 import { useToast } from "@/context/ToastContext";
+import { useRealtimeEvent } from "@/context/RealtimeContext";
 
-import { connectRealtime } from "@/services/realtimeApi";
 
 const navItems = [
   { label: "File", items: [{ label: "New Case", path: "/register-case" }, { label: "Drafts", path: "/investigator/drafts" }] },
@@ -184,66 +184,57 @@ const Header = () => {
     })();
   }, []);
 
-  // ── Notification fetch (stable callback, no state deps) ────────────────
-  // `silent=true` is used by SSE-triggered refetches — it skips the
-  // loading spinner so the dropdown doesn't flash.
-  const refreshNotifications = useCallback(async (silent = false) => {
-    if (!silent) setNotifLoading(true);
-    try {
-      const data = await fetchNotifications({
-        page: 1, page_size: 30, unread_only: false,
-      });
-
-      const newItems = data.items ?? [];
-
-      // Identify notifications that are unread AND weren't here last time.
-      // These are the ones we surface as toasts.
-      const currentIds = new Set(prevUnreadIdsRef.current);
-      const brandNew = newItems.filter(n => !n.isRead && !currentIds.has(n.id));
-
-      if (silent && brandNew.length > 0) {
-        // The toast plays its own sound based on the global soundEnabled
-        // state (driven by the user's `sound_alerts` preference). Single
-        // source of truth — don't playSound() here.
-        const livePrefs = prefsRef.current;
-        const liveToast = toastRef.current;
-        if (livePrefs === null || livePrefs?.email_notifications !== false) {
-          brandNew.slice(0, 3).forEach(n => {
-            liveToast.notification(n.message ?? n.title, {
-              title: n.message ? n.title : undefined,
-              severity: n.severity,
-              duration: 5000,
-            });
-          });
-        }
-        brandNew.forEach(n => currentIds.add(n.id));
-        prevUnreadIdsRef.current = currentIds;
-      } else if (!silent) {
-        // Initial / non-silent fetch: seed the "seen" set without toasting.
-        prevUnreadIdsRef.current = new Set(
-          newItems.filter(n => !n.isRead).map(n => n.id),
-        );
-      }
-
-      setItems(newItems);
-      setUnreadCount(data.unreadCount ?? 0);
-    } catch {
-      // Transient network issue — the next SSE event will trigger a retry.
-    } finally {
-      if (!silent) setNotifLoading(false);
-    }
-  }, []);   // empty deps: callback is stable, reads live state via refs
-
-  useEffect(() => {
-    refreshNotifications(false);
-    const rt = connectRealtime({
-      onNotification: () => {
-        refreshNotifications(true); // silent → triggers toast for new unread
-      },
-      onReady: () => setRealtimeStatus("connected"),
+ const refreshNotifications = useCallback(async (silent = false) => {
+  console.log("[Header] refreshNotifications called, silent=", silent);
+  if (!silent) setNotifLoading(true);
+  try {
+    const data = await fetchNotifications({        // ← fetch first
+      page: 1, page_size: 30, unread_only: false,
     });
 
-    return () => rt.close();
+    const newItems = data.items ?? [];
+    const currentIds = new Set(prevUnreadIdsRef.current);
+    const brandNew = newItems.filter(n => !n.isRead && !currentIds.has(n.id));
+
+    console.log("[Header] 🔔 brand-new notifications:", brandNew.length); // ← now valid
+
+    if (silent && brandNew.length > 0) {
+      const livePrefs = prefsRef.current;
+      const liveToast = toastRef.current;
+      if (livePrefs === null || livePrefs?.email_notifications !== false) {
+        brandNew.slice(0, 3).forEach(n => {
+          liveToast.notification(n.message ?? n.title, {
+            title: n.message ? n.title : undefined,
+            severity: n.severity,
+            duration: 5000,
+          });
+        });
+      }
+      brandNew.forEach(n => currentIds.add(n.id));
+      prevUnreadIdsRef.current = currentIds;
+    } else if (!silent) {
+      prevUnreadIdsRef.current = new Set(
+        newItems.filter(n => !n.isRead).map(n => n.id),
+      );
+    }
+
+    setItems(newItems);
+    setUnreadCount(data.unreadCount ?? 0);
+  } catch (err) {
+    console.error("[Header] refreshNotifications failed:", err); // ← also make catch visible
+  } finally {
+    if (!silent) setNotifLoading(false);
+  }
+}, []);
+
+const { status } = useRealtimeEvent(useCallback(() => {
+  console.log("[Header] 🔄 WS triggered refetch");
+  refreshNotifications(true);
+}, [refreshNotifications]));
+
+  // Keep the initial fetch in its own effect
+  useEffect(() => {
+    refreshNotifications(false);
   }, [refreshNotifications]);
 
   // ── Outside-click handlers ─────────────────────────────────────────────

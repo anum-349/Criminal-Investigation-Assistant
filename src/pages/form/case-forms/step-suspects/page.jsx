@@ -14,7 +14,7 @@ export const validateSuspect = (s) => {
     const CNIC_RE = /^\d{5}-\d{7}-\d$/;
     const PHONE_RE = /^(\+92|0)[-\s]?\d{3}[-\s]?\d{7}$/;
 
-    if (s.name && s.name.length < 3 || /\d/.test(s.name))
+    if (s.name && (s.name.length < 3 || /\d/.test(s.name)))
         errors.name = "Enter a valid name (no numbers, at least 3 characters)";
 
     if (s.cnic && !CNIC_RE.test(s.cnic.trim()))
@@ -295,7 +295,7 @@ export function StepSuspects({ data = {}, setData, mode = "register", validation
         setSuspects(ss => ss.map((x, i) => i === idx ? { ...x, [k]: v } : x));
 
     const addSuspect = () => {
-        const item = {};
+        const item = { ...defaultSuspect, id: crypto.randomUUID() };
         setSuspects(ss => [...ss, item]);
         if (mode === "standalone") {
             setEditingIds(prev => new Set([...prev, item.id]));

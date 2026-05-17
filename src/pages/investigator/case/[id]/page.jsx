@@ -21,10 +21,10 @@ import AddEvidenceDialog from '@/pages/investigator/case/[id]/forms/AddEvidence'
 import AddSuspectDialog from '@/pages/investigator/case/[id]/forms/AddSuspect';
 import AddVictimDialog from '@/pages/investigator/case/[id]/forms/AddVictim';
 import AddWitnessDialog from '@/pages/investigator/case/[id]/forms/AddWitness';
-import { addEvidencesToCase, formatApiError } from "@/services/evidenceApi";
-import { addVictimsToCase } from '@/services/victimApi';
-import { addWitnessesToCase } from '@/services/witnessApi';
-import { addSuspectsToCase } from "@/services/suspectApi";
+import { addEvidencesToCase, formatApiError, listEvidences } from "@/services/evidenceApi";
+import { addVictimsToCase, listVictims } from '@/services/victimApi';
+import { addWitnessesToCase, listWitnesses } from '@/services/witnessApi';
+import { addSuspectsToCase, listSuspects } from "@/services/suspectApi";
 import { useToast } from '@/context/ToastContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -198,6 +198,11 @@ const CasePage = () => {
     const [showAddVictim, setShowAddVictim] = useState(false);
     const [showAddWitness, setShowAddWitness] = useState(false);
 
+    const [suspectRefreshKey, setSuspectRefreshKey] = useState(0);
+    const [witnessRefreshKey, setWitnessRefreshKey] = useState(0);
+    const [victimRefreshKey, setVictimRefreshKey] = useState(0);
+    const [evidenceRefreshKey, setEvidenceRefreshKey] = useState(0);
+
     useEffect(() => {
         if (!caseId) return;
 
@@ -296,6 +301,7 @@ const CasePage = () => {
             setStats(curr => curr && ({ ...curr, suspects: curr.suspects + (result.created_ids?.length || 0) }));
             if (result.photo_failures?.length) console.warn("Photo(s) failed:", result.photo_failures);
             setShowAddSuspect(false);
+            setSuspectRefreshKey(k => k + 1);
             return { ok: true, ...result };
         } catch (err) {
             console.error("Add suspects failed:", err);
@@ -313,6 +319,7 @@ const CasePage = () => {
             const n = result.created_ids?.length || 0;
             toast.success(`Added ${n} evidence item${n === 1 ? "" : "s"} to ${caseId}`);
             setShowAddEvidence(false);
+            setEvidenceRefreshKey(k => k + 1);
             return { ok: true, created_ids: result.created_ids, photo_failures: result.photo_failures };
         } catch (err) {
             console.error("Add evidence failed:", err);
@@ -332,6 +339,7 @@ const CasePage = () => {
             const n = result.created_ids?.length || 0;
             toast.success(`Added ${n} victim${n === 1 ? "" : "s"} to ${caseId}`);
             setShowAddVictim(false);
+            setVictimRefreshKey(k => k + 1);
             return { ok: true, created_ids: result.created_ids, photo_failures: result.photo_failures };
         } catch (err) {
             console.error("Add Victim failed:", err);
@@ -351,6 +359,7 @@ const CasePage = () => {
             toast.success(`Added ${count} witness${count === 1 ? "" : "es"} to ${caseId}`);
             if (result.photo_failures?.length) console.warn(`Photo(s) failed:`, result.photo_failures);
             setShowAddWitness(false);
+            setWitnessRefreshKey(k => k + 1);
             return { ok: true, ...result };
         } catch (err) {
             console.error('Add witnesses failed:', err);
@@ -543,10 +552,10 @@ const CasePage = () => {
                         onAddEvent={handleAddTimelineEvent}
                         onDeleteEvent={handleDeleteTimelineEvent}
                     />
-                ) : activeTab === 'victims' ? <CaseVictim />
-                    : activeTab === 'evidences' ? <CaseEvidence />
-                        : activeTab === 'witnesses' ? <CaseWitnesses />
-                            : activeTab === 'suspects' ? <CaseSuspects />
+                ) : activeTab === 'victims' ? <CaseVictim key={victimRefreshKey}/>
+                    : activeTab === 'evidences' ? <CaseEvidence key={evidenceRefreshKey}/>
+                        : activeTab === 'witnesses' ? <CaseWitnesses key={witnessRefreshKey}/>
+                            : activeTab === 'suspects' ? <CaseSuspects key={suspectRefreshKey} />
                                 : activeTab === 'leads' ? <CaseInvestigationLeads caseId={caseId} />
                                     : activeTab === 'linked cases' ? <LinkedCases />
                                         : activeTab === 'location' ? <CaseLocation />

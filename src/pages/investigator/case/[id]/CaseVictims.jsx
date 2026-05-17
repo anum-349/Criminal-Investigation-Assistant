@@ -506,7 +506,7 @@ const CaseVictim = () => {
       const { detail, photo_failures } = await updateVictim(cid, vid, first);
 
     setDetails(detail);
-    fetchList();
+    await fetchList();
 
       return { ok: true, detail, photo_failures };
     } catch (err) {

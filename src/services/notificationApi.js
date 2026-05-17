@@ -5,6 +5,7 @@ const getAuthHeader = () => {
     const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
+
 const apiBase = () => import.meta.env.VITE_API_URL;
 
 export const fetchNotifications = (params = {}) =>
@@ -31,3 +32,4 @@ export const fetchPreferences = () =>
     axios.get(`${apiBase()}/api/auth/preferences`, {
         headers: getAuthHeader(),
     }).then(r => r.data);
+

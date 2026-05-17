@@ -310,6 +310,8 @@ const CaseEvidence = () => {
                 setDialogEvidence(row);
             }
 
+            await fetchEvidences()
+
             return { ok: true, row, photo_failures };
         } catch (err) {
             console.error("Update failed:", err);

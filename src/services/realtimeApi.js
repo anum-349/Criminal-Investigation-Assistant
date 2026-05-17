@@ -100,8 +100,12 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
     }
 
     ws.onopen = () => {
-      // Connection up — reset backoff so the NEXT disconnect retries fast.
+      if (stopped) {          // ← ADD THIS: Strict Mode closed us mid-handshake
+        ws.close();
+        return;
+      }
       backoff = BACKOFF_INITIAL_MS;
+      console.log("[realtime] ✅ WS connected");
     };
 
     ws.onmessage = (event) => {
@@ -116,7 +120,7 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
       if (t === "ping") {
         // Server liveness probe — reply with pong. Not required by the
         // backend but cheap and helps NAT keepalive.
-        try { ws.send(JSON.stringify({ type: "pong" })); } catch {}
+        try { ws.send(JSON.stringify({ type: "pong" })); } catch { }
         return;
       }
 
@@ -162,7 +166,7 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
     close: () => {
       stopped = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      try { ws && ws.close(); } catch {}
+      try { ws && ws.close(); } catch { }
       ws = null;
     },
   };

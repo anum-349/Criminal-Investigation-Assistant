@@ -188,6 +188,7 @@ const CaseSuspects = () => {
       const { detail, photo_failures } = await updateSuspect(caseId, sid, first);
       setItems(curr => curr.map(it => it.id === sid ? detail : it));
       if (photo_failures?.length) console.warn("Photo upload failed:", photo_failures);
+      await fetchSuspects()
     } catch (err) {
       console.error("Update failed:", err);
       alert(`Update failed: ${formatApiError(err)}`);
@@ -314,7 +315,7 @@ const CaseSuspects = () => {
                             src={s.photoUrl.startsWith('/uploads')
                               ? `${import.meta.env.VITE_API_URL}${s.photoUrl}`
                               : s.photoUrl}
-                            alt={ s.name}
+                            alt={s.name}
                             className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
                           />
                         ) : (

@@ -5,13 +5,12 @@ import { useEffect } from 'react';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { ToastContainer } from './components/ToastContainer';
 import { fetchPreferences } from "@/services/notificationApi";
+import { RealtimeProvider } from './context/RealtimeContext';
 
 function AuthenticatedShell({ children }) {
     const toast = useToast();
 
     useEffect(() => {
-        // One-shot sync: read sound_alerts from server, push into toast provider.
-        // Fails silently — the localStorage fallback handles the offline case.
         fetchPreferences()
             .then(prefs => {
                 if (prefs && typeof prefs.sound_alerts === "boolean") {
@@ -77,9 +76,11 @@ function App() {
                 <AuthProvider>
                     <ToastProvider>
                         <AuthenticatedShell>
-                            <ShortcutHandler />
-                            <AppRoutes />
-                            <ToastContainer />
+                            <RealtimeProvider>
+                                <ShortcutHandler />
+                                <AppRoutes />
+                                <ToastContainer />
+                            </RealtimeProvider>
                         </AuthenticatedShell>
                     </ToastProvider>
                 </AuthProvider>
