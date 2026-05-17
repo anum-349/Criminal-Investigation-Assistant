@@ -5,10 +5,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 
-// ─── Duration for each variant (ms) ──────────────────────────────────────────
 const DEFAULT_DURATION = 4000;
 
-// ─── Variant config ───────────────────────────────────────────────────────────
 const VARIANTS = {
   success: {
     icon: CheckCircle2,
@@ -52,7 +50,6 @@ const VARIANTS = {
   },
 };
 
-// Severity overrides for the "notification" variant (dot + bar color)
 const SEVERITY_BAR = {
   critical: "bg-red-500",
   high:     "bg-orange-400",
@@ -63,7 +60,6 @@ const SEVERITY_DOT = {
   default:  "bg-blue-400",
 };
 
-// ─── Single Toast Item ────────────────────────────────────────────────────────
 const ToastItem = ({ toast, onDismiss }) => {
   const [mounted, setMounted]   = useState(false);
   const [leaving, setLeaving]   = useState(false);
@@ -74,7 +70,6 @@ const ToastItem = ({ toast, onDismiss }) => {
 
   const cfg = VARIANTS[toast.variant] ?? VARIANTS.info;
 
-  // Resolve severity-specific overrides for notification variant
   const sevKey  = toast.severity?.toLowerCase();
   const barClass = toast.variant === "notification" && SEVERITY_BAR[sevKey]
     ? SEVERITY_BAR[sevKey]
@@ -85,7 +80,6 @@ const ToastItem = ({ toast, onDismiss }) => {
 
   const Icon = cfg.icon;
 
-  // ── Auto-dismiss timer ───────────────────────────────────────────
   const startTimer = () => {
     if (sticky) return;
     timerRef.current = setTimeout(() => triggerLeave(), duration);
@@ -99,13 +93,11 @@ const ToastItem = ({ toast, onDismiss }) => {
   };
 
   useEffect(() => {
-    // Entrance: next frame so CSS transition fires
     requestAnimationFrame(() => setMounted(true));
     startTimer();
     return clearTimer;
   }, []);
 
-  // Pause on hover
   const handleMouseEnter = () => { setPaused(true);  clearTimer(); };
   const handleMouseLeave = () => { setPaused(false); startTimer(); };
 
@@ -122,7 +114,6 @@ const ToastItem = ({ toast, onDismiss }) => {
       }}
       className={`relative w-85 max-w-[90vw] rounded-xl shadow-xl border ${cfg.border} ${cfg.bg} overflow-hidden`}
     >
-      {/* Progress bar at bottom */}
       {!sticky && (
         <div className="absolute bottom-0 left-0 right-0 h-0.75 bg-black/5 rounded-b-xl overflow-hidden">
           <div
@@ -137,14 +128,12 @@ const ToastItem = ({ toast, onDismiss }) => {
       )}
 
       <div className="flex items-start gap-3 px-4 py-3 pb-4">
-        {/* Icon or severity dot */}
         {dotClass ? (
           <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${dotClass}`} />
         ) : (
           <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${cfg.iconColor}`} />
         )}
 
-        {/* Text */}
         <div className="flex-1 min-w-0">
           {toast.title && (
             <p className={`text-sm font-semibold leading-tight ${cfg.titleColor}`}>
@@ -156,7 +145,6 @@ const ToastItem = ({ toast, onDismiss }) => {
           </p>
         </div>
 
-        {/* Dismiss */}
         <button
           onClick={() => triggerLeave()}
           className="shrink-0 ml-1 p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
@@ -169,7 +157,6 @@ const ToastItem = ({ toast, onDismiss }) => {
   );
 };
 
-// ─── Container — place once, renders all active toasts ────────────────────────
 export const ToastContainer = () => {
   const { toasts, dismiss } = useToast();
 
@@ -182,7 +169,6 @@ export const ToastContainer = () => {
         }
       `}</style>
 
-      {/* Bottom-right stack, grows upward */}
       <div
         aria-live="polite"
         aria-label="Notifications"

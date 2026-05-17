@@ -4,7 +4,7 @@ import clsx from "clsx";
 export const TableWrapper = ({ children, className }) => (
   <div
     className={clsx(
-      "overflow-hidden rounded-lg border-2 border-[#1B3C53]",
+      "overflow-hidden rounded-lg border-2 border-deep-ocean",
       className
     )}
   >
@@ -24,7 +24,7 @@ export const Table = ({ children, className }) => (
 );
 
 export const TableHeader = ({ children }) => (
-  <thead className="bg-[#1B3C53] text-white">
+  <thead className="bg-deep-ocean text-white">
     {children}
   </thead>
 );
@@ -34,7 +34,7 @@ export const TableBody = ({ children }) => <tbody>{children}</tbody>;
 export const TableRow = ({ children, className }) => (
   <tr
     className={clsx(
-      "border-b last:border-b-0 border-[#1B3C53]/20",
+      "border-b last:border-b-0 border-deep-ocean/20",
       className
     )}
   >

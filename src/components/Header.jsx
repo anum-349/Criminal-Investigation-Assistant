@@ -1,19 +1,3 @@
-// src/components/Header.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Top navigation bar with notification bell.
-//
-// Notification strategy (changed):
-//   - 1 fetch on mount   → seeds the unread badge + items
-//   - 1 SSE connection   → /api/notifications/stream
-//   - On every SSE event → silent refetch (drives toasts + badge updates)
-//   - No 30-second polling anywhere. The parent and the dropdown share
-//     the SAME data via props — no duplicate fetchers.
-//
-// If the backend stream isn't reachable (network, server restart, etc.)
-// the EventSource auto-reconnects. We don't fall back to polling; the
-// initial fetch + reconnect is enough for our use case.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { Button } from "@/components/ui/Button";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -25,6 +9,8 @@ import { Search, Bell, ChevronDown, Check, Trash2, User } from "lucide-react";
 import axios from "axios";
 import { getAuthHeader } from "@/services/caseApi";
 import { useToast } from "@/context/ToastContext";
+
+import { connectRealtime } from "@/services/realtimeApi";
 
 const navItems = [
   { label: "File", items: [{ label: "New Case", path: "/register-case" }, { label: "Drafts", path: "/investigator/drafts" }] },
@@ -48,34 +34,12 @@ const severityDot = (sev) => {
   return "bg-blue-400";
 };
 
-// Grab the JWT the same way the rest of the API helpers do.
-// NOTE: there's an inconsistency in the codebase — notificationApi.js
-// reads "cia_token" while everything else reads "token". We use "token"
-// here to match what your login flow actually writes.
-const getRawToken = () => {
-  for (const store of [localStorage, sessionStorage]) {
-    for (let i = 0; i < store.length; i++) {
-      const v = store.getItem(store.key(i));
-      if (v && v.startsWith("eyJ") && v.split(".").length === 3) {
-        return v;
-      }
-    }
-  }
-  return "";
-};
-// ═══════════════════════════════════════════════════════════════════════════
-// NotificationsDropdown
-// ═══════════════════════════════════════════════════════════════════════════
-// Pure presentational component now — it receives items / unreadCount /
-// handlers from the parent. No fetching, no polling, no timers.
-// ═══════════════════════════════════════════════════════════════════════════
 const NotificationsDropdown = ({
   items, unreadCount, loading,
   onMarkRead, onMarkAllRead, onDelete,
 }) => {
   const [tab, setTab] = useState("all");
 
-  // Filter client-side based on the All / Unread tab.
   const visibleItems = tab === "unread"
     ? items.filter(n => !n.isRead)
     : items;
@@ -97,8 +61,8 @@ const NotificationsDropdown = ({
             key={id}
             onClick={() => setTab(id)}
             className={`flex-1 py-2.5 text-xs font-medium cursor-pointer transition-colors ${tab === id
-                ? "border-b-2 border-[#1b3c53] text-[#1b3c53]"
-                : "text-slate-500 hover:text-slate-700"
+              ? "border-b-2 border-[#1b3c53] text-[#1b3c53]"
+              : "text-slate-500 hover:text-slate-700"
               }`}
           >
             {label}
@@ -134,8 +98,8 @@ const NotificationsDropdown = ({
             <div
               key={n.id}
               className={`group flex gap-3 px-4 py-3 border-b border-slate-100 transition-colors ${n.isRead
-                  ? "bg-white hover:bg-slate-50"
-                  : "bg-blue-50 border-l-[3px] border-l-[#1b3c53] hover:bg-blue-100"
+                ? "bg-white hover:bg-slate-50"
+                : "bg-blue-50 border-l-[3px] border-l-[#1b3c53] hover:bg-blue-100"
                 }`}
             >
               <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${severityDot(n.severity)}`} />
@@ -181,23 +145,17 @@ const NotificationsDropdown = ({
   );
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Header
-// ═══════════════════════════════════════════════════════════════════════════
 const Header = () => {
-  // ── UI state ────────────────────────────────────────────────────────────
   const [openMenu, setOpenMenu] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [keywords, setKeywords] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [prefs, setPrefs] = useState(null);
 
-  // ── Notification state (single source of truth) ────────────────────────
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(true);
 
-  // ── Refs ────────────────────────────────────────────────────────────────
   const menuRef = useRef();
   const notificationPanelRef = useRef();
   const bellButtonRef = useRef();
@@ -205,14 +163,11 @@ const Header = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // Keep latest toast/prefs in refs so the SSE callback (set up once)
-  // always reads current values without needing to re-subscribe.
   const toastRef = useRef(toast);
   const prefsRef = useRef(prefs);
   useEffect(() => { toastRef.current = toast; }, [toast]);
   useEffect(() => { prefsRef.current = prefs; }, [prefs]);
 
-  // ── One-time mounts ────────────────────────────────────────────────────
   useEffect(() => {
     fetchPreferences().then(setPrefs).catch(() => { });
   }, []);
@@ -281,36 +236,14 @@ const Header = () => {
 
   useEffect(() => {
     refreshNotifications(false);
+    const rt = connectRealtime({
+      onNotification: () => {
+        refreshNotifications(true); // silent → triggers toast for new unread
+      },
+      onReady: () => setRealtimeStatus("connected"),
+    });
 
-    const token = getRawToken();
-  
-    if (!token) {
-      console.warn("[SSE] NO TOKEN — bailing out, no /stream request will be made");
-      return;
-    }
-
-    const url = `${import.meta.env.VITE_API_URL}` +
-      `/api/notifications/stream?token=${encodeURIComponent(token)}`;
-
-    let es;
-    try {
-      es = new EventSource(url);
-    } catch (err) {
-      console.error("[SSE] EventSource constructor threw:", err);
-      return;
-    }
-
-    const onNotification = () => {
-      refreshNotifications(true);
-    };
-    es.addEventListener("notification", onNotification);
-    es.addEventListener("ready", (e) => ("[SSE] ready event:", e.data));
-    es.onerror = (e) => console.error("[SSE] connection ERROR, readyState:", es.readyState, e);
-
-    return () => {
-      es.removeEventListener("notification", onNotification);
-      es.close();
-    };
+    return () => rt.close();
   }, [refreshNotifications]);
 
   // ── Outside-click handlers ─────────────────────────────────────────────

@@ -5,7 +5,6 @@ import createCachedTileLayer from '@/utils/CachedTileLayer';
 import { Card } from '@/components/ui/Card';
 import { MapPin } from 'lucide-react';
 
-// Fix Leaflet default marker icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -13,7 +12,6 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// ── Severity config ───────────────────────────────────────────────────────────
 const SEVERITY_CONFIG = {
     high: { color: '#991b1b', fillColor: '#ef4444', label: 'High', radius: 14 },
     medium: { color: '#c2410c', fillColor: '#f97316', label: 'Medium', radius: 10 },
@@ -27,7 +25,6 @@ const SEVERITY_CONFIG = {
 // Only these keys appear in the hotspot legend
 const LEGEND_KEYS = ['high', 'medium', 'low'];
 
-// ── Popup builders ────────────────────────────────────────────────────────────
 const buildHotspotPopup = (hotspot) => {
     const cfg = SEVERITY_CONFIG[hotspot.severity] || SEVERITY_CONFIG.low;
     return `
@@ -68,25 +65,6 @@ const buildNearbyPopup = (np) => {
     `;
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-//
-//  LeafletMap — reusable map component
-//
-//  Props:
-//  ┌─────────────┬──────────────────────────────────────────────────────────┐
-//  │ mode        │ "hotspots" | "single"                                    │
-//  │ hotspots    │ (hotspots mode) { id, city, lat, lng, severity, cases,   │
-//  │             │  province }[]                                            │
-//  │ pin         │ (single mode) { lat, lng, label, address? }              │
-//  │ nearbyPins  │ (single mode) { id, lat, lng, severity, title?,          │
-//  │             │  distance? }[]                                           │
-//  │ height      │ Tailwind height class e.g. "h-80" (default "h-80")      │
-//  │ initialZoom │ Initial Leaflet zoom level (default 5)                   │
-//  │ center      │ [lat, lng] initial center (default Pakistan)             │
-//  └─────────────┴──────────────────────────────────────────────────────────┘
-//
-// ═════════════════════════════════════════════════════════════════════════════
-
 const LeafletMap = ({
     mode = 'hotspots',
     hotspots = [],
@@ -100,7 +78,6 @@ const LeafletMap = ({
     const mapInstanceRef = useRef(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-    // ── Online / offline detection ────────────────────────────────────────
     useEffect(() => {
         const on = () => setIsOnline(true);
         const off = () => setIsOnline(false);
@@ -128,14 +105,12 @@ const LeafletMap = ({
 
         mapInstanceRef.current = map;
 
-        // Cached tile layer (works offline after first load)
         createCachedTileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
             subdomains: ['a', 'b', 'c'],
             maxZoom: 19,
         }).addTo(map);
 
-        // Leaflet's native zoom control
         L.control.zoom({ position: 'topright' }).addTo(map);
 
         setTimeout(() => {
@@ -168,7 +143,6 @@ const LeafletMap = ({
             zoomContainer.appendChild(btn);
         }, 100);
 
-        // ── HOTSPOTS MODE ─────────────────────────────────────────────────
         if (mode === 'hotspots') {
             hotspots.forEach(hotspot => {
                 const cfg = SEVERITY_CONFIG[hotspot.severity] || SEVERITY_CONFIG.low;
@@ -177,16 +151,13 @@ const LeafletMap = ({
                     color: cfg.color,
                     fillColor: cfg.fillColor,
                     fillOpacity: 1,
-                    // weight: 2,
                 })
                     .bindPopup(buildHotspotPopup(hotspot))
                     .addTo(map);
             });
         }
 
-        // ── SINGLE / CASE LOCATION MODE ───────────────────────────────────
         if (mode === 'single') {
-            // Nearby pins — smaller, blue border
             nearbyPins.forEach(np => {
                 const cfg = SEVERITY_CONFIG[np.severity?.toLowerCase()] || SEVERITY_CONFIG.nearby;
                 L.circleMarker([np.lat, np.lng], {
@@ -200,7 +171,6 @@ const LeafletMap = ({
                     .addTo(map);
             });
 
-            // Crime scene pin — larger red, popup auto-opens
             if (pin) {
                 L.circleMarker([pin.lat, pin.lng], {
                     radius: 14,
@@ -221,13 +191,12 @@ const LeafletMap = ({
             map.remove();
             mapInstanceRef.current = null;
         };
-    }, []); // intentionally runs once — Leaflet manages its own state
+    }, []); 
 
     useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // 🧹 Clear old layers (important)
     map.eachLayer((layer) => {
         if (layer instanceof L.CircleMarker) {
             map.removeLayer(layer);
@@ -237,8 +206,7 @@ const LeafletMap = ({
     // ── HOTSPOTS ──
     if (mode === 'hotspots') {
         hotspots.forEach(hotspot => {
-            if (!hotspot.lat || !hotspot.lng) return; // safety
-
+            if (!hotspot.lat || !hotspot.lng) return; 
             const cfg = SEVERITY_CONFIG[hotspot.severity] || SEVERITY_CONFIG.low;
 
             L.circleMarker([hotspot.lat, hotspot.lng], {
@@ -253,7 +221,6 @@ const LeafletMap = ({
         });
     }
 
-    // ── SINGLE MODE ──
     if (mode === 'single') {
         nearbyPins.forEach(np => {
             if (!np.lat || !np.lng) return;
@@ -289,19 +256,16 @@ const LeafletMap = ({
 
 }, [hotspots, pin, nearbyPins, mode]);
 
-    // ── Render ────────────────────────────────────────────────────────────
     return (
         <Card className="p-5 bg-card border border-border shadow-sm animate-slide-up">
             <div className={mode === 'hotspots' ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : ''}>
 
-                {/* ── Hotspots sidebar (legend + top list) ── */}
                 {mode === 'hotspots' && (
                     <div className="space-y-5">
                         <h2 className="text-lg font-semibold text-foreground">
                             Crime Hotspot Locations
                         </h2>
 
-                        {/* Legend — only high/medium/low, NOT scene/nearby/critical */}
                         <div className="space-y-3">
                             {LEGEND_KEYS.map(key => {
                                 const cfg = SEVERITY_CONFIG[key];
@@ -322,7 +286,6 @@ const LeafletMap = ({
 
                         <div className="border-t border-border" />
 
-                        {/* Top hotspots — click to fly */}
                         <div>
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                                 Top Hotspots
@@ -353,11 +316,9 @@ const LeafletMap = ({
                     </div>
                 )}
 
-                {/* ── Map column ── */}
                 <div className={mode === 'hotspots' ? 'lg:col-span-2 space-y-2' : 'space-y-2'}>
 
-                    {/* Toolbar — only in single mode, only when pin exists */}
-                    {mode === 'single' && pin && (  // ✅ pin null-check before accessing pin.address
+                    {mode === 'single' && pin && (  
                         <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
                             <div className="flex items-center gap-2">
                                 <MapPin className="h-4 w-4 text-red-600" />
@@ -368,7 +329,6 @@ const LeafletMap = ({
                         </div>
                     )}
 
-                    {/* Leaflet map div — Leaflet controls zoom/pan, no extra handlers needed */}
                     <div
                         ref={mapRef}
                         className={`w-full ${height} rounded-lg overflow-hidden border border-border`}
