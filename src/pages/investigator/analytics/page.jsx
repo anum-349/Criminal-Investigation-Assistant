@@ -21,49 +21,33 @@ import {
 // ── Theme ─────────────────────────────────────────────────────────────────────
 const COLORS = {
     primary: '#1B3C53',
-    second:  '#345A76',
-    accent:  '#4A90B8',
-    light:   '#7FB3D0',
+    second: '#345A76',
+    accent: '#4A90B8',
+    light: '#7FB3D0',
     success: '#16a34a',
     warning: '#d97706',
-    danger:  '#dc2626',
-    muted:   '#94a3b8',
+    danger: '#dc2626',
+    muted: '#94a3b8',
 };
-const PIE_COLORS = ['#1B3C53','#345A76','#4A90B8','#7FB3D0','#dc2626','#d97706','#16a34a','#8b5cf6'];
+const PIE_COLORS = ['#1B3C53', '#345A76', '#4A90B8', '#7FB3D0', '#dc2626', '#d97706', '#16a34a', '#8b5cf6'];
 
 const ALERT_STYLE = {
-    critical: { border:'border-red-200',    bg:'bg-red-50',    badge:'bg-red-600 text-white',    icon: ShieldAlert,   iconColor:'text-red-600'    },
-    high:     { border:'border-orange-200', bg:'bg-orange-50', badge:'bg-orange-500 text-white',  icon: AlertTriangle, iconColor:'text-orange-500'  },
-    medium:   { border:'border-yellow-200', bg:'bg-yellow-50', badge:'bg-yellow-500 text-white',  icon: TrendingUp,    iconColor:'text-yellow-600'  },
-    low:      { border:'border-green-200',  bg:'bg-green-50',  badge:'bg-green-600 text-white',   icon: TrendingDown,  iconColor:'text-green-600'   },
+    critical: { border: 'border-red-200', bg: 'bg-red-50', badge: 'bg-red-600 text-white', icon: ShieldAlert, iconColor: 'text-red-600' },
+    high: { border: 'border-orange-200', bg: 'bg-orange-50', badge: 'bg-orange-500 text-white', icon: AlertTriangle, iconColor: 'text-orange-500' },
+    medium: { border: 'border-yellow-200', bg: 'bg-yellow-50', badge: 'bg-yellow-500 text-white', icon: TrendingUp, iconColor: 'text-yellow-600' },
+    low: { border: 'border-green-200', bg: 'bg-green-50', badge: 'bg-green-600 text-white', icon: TrendingDown, iconColor: 'text-green-600' },
 };
 
-// ── Static pattern alerts (AI-generated — replace with API when available) ────
-const PATTERN_ALERTS = [
-    { id:1, severity:'critical', title:'Robbery spike predicted — Karachi',
-      description:'Model detects a 78% probability of a significant robbery cluster in Clifton and DHA areas within the next 2 weeks.',
-      confidence:78, timeframe:'Next 2 weeks', crimeType:'Robbery', province:'Sindh' },
-    { id:2, severity:'high',     title:'Seasonal theft increase — Punjab',
-      description:'Based on 3-year seasonal patterns, vehicle thefts in Lahore and Faisalabad are predicted to rise by 20–30% during April–May.',
-      confidence:85, timeframe:'Next 4–6 weeks', crimeType:'Theft', province:'Punjab' },
-    { id:3, severity:'medium',   title:'Fraud pattern emerging — ICT',
-      description:'Clustering algorithm detected a potential organized fraud network in Islamabad with 3 cases showing similar MO in the last 30 days.',
-      confidence:62, timeframe:'Ongoing', crimeType:'Fraud', province:'ICT' },
-    { id:4, severity:'low',      title:'Crime rate stabilizing — Balochistan',
-      description:'Prediction model shows a likely 7% decrease in reported cases in Quetta over the next month based on recent resolution trends.',
-      confidence:71, timeframe:'Next month', crimeType:'All types', province:'Balochistan' },
-];
-
-const DATE_RANGES  = ['Last 3 months','Last 6 months','Last 9 months','This year'];
-const PROVINCES    = ['All Provinces','Punjab','Sindh','Balochistan','KPK','ICT','GB'];
-const CRIME_TYPES  = ['All Types','Murder','Robbery','Theft','Assault','Fraud','Kidnapping','Drug'];
+const DATE_RANGES = ['Last 3 months', 'Last 6 months', 'Last 9 months', 'This year'];
+const PROVINCES = ['All Provinces', 'Punjab', 'Sindh', 'Balochistan', 'KPK', 'ICT', 'GB'];
+const CRIME_TYPES = ['All Types', 'Murder', 'Robbery', 'Theft', 'Assault', 'Fraud', 'Kidnapping', 'Drug'];
 
 const VIEWS = [
-    { id:'overview',     label:'Overview',        icon: BarChart2   },
-    { id:'trends',       label:'Time Trends',      icon: TrendingUp  },
-    { id:'breakdown',    label:'Crime Breakdown',  icon: PieIcon     },
-    { id:'heatmap',      label:'Time Heatmap',     icon: Map         },
-    { id:'predictions',  label:'Predictions',      icon: Zap         },
+    { id: 'overview', label: 'Overview', icon: BarChart2 },
+    { id: 'trends', label: 'Time Trends', icon: TrendingUp },
+    { id: 'breakdown', label: 'Crime Breakdown', icon: PieIcon },
+    { id: 'heatmap', label: 'Time Heatmap', icon: Map },
+    { id: 'predictions', label: 'Predictions', icon: Zap },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -84,20 +68,20 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const heatColor = (val) => {
-    if (val === 0)  return 'bg-slate-100';
-    if (val <= 2)   return 'bg-blue-200';
-    if (val <= 4)   return 'bg-blue-400';
-    if (val <= 6)   return 'bg-orange-400';
+    if (val === 0) return 'bg-slate-100';
+    if (val <= 2) return 'bg-blue-200';
+    if (val <= 4) return 'bg-blue-400';
+    if (val <= 6) return 'bg-orange-400';
     return 'bg-red-500';
 };
 
 const exportCSV = (data, filename) => {
     if (!data?.length) return;
     const keys = Object.keys(data[0]);
-    const csv  = [keys.join(','), ...data.map(row => keys.map(k => row[k] ?? '').join(','))].join('\n');
+    const csv = [keys.join(','), ...data.map(row => keys.map(k => row[k] ?? '').join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
 };
@@ -106,8 +90,8 @@ const exportPNG = (chartRef, filename) => {
     const svg = chartRef.current?.querySelector('svg');
     if (!svg) return;
     const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
 };
@@ -146,28 +130,28 @@ const Skeleton = ({ h = 'h-64' }) => (
 
 // ═════════════════════════════════════════════════════════════════════════════
 const AnalyticsPage = () => {
-    const navigate       = useNavigate();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
-    const [dateRange,  setDateRange]  = useState('Last 9 months');
-    const [province,   setProvince]   = useState('All Provinces');
-    const [crimeType,  setCrimeType]  = useState('All Types');
+    const [dateRange, setDateRange] = useState('Last 9 months');
+    const [province, setProvince] = useState('All Provinces');
+    const [crimeType, setCrimeType] = useState('All Types');
     const [activeView, setActiveView] = useState(searchParams.get('tab') || 'overview');
 
     // ── Live data ─────────────────────────────────────────────────────────
-    const [overviewData,     setOverviewData]     = useState(null);
-    const [trendsData,       setTrendsData]       = useState(null);
-    const [breakdownData,    setBreakdownData]    = useState(null);
-    const [heatmapData,      setHeatmapData]      = useState(null);
-    const [predictionsData,  setPredictionsData]  = useState(null);
-    const [dataLoading,      setDataLoading]      = useState(false);
-    const [dataError,        setDataError]        = useState(null);
+    const [overviewData, setOverviewData] = useState(null);
+    const [trendsData, setTrendsData] = useState(null);
+    const [breakdownData, setBreakdownData] = useState(null);
+    const [heatmapData, setHeatmapData] = useState(null);
+    const [predictionsData, setPredictionsData] = useState(null);
+    const [dataLoading, setDataLoading] = useState(false);
+    const [dataError, setDataError] = useState(null);
 
     // Chart refs
-    const trendRef    = useRef(null);
-    const barRef      = useRef(null);
+    const trendRef = useRef(null);
+    const barRef = useRef(null);
     const severityRef = useRef(null);
-    const predRef     = useRef(null);
+    const predRef = useRef(null);
 
     // Sync tab from URL
     useEffect(() => {
@@ -184,11 +168,11 @@ const AnalyticsPage = () => {
         const f = { dateRange, province, crimeType };
 
         const calls = {
-            overview:    () => fetchOverview(f).then(d  => { if (!cancelled) setOverviewData(d);    }),
-            trends:      () => fetchTrends(f).then(d    => { if (!cancelled) setTrendsData(d);      }),
-            breakdown:   () => fetchBreakdown(f).then(d => { if (!cancelled) setBreakdownData(d);   }),
-            heatmap:     () => fetchHeatmap(f).then(d   => { if (!cancelled) setHeatmapData(d);     }),
-            predictions: () => fetchPredictions().then(d=> { if (!cancelled) setPredictionsData(d); }),
+            overview: () => fetchOverview(f).then(d => { if (!cancelled) setOverviewData(d); }),
+            trends: () => fetchTrends(f).then(d => { if (!cancelled) setTrendsData(d); }),
+            breakdown: () => fetchBreakdown(f).then(d => { if (!cancelled) setBreakdownData(d); }),
+            heatmap: () => fetchHeatmap(f).then(d => { if (!cancelled) setHeatmapData(d); }),
+            predictions: () => fetchPredictions().then(d => { if (!cancelled) setPredictionsData(d); }),
         };
 
         // Always fetch overview (needed for summary strip on every tab)
@@ -209,36 +193,44 @@ const AnalyticsPage = () => {
 
     // ── Derived data (with null guard) ────────────────────────────────────
     const summaryStats = overviewData ? [
-        { label:'Total Cases',       value: String(overviewData.summary.totalCases),
-          change: overviewData.summary.totalCasesChange,
-          up: !overviewData.summary.totalCasesChange.startsWith('-'), icon: BarChart2 },
-        { label:'Solved This Month', value: String(overviewData.summary.solvedThisMonth),
-          change: overviewData.summary.solvedChange,
-          up: !overviewData.summary.solvedChange.startsWith('-'), icon: CheckCircle2 },
-        { label:'Avg Resolution',    value: `${overviewData.summary.avgResolutionDays}d`,
-          change: overviewData.summary.avgResolutionChange,
-          up: overviewData.summary.avgResolutionChange.startsWith('-'), icon: Clock },
-        { label:'High Severity',     value: String(overviewData.summary.highSeverity),
-          change: overviewData.summary.highSeverityChange,
-          up: false, icon: AlertTriangle },
+        {
+            label: 'Total Cases', value: String(overviewData.summary.totalCases),
+            change: overviewData.summary.totalCasesChange,
+            up: !overviewData.summary.totalCasesChange.startsWith('-'), icon: BarChart2
+        },
+        {
+            label: 'Solved This Month', value: String(overviewData.summary.solvedThisMonth),
+            change: overviewData.summary.solvedChange,
+            up: !overviewData.summary.solvedChange.startsWith('-'), icon: CheckCircle2
+        },
+        {
+            label: 'Avg Resolution', value: `${overviewData.summary.avgResolutionDays}d`,
+            change: overviewData.summary.avgResolutionChange,
+            up: overviewData.summary.avgResolutionChange.startsWith('-'), icon: Clock
+        },
+        {
+            label: 'High Severity', value: String(overviewData.summary.highSeverity),
+            change: overviewData.summary.highSeverityChange,
+            up: false, icon: AlertTriangle
+        },
     ] : null;
 
-    const filteredMonthly  = (activeView === 'trends' ? trendsData?.monthlyTrend  : overviewData?.monthlyTrend)  ?? null;
-    const filteredSeverity = trendsData?.severityTrend    ?? null;
-    const filteredCrimeType= breakdownData?.crimeByType   ?? null;
-    const crimeByProvince  = overviewData?.crimeByProvince ?? null;
-    const statusDist       = overviewData?.statusDist      ?? null;
-    const heatmap          = heatmapData?.heatmap          ?? null;
-    const predTrend        = predictionsData?.predictionTrend   ?? null;
-    const provForecast     = predictionsData?.provinceForecast  ?? null;
-    const crimeForecast    = predictionsData?.crimeForecast     ?? null;
+    const filteredMonthly = (activeView === 'trends' ? trendsData?.monthlyTrend : overviewData?.monthlyTrend) ?? null;
+    const filteredSeverity = trendsData?.severityTrend ?? null;
+    const filteredCrimeType = breakdownData?.crimeByType ?? null;
+    const crimeByProvince = overviewData?.crimeByProvince ?? null;
+    const statusDist = overviewData?.statusDist ?? null;
+    const heatmap = heatmapData?.heatmap ?? null;
+    const predTrend = predictionsData?.predictionTrend ?? null;
+    const provForecast = predictionsData?.provinceForecast ?? null;
+    const crimeForecast = predictionsData?.crimeForecast ?? null;
 
     // Derived heatmap insights from live data
     const heatmapInsights = (() => {
         if (!heatmap) return null;
-        const DAYS  = heatmap.days;
+        const DAYS = heatmap.days;
         const HOURS = heatmap.hours;
-        const grid  = heatmap.data;
+        const grid = heatmap.data;
 
         let peakDay = 0, peakHour = 0, safestHour = 0;
         let peakDayVal = 0, peakHourVal = 0, safestVal = Infinity;
@@ -249,14 +241,14 @@ const AnalyticsPage = () => {
         });
         HOURS.forEach((_, hi) => {
             const hourTotal = grid.reduce((sum, row) => sum + (row[hi] ?? 0), 0);
-            if (hourTotal > peakHourVal)  { peakHourVal = hourTotal; peakHour = hi; }
-            if (hourTotal < safestVal)    { safestVal   = hourTotal; safestHour = hi; }
+            if (hourTotal > peakHourVal) { peakHourVal = hourTotal; peakHour = hi; }
+            if (hourTotal < safestVal) { safestVal = hourTotal; safestHour = hi; }
         });
 
         const nextH = (i) => HOURS[(i + 1) % HOURS.length] ?? '24';
         return {
-            peakDay:    DAYS[peakDay]  ?? '—',
-            peakHour:   `${HOURS[peakHour]}:00–${nextH(peakHour)}:00`,
+            peakDay: DAYS[peakDay] ?? '—',
+            peakHour: `${HOURS[peakHour]}:00–${nextH(peakHour)}:00`,
             safestTime: `${HOURS[safestHour]}:00–${nextH(safestHour)}:00`,
         };
     })();
@@ -367,7 +359,7 @@ const AnalyticsPage = () => {
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                {[1,2,3,4].map(i => <Skeleton key={i} h="h-28" />)}
+                                {[1, 2, 3, 4].map(i => <Skeleton key={i} h="h-28" />)}
                             </div>
                         )}
 
@@ -381,15 +373,15 @@ const AnalyticsPage = () => {
                             {filteredMonthly ? (
                                 <div ref={trendRef} className="h-64">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={filteredMonthly} margin={{ top:5, right:10, left:-20, bottom:0 }}>
+                                        <LineChart data={filteredMonthly} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} />
-                                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend wrapperStyle={{ fontSize:12 }} />
-                                            <Line type="monotone" dataKey="cases"  stroke={COLORS.danger}  strokeWidth={2.5} dot={{ r:4 }} activeDot={{ r:6 }} name="New Cases" />
-                                            <Line type="monotone" dataKey="solved" stroke={COLORS.success} strokeWidth={2.5} dot={{ r:4 }} activeDot={{ r:6 }} name="Solved" />
-                                            <Line type="monotone" dataKey="leads"  stroke={COLORS.accent}  strokeWidth={2}   dot={{ r:3 }} activeDot={{ r:5 }} name="Leads" strokeDasharray="5 5" />
+                                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                                            <Line type="monotone" dataKey="cases" stroke={COLORS.danger} strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="New Cases" />
+                                            <Line type="monotone" dataKey="solved" stroke={COLORS.success} strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Solved" />
+                                            <Line type="monotone" dataKey="leads" stroke={COLORS.accent} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} name="Leads" strokeDasharray="5 5" />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -439,7 +431,7 @@ const AnalyticsPage = () => {
                                                     ))}
                                                 </Pie>
                                                 <Tooltip />
-                                                <Legend wrapperStyle={{ fontSize:11 }} />
+                                                <Legend wrapperStyle={{ fontSize: 11 }} />
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -461,16 +453,16 @@ const AnalyticsPage = () => {
                             {filteredSeverity ? (
                                 <div ref={severityRef} className="h-72">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={filteredSeverity} margin={{ top:5, right:10, left:-20, bottom:0 }}>
+                                        <BarChart data={filteredSeverity} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} />
-                                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend wrapperStyle={{ fontSize:12 }} />
+                                            <Legend wrapperStyle={{ fontSize: 12 }} />
                                             <Bar dataKey="critical" stackId="a" fill="#dc2626" name="Critical" />
-                                            <Bar dataKey="high"     stackId="a" fill="#f97316" name="High" />
-                                            <Bar dataKey="medium"   stackId="a" fill="#eab308" name="Medium" />
-                                            <Bar dataKey="low"      stackId="a" fill="#22c55e" name="Low" radius={[4,4,0,0]} />
+                                            <Bar dataKey="high" stackId="a" fill="#f97316" name="High" />
+                                            <Bar dataKey="medium" stackId="a" fill="#eab308" name="Medium" />
+                                            <Bar dataKey="low" stackId="a" fill="#22c55e" name="Low" radius={[4, 4, 0, 0]} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -485,14 +477,14 @@ const AnalyticsPage = () => {
                             {filteredMonthly ? (
                                 <div className="h-64">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={filteredMonthly} margin={{ top:5, right:10, left:-20, bottom:0 }}>
+                                        <LineChart data={filteredMonthly} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} />
-                                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend wrapperStyle={{ fontSize:12 }} />
-                                            <Line type="monotone" dataKey="cases" stroke={COLORS.primary} strokeWidth={2.5} dot={{ r:4 }} name="Cases" />
-                                            <Line type="monotone" dataKey="leads" stroke={COLORS.accent}  strokeWidth={2.5} dot={{ r:4 }} name="AI Leads" strokeDasharray="5 5" />
+                                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                                            <Line type="monotone" dataKey="cases" stroke={COLORS.primary} strokeWidth={2.5} dot={{ r: 4 }} name="Cases" />
+                                            <Line type="monotone" dataKey="leads" stroke={COLORS.accent} strokeWidth={2.5} dot={{ r: 4 }} name="AI Leads" strokeDasharray="5 5" />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -513,14 +505,14 @@ const AnalyticsPage = () => {
                             {filteredCrimeType ? (
                                 <div ref={barRef} className="h-72">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={filteredCrimeType} margin={{ top:5, right:10, left:-20, bottom:0 }}>
+                                        <BarChart data={filteredCrimeType} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                            <XAxis dataKey="type" tick={{ fontSize:11, fill:'#94a3b8' }} />
-                                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} />
+                                            <XAxis dataKey="type" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend wrapperStyle={{ fontSize:12 }} />
-                                            <Bar dataKey="count" fill={COLORS.primary} name="Current"  radius={[4,4,0,0]} />
-                                            <Bar dataKey="prev"  fill={COLORS.light}   name="Previous" radius={[4,4,0,0]} />
+                                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                                            <Bar dataKey="count" fill={COLORS.primary} name="Current" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="prev" fill={COLORS.light} name="Previous" radius={[4, 4, 0, 0]} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -537,7 +529,7 @@ const AnalyticsPage = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="border-b border-slate-200">
-                                                {['Crime Type','Current','Previous','Change','Trend'].map(h => (
+                                                {['Crime Type', 'Current', 'Previous', 'Change', 'Trend'].map(h => (
                                                     <th key={h} className={`py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider ${h === 'Crime Type' ? 'text-left' : 'text-right last:text-left'}`}>{h}</th>
                                                 ))}
                                             </tr>
@@ -545,8 +537,8 @@ const AnalyticsPage = () => {
                                         <tbody className="divide-y divide-slate-100">
                                             {filteredCrimeType.map(row => {
                                                 const diff = row.count - row.prev;
-                                                const pct  = row.prev ? ((diff / row.prev) * 100).toFixed(0) : 0;
-                                                const up   = diff > 0;
+                                                const pct = row.prev ? ((diff / row.prev) * 100).toFixed(0) : 0;
+                                                const up = diff > 0;
                                                 return (
                                                     <tr key={row.type} className="hover:bg-slate-50 transition-colors">
                                                         <td className="py-3 px-3 font-medium text-slate-800">{row.type}</td>
@@ -609,7 +601,7 @@ const AnalyticsPage = () => {
                                         ))}
                                         <div className="flex items-center gap-3 mt-4 text-xs text-slate-500">
                                             <span>Low</span>
-                                            {['bg-blue-200','bg-blue-400','bg-orange-400','bg-red-500'].map(c => (
+                                            {['bg-blue-200', 'bg-blue-400', 'bg-orange-400', 'bg-red-500'].map(c => (
                                                 <div key={c} className={`w-8 h-3 rounded ${c}`} />
                                             ))}
                                             <span>High</span>
@@ -623,9 +615,9 @@ const AnalyticsPage = () => {
                         {heatmapInsights ? (
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 {[
-                                    { label:'Peak Day',    value: heatmapInsights.peakDay,    sub:'Day with most total incidents',  color:'border-red-200 bg-red-50'      },
-                                    { label:'Peak Hours',  value: heatmapInsights.peakHour,   sub:'Time slot with highest activity', color:'border-orange-200 bg-orange-50' },
-                                    { label:'Safest Time', value: heatmapInsights.safestTime, sub:'Lowest incident rate window',     color:'border-green-200 bg-green-50'   },
+                                    { label: 'Peak Day', value: heatmapInsights.peakDay, sub: 'Day with most total incidents', color: 'border-red-200 bg-red-50' },
+                                    { label: 'Peak Hours', value: heatmapInsights.peakHour, sub: 'Time slot with highest activity', color: 'border-orange-200 bg-orange-50' },
+                                    { label: 'Safest Time', value: heatmapInsights.safestTime, sub: 'Lowest incident rate window', color: 'border-green-200 bg-green-50' },
                                 ].map(({ label, value, sub, color }) => (
                                     <div key={label} className={`rounded-lg border ${color} p-4`}>
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
@@ -636,7 +628,7 @@ const AnalyticsPage = () => {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                {[1,2,3].map(i => <Skeleton key={i} h="h-24" />)}
+                                {[1, 2, 3].map(i => <Skeleton key={i} h="h-24" />)}
                             </div>
                         )}
                     </div>
@@ -659,35 +651,35 @@ const AnalyticsPage = () => {
                             title="Crime Forecast — Next 3 Months"
                             subtitle="Historical (solid) vs predicted (dashed) with confidence band"
                             onExportCSV={predTrend ? () => exportCSV(
-                                predTrend.map(d => ({ month:d.month, actual:d.cases??'', predicted:d.predicted??'', upper:d.upper??'', lower:d.lower??'' })),
+                                predTrend.map(d => ({ month: d.month, actual: d.cases ?? '', predicted: d.predicted ?? '', upper: d.upper ?? '', lower: d.lower ?? '' })),
                                 'crime-forecast.csv'
                             ) : null}
                         >
                             {predTrend ? (
                                 <div ref={predRef} className="h-72 bg-white rounded pt-2">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={predTrend} margin={{ top:5, right:16, left:-20, bottom:0 }}>
+                                        <AreaChart data={predTrend} margin={{ top: 5, right: 16, left: -20, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="confBand" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%"  stopColor="#4A90B8" stopOpacity={0.18} />
+                                                    <stop offset="5%" stopColor="#4A90B8" stopOpacity={0.18} />
                                                     <stop offset="95%" stopColor="#4A90B8" stopOpacity={0.02} />
                                                 </linearGradient>
                                             </defs>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} />
-                                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend wrapperStyle={{ fontSize:12 }} />
+                                            <Legend wrapperStyle={{ fontSize: 12 }} />
                                             <Area type="monotone" dataKey="upper" stroke="none" fill="url(#confBand)" name="Upper bound" legendType="none" connectNulls />
-                                            <Area type="monotone" dataKey="lower" stroke="none" fill="#ffffff"         name="Lower bound" legendType="none" connectNulls />
-                                            <Line type="monotone" dataKey="cases"     stroke="#1B3C53" strokeWidth={2.5} dot={{ r:4, fill:'#1B3C53' }} activeDot={{ r:6 }} name="Actual cases"    connectNulls={false} />
-                                            <Line type="monotone" dataKey="predicted" stroke="#4A90B8" strokeWidth={2.5} dot={{ r:4, fill:'#4A90B8' }} activeDot={{ r:6 }} name="Predicted cases" strokeDasharray="6 4" connectNulls />
+                                            <Area type="monotone" dataKey="lower" stroke="none" fill="#ffffff" name="Lower bound" legendType="none" connectNulls />
+                                            <Line type="monotone" dataKey="cases" stroke="#1B3C53" strokeWidth={2.5} dot={{ r: 4, fill: '#1B3C53' }} activeDot={{ r: 6 }} name="Actual cases" connectNulls={false} />
+                                            <Line type="monotone" dataKey="predicted" stroke="#4A90B8" strokeWidth={2.5} dot={{ r: 4, fill: '#4A90B8' }} activeDot={{ r: 6 }} name="Predicted cases" strokeDasharray="6 4" connectNulls />
                                             <ReferenceLine
                                                 x={predTrend.find(d => d.cases !== null && d.cases !== undefined)
                                                     ? predTrend.filter(d => d.cases != null).at(-1)?.month
                                                     : undefined}
                                                 stroke="#94a3b8" strokeDasharray="4 2"
-                                                label={{ value:'Today', position:'top', fontSize:10, fill:'#94a3b8' }}
+                                                label={{ value: 'Today', position: 'top', fontSize: 10, fill: '#94a3b8' }}
                                             />
                                         </AreaChart>
                                     </ResponsiveContainer>
@@ -704,14 +696,14 @@ const AnalyticsPage = () => {
                             {provForecast ? (
                                 <div className="h-64">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={provForecast} margin={{ top:5, right:10, left:-20, bottom:0 }}>
+                                        <BarChart data={provForecast} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                            <XAxis dataKey="province" tick={{ fontSize:11, fill:'#94a3b8' }} />
-                                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} />
+                                            <XAxis dataKey="province" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend wrapperStyle={{ fontSize:12 }} />
-                                            <Bar dataKey="current"  fill="#1B3C53" name="Current"  radius={[4,4,0,0]} />
-                                            <Bar dataKey="forecast" fill="#4A90B8" name="Forecast" radius={[4,4,0,0]} />
+                                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                                            <Bar dataKey="current" fill="#1B3C53" name="Current" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="forecast" fill="#4A90B8" name="Forecast" radius={[4, 4, 0, 0]} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -729,7 +721,7 @@ const AnalyticsPage = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="border-b border-slate-200">
-                                                {['Crime Type','Current','Forecast','Change','Risk'].map(h => (
+                                                {['Crime Type', 'Current', 'Forecast', 'Change', 'Risk'].map(h => (
                                                     <th key={h} className={`py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider ${h === 'Crime Type' ? 'text-left' : 'text-right last:text-left'}`}>{h}</th>
                                                 ))}
                                             </tr>
@@ -760,51 +752,141 @@ const AnalyticsPage = () => {
                             ) : <Skeleton h="h-48" />}
                         </ChartCard>
 
-                        {/* Pattern alerts — static (AI-generated in future) */}
                         <div>
-                            <h3 className="text-sm font-bold text-slate-700 mb-3">
-                                AI Pattern Alerts
-                                <span className="ml-2 text-xs font-normal text-slate-400">
-                                    — Unusual activity clusters detected by the model
-                                </span>
-                            </h3>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {PATTERN_ALERTS.map(alert => {
-                                    const style = ALERT_STYLE[alert.severity];
-                                    const Icon  = style.icon;
-                                    return (
-                                        <div key={alert.id}
-                                            className={`rounded-lg border ${style.border} ${style.bg} p-4 space-y-3`}>
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="flex items-start gap-2">
-                                                    <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${style.iconColor}`} />
-                                                    <p className="text-sm font-bold text-slate-800">{alert.title}</p>
-                                                </div>
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${style.badge}`}>
-                                                    {alert.severity}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-slate-600 leading-relaxed">{alert.description}</p>
-                                            <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                                                <span>📍 {alert.province}</span>
-                                                <span>🕐 {alert.timeframe}</span>
-                                                <span>🏷 {alert.crimeType}</span>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between text-[10px] text-slate-500">
-                                                    <span>Model confidence</span>
-                                                    <span className="font-semibold">{alert.confidence}%</span>
-                                                </div>
-                                                <div className="w-full bg-white/60 rounded-full h-1.5 border border-slate-200">
-                                                    <div className="h-1.5 rounded-full bg-deep-ocean transition-all"
-                                                        style={{ width: `${alert.confidence}%` }} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-bold text-slate-700">
+                                    AI Pattern Alerts
+                                    <span className="ml-2 text-xs font-normal text-slate-400">
+                                        — Unusual activity clusters detected by the model
+                                    </span>
+                                </h3>
+                                {predictionsData?.modelMeta && (
+                                    <span className="text-[10px] font-mono text-slate-400">
+                                        {predictionsData.modelMeta.primaryModel} ·{' '}
+                                        MAPE {predictionsData.modelMeta.mape}% ·{' '}
+                                        n={predictionsData.modelMeta.sampleSize}
+                                    </span>
+                                )}
                             </div>
+
+                            {predictionsData?.patternAlerts?.length ? (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {predictionsData.patternAlerts.map(alert => {
+                                        const style = ALERT_STYLE[alert.severity] || ALERT_STYLE.medium;
+                                        const Icon = style.icon;
+                                        return (
+                                            <div key={alert.id}
+                                                className={`rounded-lg border ${style.border} ${style.bg} p-4`}>
+                                                <div className="flex items-start gap-3">
+                                                    <Icon className={`h-5 w-5 ${style.iconColor} shrink-0 mt-0.5`} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${style.badge}`}>
+                                                                {alert.severity}
+                                                            </span>
+                                                            <h4 className="text-sm font-semibold text-slate-800 truncate">
+                                                                {alert.title}
+                                                            </h4>
+                                                        </div>
+                                                        <p className="text-xs text-slate-600 leading-relaxed">
+                                                            {alert.description}
+                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-500">
+                                                            <span><Clock className="inline h-3 w-3 mr-1" />{alert.timeframe}</span>
+                                                            <span>Crime: <strong>{alert.crimeType}</strong></span>
+                                                            <span>Region: <strong>{alert.province}</strong></span>
+                                                            <span>Confidence: <strong>{alert.confidence}%</strong></span>
+                                                            {alert.modelName && (
+                                                                <span className="font-mono text-slate-400">{alert.modelName}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-sm text-slate-400 bg-slate-50 rounded-lg border border-slate-200">
+                                    <CheckCircle2 className="inline h-4 w-4 mr-1 text-green-500" />
+                                    No anomalies or surges detected. Crime trends look stable.
+                                </div>
+                            )}
                         </div>
+
+                        {predictionsData?.hotspotPredictions?.length > 0 && (
+                            <ChartCard
+                                title="Predicted Hotspots — Next 30 Days"
+                                subtitle="Geographic clusters of recent incidents — top areas at risk"
+                                onExportCSV={() => exportCSV(
+                                    predictionsData.hotspotPredictions,
+                                    'predicted-hotspots.csv'
+                                )}
+                            >
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead className="text-slate-500 border-b border-slate-200">
+                                            <tr>
+                                                <th className="text-left py-2 px-3 font-semibold">#</th>
+                                                <th className="text-left py-2 px-3 font-semibold">Area</th>
+                                                <th className="text-left py-2 px-3 font-semibold">Province</th>
+                                                <th className="text-left py-2 px-3 font-semibold">Top Crime</th>
+                                                <th className="text-right py-2 px-3 font-semibold">Recent Cases</th>
+                                                <th className="text-right py-2 px-3 font-semibold">Risk Score</th>
+                                                <th className="text-right py-2 px-3 font-semibold">Confidence</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {predictionsData.hotspotPredictions.map((hs, i) => (
+                                                <tr key={hs.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                                    <td className="py-2 px-3 font-mono text-slate-400">{i + 1}</td>
+                                                    <td className="py-2 px-3 font-medium text-slate-700">{hs.city}</td>
+                                                    <td className="py-2 px-3 text-slate-600">{hs.province}</td>
+                                                    <td className="py-2 px-3 text-slate-600">{hs.crimeType}</td>
+                                                    <td className="py-2 px-3 text-right text-slate-700">{hs.cases}</td>
+                                                    <td className="py-2 px-3 text-right font-semibold text-red-600">
+                                                        {hs.riskScore.toFixed(2)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right">
+                                                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${hs.confidence >= 75 ? 'bg-red-100 text-red-700' :
+                                                            hs.confidence >= 50 ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-yellow-100 text-yellow-700'
+                                                            }`}>
+                                                            {hs.confidence}%
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </ChartCard>
+                        )}
+
+
+                        {predictionsData?.modelMeta ? (
+                            <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200">
+                                <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                                <div className="text-xs text-blue-700 leading-relaxed">
+                                    Forecasts are generated by an AI ensemble (
+                                    <span className="font-mono">{predictionsData.modelMeta.primaryModel}</span>
+                                    ) trained on <strong>{predictionsData.modelMeta.sampleSize}</strong> cases
+                                    from the last <strong>{predictionsData.modelMeta.historyMonths}</strong> months.
+                                    Holdout error: <strong>{predictionsData.modelMeta.mape}% MAPE</strong>.
+                                    Confidence band: <strong>{predictionsData.modelMeta.confidenceLevel}%</strong>.
+                                    Indicative, not conclusive — always verify with field intelligence.
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200">
+                                <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                                <p className="text-xs text-blue-700">
+                                    Predictions are generated by a statistical model trained on historical case data.
+                                    They are indicative, not conclusive — always verify with field intelligence.
+                                </p>
+                            </div>
+                        )}
+
                     </div>
                 )}
 

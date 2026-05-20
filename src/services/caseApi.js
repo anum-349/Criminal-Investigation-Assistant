@@ -304,3 +304,10 @@ export const formatApiError = (err, fallback = "Request failed") => {
     if (typeof detail === "string") return detail;
     return err.message || fallback;
 };
+
+export const regenerateLinkedCases = async (caseId) => {
+  const { data } = await axios.post(
+    `${apiBase()}/api/investigator/cases/${encodeURIComponent(caseId)}/links/regenerate`,
+  );
+  return data;
+};

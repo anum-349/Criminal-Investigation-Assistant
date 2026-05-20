@@ -1,13 +1,17 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, Fragment } from 'react';
 import axios from 'axios';
 import { Link, useParams } from 'react-router-dom';
 import {
   Search, ChevronDown, Calendar, ExternalLink,
   Loader2, AlertTriangle,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
+import { Sparkles } from 'lucide-react';                          // NEW
+import { regenerateLinkedCases } from '@/services/caseApi';
+import { useToast } from '@/context/ToastContext';
 
 const PAGE_SIZE = 5;
 
@@ -25,9 +29,80 @@ const getAuthHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+const renderDetailMarkdown = (raw) => {
+  if (!raw) return null;
+  const lines = raw.split('\n');
+  const blocks = [];
+  let currentBullets = null;
+
+  const flushBullets = () => {
+    if (currentBullets && currentBullets.length) {
+      blocks.push({ kind: 'ul', items: currentBullets });
+    }
+    currentBullets = null;
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { flushBullets(); continue; }
+    if (t.startsWith('### ')) {
+      flushBullets();
+      blocks.push({ kind: 'h4', text: t.slice(4).trim() });
+    } else if (t.startsWith('• ')) {
+      if (!currentBullets) currentBullets = [];
+      currentBullets.push(t.slice(2).trim());
+    } else {
+      flushBullets();
+      blocks.push({ kind: 'p', text: t });
+    }
+  }
+  flushBullets();
+
+  // Inline **bold** → <strong>. Naive split on **; engine never nests.
+  const renderInline = (text, keyBase) =>
+    text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) => {
+      if (seg.startsWith('**') && seg.endsWith('**')) {
+        return <strong key={`${keyBase}-${i}`} className="text-slate-900">{seg.slice(2, -2)}</strong>;
+      }
+      return <span key={`${keyBase}-${i}`}>{seg}</span>;
+    });
+
+  return blocks.map((b, idx) => {
+    if (b.kind === 'h4') {
+      return (
+        <h4
+          key={idx}
+          className="text-[11px] font-semibold tracking-wider text-deep-ocean-700 uppercase mt-3 first:mt-0"
+        >
+          {b.text}
+        </h4>
+      );
+    }
+    if (b.kind === 'ul') {
+      return (
+        <ul key={idx} className="mt-1.5 space-y-1 text-sm text-slate-700">
+          {b.items.map((it, i) => (
+            <li key={i} className="flex gap-2">
+              <span className="text-deep-ocean-500 mt-1.5 shrink-0">▸</span>
+              <span>{renderInline(it, `${idx}-${i}`)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <p key={idx} className="text-sm text-slate-700 mt-2 first:mt-0">
+        {renderInline(b.text, `${idx}-p`)}
+      </p>
+    );
+  });
+};
+
+
 const LinkedCases = () => {
   const { id: caseIdFromUrl } = useParams();
   const caseId = caseIdFromUrl || 'C-2053'; // graceful fallback if mounted outside the dynamic route
+  const [expandedRow, setExpandedRow] = useState(null);
 
   // ── Filter inputs (live state) ─────────────────────────────────────────
   const [keyword, setKeyword] = useState('');
@@ -52,6 +127,14 @@ const LinkedCases = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const requestSeq = useRef(0);
+  const [regenerating, setRegenerating] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+
+  const toast = useToast();
+
+  const toggleRow = (rowId) => {
+    setExpandedRow(prev => (prev === rowId ? null : rowId));
+  };
 
   // ── Fetch ──────────────────────────────────────────────────────────────
   const fetchLinkedCases = useCallback(async () => {
@@ -139,6 +222,54 @@ const LinkedCases = () => {
     return relationOptions.find(r => r.label === relationText)?.variant || 'default';
   };
 
+  const handleRegenerate = useCallback(async () => {
+    if (regenerating || Date.now() < cooldownUntil) return;
+
+    setRegenerating(true);
+    try {
+      const res = await regenerateLinkedCases(caseId);
+
+      // Build a friendly toast message based on what the backend reports.
+      const { linksFound, newLinks, updatedLinks, semanticAvailable } = res;
+      let msg;
+      if (linksFound === 0) {
+        msg = 'No related cases found for this case.';
+      } else if (newLinks > 0 && updatedLinks > 0) {
+        msg = `Found ${linksFound} linked case${linksFound === 1 ? '' : 's'} `
+          + `(${newLinks} new, ${updatedLinks} updated).`;
+      } else if (newLinks > 0) {
+        msg = `Found ${newLinks} new linked case${newLinks === 1 ? '' : 's'}.`;
+      } else {
+        msg = `Refreshed ${updatedLinks} existing link${updatedLinks === 1 ? '' : 's'}.`;
+      }
+
+      toast.success(msg);
+
+      // Soft warning if the semantic dimension didn't fire — investigators
+      // should know their results aren't using narrative matching.
+      if (!semanticAvailable) {
+        toast.warning(
+          'Semantic narrative matching was unavailable on this run. '
+          + 'Results are based on structured data only.',
+          { duration: 6000 },
+        );
+      }
+
+      // Refetch the table. `refetchItems` is whatever function in this
+      // component loads /linked — rename to whatever you call it
+      // (refreshItems, loadLinkedCases, etc.).
+      await fetchLinkedCases();
+
+      // Hold the button disabled for 3 seconds to prevent spam.
+      setCooldownUntil(Date.now() + 3000);
+    } catch (err) {
+      const detail = err?.response?.data?.detail || err?.message || 'Unknown error';
+      toast.error(`Could not regenerate linked cases: ${detail}`);
+    } finally {
+      setRegenerating(false);
+    }
+  }, [caseId, regenerating, cooldownUntil, fetchLinkedCases]);
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <section
@@ -146,8 +277,48 @@ const LinkedCases = () => {
       aria-label="Linked Cases"
     >
       <header className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Linked Cases</h2>
-        <p className="text-sm text-slate-600 mt-1">Visualize relationship between cases</p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Linked Cases</h2>
+            <p className="text-sm text-slate-600 mt-1">Visualize relationship between cases</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRegenerate}
+            disabled={regenerating || Date.now() < cooldownUntil}
+            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium
+              shadow-sm transition-colors focus:outline-none focus:ring-2
+              focus:ring-deep-ocean-500 focus:ring-offset-2
+              ${regenerating || Date.now() < cooldownUntil
+                ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                : 'bg-deep-ocean-500 text-white hover:bg-deep-ocean-900'
+              }`}
+            aria-busy={regenerating}
+            aria-label="Run case linking analysis"
+            title={
+              regenerating
+                ? 'Linking analysis in progress…'
+                : 'Re-run the linker to find or refresh related cases'
+            }
+          >
+            {regenerating ? (
+              <>
+                {/* Spinner */}
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" aria-hidden>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                <span>Analysing…</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" aria-hidden />
+                <span>Generate Linked Cases</span>
+              </>
+            )}
+          </button>
+        </div>
       </header>
 
       {/* Filter bar — unchanged layout, options now driven by server */}
@@ -226,6 +397,7 @@ const LinkedCases = () => {
           <table className="w-full text-left text-sm border-collapse" role="table" aria-label="Linked cases list">
             <thead>
               <tr className="bg-slate-100 text-slate-600 text-nowrap *:uppercase *:font-semibold *:text-[11px] tracking-wider">
+                <th scope="col" className="px-3 py-4 w-8" aria-hidden></th>
                 <th scope="col" className="px-6 py-4">Case ID</th>
                 <th scope="col" className="px-6 py-4">Title</th>
                 <th scope="col" className="px-6 py-4">Investigator</th>
@@ -238,7 +410,7 @@ const LinkedCases = () => {
             <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-10 text-center text-slate-500">
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                       Loading linked cases…
@@ -247,7 +419,7 @@ const LinkedCases = () => {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-red-600">
+                  <td colSpan={8} className="px-6 py-10 text-center text-red-600">
                     <span className="inline-flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" aria-hidden />
                       {error}
@@ -256,41 +428,86 @@ const LinkedCases = () => {
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
                     No linked cases match your search. Try different filters.
                   </td>
                 </tr>
               ) : (
-                items.map((row) => (
-                  <tr key={`${row.id}-${row.linkType || ''}`} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-slate-800 text-nowrap">{row.id}</td>
-                    <td className="px-6 py-4 font-medium text-slate-800">{row.title}</td>
-                    <td className="px-6 py-4 text-slate-700">{row.investigator}</td>
-                    <td className="px-6 py-4 text-slate-700">{row.registerDate}</td>
-                    <td className="px-6 py-4">
-                      <Badge variant={getStatusVariant(row.status)}>
-                        {row.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={getRelationVariant(row.relation, row.linkType)}>
-                        {row.relation}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <Link
-                        to={`/investigator/case/${encodeURIComponent(row.linkedCaseId)}`}
-                        state={{ caseId: row.linkedCaseId, title: row.title }}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 shadow-inner shadow-black text-white transition-colors focus:outline-none focus:ring-2 focus:ring-deep-ocean-500 focus:ring-offset-2"
-                        aria-label={`Open linked case ${row.id} - ${row.title}`}
+                items.map((row) => {
+                  const isOpen = expandedRow === row.id;
+                  const hasDetail = Boolean(row.relationDetail);
+                  return (
+                    <Fragment key={`${row.id}-${row.linkType || ''}`}>
+                      <tr
+                        className={`cursor-pointer transition-colors ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50'
+                          }`}
+                        onClick={() => hasDetail && toggleRow(row.id)}
+                        aria-expanded={isOpen}
                       >
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                        Open Linked Case
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
+                        <td className="px-3 py-4 align-top text-slate-400">
+                          {hasDetail ? (
+                            <ChevronRight
+                              className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                              aria-hidden
+                            />
+                          ) : null}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-slate-800 text-nowrap align-top">{row.id}</td>
+                        <td className="px-6 py-4 font-medium text-slate-800 align-top">{row.title}</td>
+                        <td className="px-6 py-4 text-slate-700 align-top">{row.investigator}</td>
+                        <td className="px-6 py-4 text-slate-700 align-top">{row.registerDate}</td>
+                        <td className="px-6 py-4 align-top">
+                          <Badge variant={getStatusVariant(row.status)}>{row.status}</Badge>
+                        </td>
+                        <td className="px-6 py-4 align-top max-w-md">
+                          {/* Headline narrative — no longer wrapped in a pill, since these
+              are full sentences now, not short labels. The link-type pill
+              moves below as a smaller secondary indicator. */}
+                          <div className="text-sm text-slate-800 leading-snug">{row.relation}</div>
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <Badge variant={getRelationVariant(row.relation, row.linkType)} className="text-[10px]">
+                              {(row.linkType || '').replace(/_/g, ' ').toLowerCase() || 'related'}
+                            </Badge>
+                            {row.similarityScore != null && (
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                {row.similarityScore}% confidence
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td
+                          className="px-6 py-4 text-center align-top"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Link
+                            to={`/investigator/case/${encodeURIComponent(row.linkedCaseId)}`}
+                            state={{ caseId: row.linkedCaseId, title: row.title }}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium px-3 py-2 bg-deep-ocean-500 hover:bg-deep-ocean-900 shadow-inner shadow-black text-white transition-colors focus:outline-none focus:ring-2 focus:ring-deep-ocean-500 focus:ring-offset-2"
+                            aria-label={`Open linked case ${row.id} - ${row.title}`}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                            Open Linked Case
+                          </Link>
+                        </td>
+                      </tr>
+                      {isOpen && hasDetail && (
+                        <tr className="bg-slate-50/70">
+                          <td colSpan={8} className="px-6 py-5 border-t border-slate-200">
+                            <div className="max-w-3xl">
+                              <div className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase mb-2">
+                                Linkage Analysis
+                              </div>
+                              {renderDetailMarkdown(row.relationDetail)}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })
+              )
+              }
+
             </tbody>
           </table>
         </div>

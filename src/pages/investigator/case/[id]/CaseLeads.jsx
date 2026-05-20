@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   Search, ChevronDown, Calendar, Brain, User, Plus, X,
   Eye, AlertTriangle, Trash2, Info, Lightbulb,
-  Loader2, CheckCircle2,
+  Loader2, CheckCircle2, Sparkles
 } from 'lucide-react';
 
 import { useToast } from '@/context/ToastContext';
@@ -11,6 +11,7 @@ import { useToast } from '@/context/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
+import { checkAiHealth, streamAiLeads } from "@/services/leadApi";
 
 import {
   LEAD_STATUSES,
@@ -124,10 +125,6 @@ const StatusMenu = ({ lead, onChange, onAskDelete, busy }) => {
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main component
-// ─────────────────────────────────────────────────────────────────────────────
-
 const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   // ── Filter inputs (live) ────────────────────────────────────────────────
   const [keyword, setKeyword] = useState('');
@@ -140,6 +137,19 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   const [appliedFilters, setAppliedFilters] = useState({
     keyword: '', leadType: '', date: '', severity: 'all',
   });
+
+  const [health, setHealth] = useState({
+    available: false,
+    model: "",
+    model_pulled: false,
+    detail: "Checking AI service…",
+    loading: true,
+  });
+
+  const refreshHealth = useCallback(async () => {
+    const h = await checkAiHealth();
+    setHealth({ ...h, loading: false });
+  }, []);
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -160,6 +170,116 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   const [busyLeadId, setBusyLeadId] = useState(null);
 
   const toast = useToast()
+  useEffect(() => {
+    refreshHealth();
+  }, [refreshHealth]);
+
+  // ── Streaming state ────────────────────────────────────────────────
+  const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState({ leads: 0, model: "" });
+  const cancelRef = useRef(null);
+
+  const handleGenerate = useCallback(() => {
+    if (!caseId || generating) return;
+
+    setGenerating(true);
+    setProgress({ leads: 0, model: health.model });
+
+    let leadsCount = 0;
+    let rejectedHint = null;
+
+    const cancel = streamAiLeads(caseId, {
+      onStarted: ({ model }) => {
+        setProgress(p => ({ ...p, model }));
+      },
+
+      onLead: (lead) => {
+        setLeads(curr => {
+          if (curr.some(l => l.id === lead.id)) return curr;
+          return [lead, ...curr];
+        });
+        setTotal(t => t + 1);
+        setCounts(c => ({ ...c, all: c.all + 1, ai: c.ai + 1 }));
+      },
+
+      onRejected: ({ count }) => {
+        rejectedHint = count;
+      },
+
+      onDone: ({ accepted, rejected, duration_ms, reason }) => {
+        setGenerating(false);
+        cancelRef.current = null;
+
+        // Build a useful toast that summarises the result without
+        // drowning the user in details.
+        if (accepted > 0) {
+          const parts = [`Generated ${accepted} lead${accepted === 1 ? "" : "s"}`];
+          if (rejected > 0) {
+            parts.push(`${rejected} rejected by validation`);
+          }
+          if (duration_ms) {
+            parts.push(`${(duration_ms / 1000).toFixed(1)}s`);
+          }
+          toast.success(parts.join(" · "));
+        } else if (reason) {
+          toast.info(reason);
+        } else {
+          toast.info("No grounded leads were generated for this case.");
+        }
+
+        // Trigger a fresh fetch on the parent so counts/filters
+        // stay in sync with what the server has now.
+        // CORRECT
+        fetchLeads();
+
+        // Re-probe health in case it lapsed mid-stream.
+        refreshHealth();
+      },
+
+      onError: ({ status, detail }) => {
+        setGenerating(false);
+        cancelRef.current = null;
+
+        if (status === 503) {
+          toast.error("AI service unavailable. Is Ollama running?");
+        } else if (status === 504) {
+          toast.error("AI took too long to respond. Try again.");
+        } else if (status === 403 || status === 404) {
+          toast.error("You can't generate leads for this case.");
+        } else {
+          toast.error(detail || `Lead generation failed (HTTP ${status || "?"})`);
+        }
+
+        // Health probe so the button re-greys-out if Ollama died.
+        refreshHealth();
+      },
+    });
+
+    cancelRef.current = cancel;
+  }, [caseId, generating, health.model, refreshHealth, toast]);
+
+  const handleCancel = useCallback(() => {
+    if (cancelRef.current) {
+      cancelRef.current();
+      cancelRef.current = null;
+      setGenerating(false);
+      toast.info("Lead generation cancelled.");
+    }
+  }, [toast]);
+
+  // Cleanup on unmount — abort any in-flight stream.
+  useEffect(() => {
+    return () => {
+      if (cancelRef.current) {
+        try { cancelRef.current(); } catch { /* ignore */ }
+      }
+    };
+  }, []);
+
+  // ── Render ──────────────────────────────────────────────────────────
+  // When generating: show a spinner + count + cancel.
+  // When idle but healthy: show the magic icon + label.
+  // When idle but unhealthy: show greyed-out + tooltip with reason.
 
   // ── Fetch ───────────────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
@@ -380,20 +500,54 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
           </p>
         </div>
 
-        <Button
-          variant="default"
-          className="px-4 py-1.5"
-          onClick={() => setShowAdd(true)}
-        >
-          <Plus className="h-4 w-4" /> Add Manual Lead
-        </Button>
+        <div className="flex items-center gap-2">
+          {generating ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-deep-ocean/10 border border-deep-ocean/30 text-deep-ocean">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              <span className="text-sm font-medium">
+                Generating… {progress.leads > 0 && `(${progress.leads})`}
+              </span>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="ml-1 p-0.5 rounded hover:bg-deep-ocean/20 cursor-pointer"
+                aria-label="Cancel generation"
+                title="Cancel"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant={health.loading || !health.available || !health.model_pulled ? "outline" : "secondary"}
+              onClick={handleGenerate}
+              title={
+                health.loading
+                  ? "Checking AI service availability…"
+                  : health.available && health.model_pulled
+                    ? `Generate AI-powered leads using ${health.model}`
+                    : health.detail
+              }
+              className={`px-3 py-1.5 cursor-pointer`}
+            >
+              <Sparkles className="h-4 w-4" aria-hidden />
+              Generate with AI
+            </Button>
+          )}
+
+          <Button onClick={() => setShowAdd(true)} className="px-3 py-1.5 cursor-pointer">
+            <Plus className="h-4 w-4" /> Add Manual Lead
+          </Button>
+        </div>
       </header>
 
-      {error && (
-        <div className="mx-6 mt-3 flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
-          <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
-        </div>
-      )}
+      {
+        error && (
+          <div className="mx-6 mt-3 flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+            <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
+          </div>
+        )
+      }
 
       {/* Source filter pills */}
       <div className="px-6 pt-4 pb-3 flex flex-wrap items-center gap-2 border-b border-slate-100">
@@ -491,29 +645,31 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       </div>
 
       {/* Inline delete confirm row */}
-      {confirmDelete && (
-        <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
-          <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
-          <p className="text-xs text-red-700 flex-1">
-            Delete manual lead <span className="font-mono font-semibold">{confirmDelete.id}</span> permanently?
-            <span className="text-slate-600"> (AI leads can't be deleted — change their status to "Dismissed".)</span>
-          </p>
-          <button
-            onClick={() => handleDelete(confirmDelete.id)}
-            disabled={busyLeadId === confirmDelete.id}
-            className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-3 py-1 rounded-md hover:bg-red-100 disabled:opacity-50"
-          >
-            {busyLeadId === confirmDelete.id ? 'Deleting…' : 'Yes, delete'}
-          </button>
-          <button
-            onClick={() => setConfirmDelete(null)}
-            disabled={busyLeadId === confirmDelete.id}
-            className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-3 py-1 rounded-md hover:bg-slate-100"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
+      {
+        confirmDelete && (
+          <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+            <p className="text-xs text-red-700 flex-1">
+              Delete manual lead <span className="font-mono font-semibold">{confirmDelete.id}</span> permanently?
+              <span className="text-slate-600"> (AI leads can't be deleted — change their status to "Dismissed".)</span>
+            </p>
+            <button
+              onClick={() => handleDelete(confirmDelete.id)}
+              disabled={busyLeadId === confirmDelete.id}
+              className="text-xs font-semibold text-red-600 hover:text-red-800 cursor-pointer px-3 py-1 rounded-md hover:bg-red-100 disabled:opacity-50"
+            >
+              {busyLeadId === confirmDelete.id ? 'Deleting…' : 'Yes, delete'}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(null)}
+              disabled={busyLeadId === confirmDelete.id}
+              className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-3 py-1 rounded-md hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+        )
+      }
 
       {/* Table */}
       <div className="overflow-x-auto">
@@ -600,39 +756,45 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       </div>
 
       {/* Pagination */}
-      {!loading && total > 0 && (
-        <div className="px-6 py-4 border-t border-slate-200">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            totalItems={total}
-            start={start}
-            end={end}
-            itemLabel="leads"
-          />
-        </div>
-      )}
+      {
+        !loading && total > 0 && (
+          <div className="px-6 py-4 border-t border-slate-200">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={total}
+              start={start}
+              end={end}
+              itemLabel="leads"
+            />
+          </div>
+        )
+      }
 
       {/* Add Manual Lead modal */}
-      {showAdd && (
-        <AddLeadDialog
-          isOpen={showAdd}
-          onClose={() => setShowAdd(false)}
-          onSubmit={handleAddLeadSave}
-          caseId={caseId}
-        />
-      )}
+      {
+        showAdd && (
+          <AddLeadDialog
+            isOpen={showAdd}
+            onClose={() => setShowAdd(false)}
+            onSubmit={handleAddLeadSave}
+            caseId={caseId}
+          />
+        )
+      }
 
       {/* Lead detail dialog */}
-      {dialogLead && (
-        <LeadDetailDialog
-          lead={dialogLead}
-          onClose={() => setDialogLead(null)}
-          closeBtnRef={closeDialogBtnRef}
-        />
-      )}
-    </section>
+      {
+        dialogLead && (
+          <LeadDetailDialog
+            lead={dialogLead}
+            onClose={() => setDialogLead(null)}
+            closeBtnRef={closeDialogBtnRef}
+          />
+        )
+      }
+    </section >
   );
 };
 

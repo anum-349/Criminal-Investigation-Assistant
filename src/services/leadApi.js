@@ -1,44 +1,25 @@
-/**
- * src/services/leadApi.js
- * ─────────────────────────────────────────────────────────────────────────────
- * Lead creation helpers.
- *
- * Two callers today:
- *   1. CaseLeads.jsx → AddLeadDialog manual-lead flow (already wired
- *      inline; kept for backward compatibility — the inline axios.post
- *      will keep working).
- *   2. caseApi.js → registerCaseFull, which now POSTs the AI-generated
- *      leads from Step 9 of the wizard to the new case AFTER the case
- *      itself is created.
- *
- * Backend endpoint (verified against services/case_lead_service.add_manual_lead):
- *   POST /api/investigator/cases/{caseId}/leads
- *     body: AddManualLeadRequest (camelCase)
- *
- * Note on lead source:
- *   The backend `add_manual_lead` service writes event_source = "MANUAL"
- *   unconditionally — there's currently no public POST endpoint for
- *   true AI leads (those are inserted by the AI pipeline directly to
- *   the DB once it exists). For now we ship the register-case "AI"
- *   leads through this same endpoint but tag them with source="AI Analysis"
- *   so the LeadDetailDialog can still display the provenance correctly.
- *   When the real AI pipeline lands, swap the call in caseApi.js to hit
- *   the AI-leads endpoint and this file doesn't need to change.
- */
-
 import axios from "axios";
 
-export const getAuthHeader = () => {
-    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
+// ── Auth header (same convention as the rest of the app) ───────────────────
+const getAuthHeader = () => {
+    const token =
+        localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 const apiBase = () => import.meta.env.VITE_API_URL;
 
-// ── Shape converter ────────────────────────────────────────────────────────
 
-/** Frontend lead shape → backend AddManualLeadRequest body.
- *  Drops blanks because the backend treats null and missing differently. */
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. Health check
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Probe the AI service. Returns the parsed health object.
+ * NEVER throws — a failure to reach the backend returns
+ * { available: false, detail: "..." }. The button uses this to grey out.
+ */
+
 export const buildLeadPayload = (lead) => {
     const out = {};
     const fwd = (k, v) => { if (v !== undefined && v !== null && v !== "") out[k] = v; };
@@ -96,4 +77,180 @@ export const addLeadsToCase = async (caseId, leads) => {
     }
 
     return { created, failures };
+};
+
+export const checkAiHealth = async () => {
+    try {
+        const res = await axios.get(
+            `${apiBase()}/api/investigator/cases/leads/ai/health`,
+            { headers: getAuthHeader(), timeout: 5000 },
+        );
+        return res.data;
+    } catch (err) {
+        return {
+            available: false,
+            model: "—",
+            model_pulled: false,
+            detail:
+                err?.response?.data?.detail ||
+                "AI service is unreachable.",
+        };
+    }
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. Blocking generation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Trigger AI lead generation for a case and await all generated leads.
+ * Resolves with the full GenerationResult-shaped payload. Throws on
+ * non-2xx with a useful message.
+ *
+ * Long timeout — design § 8 budgets ~13s on CPU; we give it 90s of
+ * headroom in case the first request after a cold start triggers
+ * Ollama to load the model from disk.
+ */
+export const generateAiLeads = async (caseId) => {
+    if (!caseId) throw new Error("caseId is required");
+
+    const res = await axios.post(
+        `${apiBase()}/api/investigator/cases/${caseId}/leads/generate`,
+        {},                              // body is empty — server reads case from URL
+        {
+            headers: getAuthHeader(),
+            timeout: 90_000,
+        },
+    );
+    return res.data;
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. Streaming generation (NDJSON)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Streaming variant. Calls callbacks as the server emits NDJSON events.
+ *
+ * Callbacks (all optional):
+ *   onStarted({ case_id, model })   when the server confirms it has started
+ *   onLead(leadRow)                 each accepted lead, in priority order
+ *   onRejected({ count, issues })   if any were rejected
+ *   onDone({ accepted, rejected, duration_ms, reason })
+ *   onError({ status, detail })     any error mid-stream — terminal
+ *
+ * Returns: () => void  — call to abort the stream early.
+ */
+export const streamAiLeads = (caseId, {
+    onStarted,
+    onLead,
+    onRejected,
+    onDone,
+    onError,
+} = {}) => {
+    if (!caseId) {
+        onError?.({ status: 0, detail: "caseId is required" });
+        return () => { };
+    }
+
+    const ctrl = new AbortController();
+    const url  = `${apiBase()}/api/investigator/cases/${caseId}/leads/generate/stream`;
+
+    (async () => {
+        let res;
+        try {
+            res = await fetch(url, {
+                method:  "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...getAuthHeader(),
+                },
+                body:    "{}",
+                signal:  ctrl.signal,
+            });
+        } catch (err) {
+            if (err.name !== "AbortError") {
+                onError?.({ status: 0, detail: err.message || "Network error" });
+            }
+            return;
+        }
+
+        if (!res.ok) {
+            let detail = `HTTP ${res.status}`;
+            try {
+                const body = await res.json();
+                detail = body?.detail || detail;
+            } catch { /* response wasn't JSON */ }
+            onError?.({ status: res.status, detail });
+            return;
+        }
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer    = "";
+
+        try {
+            // Read until the server closes or the caller aborts.
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+
+                // Process complete lines (NDJSON = one object per \n)
+                let nl;
+                while ((nl = buffer.indexOf("\n")) !== -1) {
+                    const line = buffer.slice(0, nl).trim();
+                    buffer = buffer.slice(nl + 1);
+                    if (!line) continue;
+
+                    let evt;
+                    try {
+                        evt = JSON.parse(line);
+                    } catch {
+                        // Skip malformed line — defensively, this should
+                        // never happen but we shouldn't blow up the
+                        // whole stream over one bad chunk.
+                        continue;
+                    }
+
+                    switch (evt.event) {
+                        case "started":
+                            onStarted?.({ case_id: evt.case_id, model: evt.model });
+                            break;
+                        case "lead":
+                            onLead?.(evt.lead);
+                            break;
+                        case "rejected":
+                            onRejected?.({ count: evt.count, issues: evt.issues });
+                            break;
+                        case "done":
+                            onDone?.({
+                                accepted:    evt.accepted,
+                                rejected:    evt.rejected,
+                                duration_ms: evt.duration_ms,
+                                reason:      evt.reason,
+                            });
+                            break;
+                        case "error":
+                            onError?.({ status: evt.status, detail: evt.detail });
+                            break;
+                        default:
+                            // Unknown event — ignore to stay forward-compatible.
+                            break;
+                    }
+                }
+            }
+        } catch (err) {
+            if (err.name !== "AbortError") {
+                onError?.({ status: 0, detail: err.message });
+            }
+        }
+    })();
+
+    // Returning the cancel function as a plain function keeps the
+    // contract symmetric with React's useEffect cleanup.
+    return () => ctrl.abort();
 };

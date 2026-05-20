@@ -19,7 +19,7 @@ export const fetchTrends      = (f) => get("trends",      _p(f));
 export const fetchBreakdown   = (f) => get("breakdown",   _p(f));
 export const fetchHeatmap     = (f) => get("heatmap",     { date_range: f.dateRange });
 export const fetchPredictions = ()  => get("predictions", {});
-
+ 
 const _p = (f) => ({
     date_range: f.dateRange,
     province:   f.province,
