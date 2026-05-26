@@ -138,10 +138,17 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
     keyword: '', leadType: '', date: '', severity: 'all',
   });
 
+  // const [health, setHealth] = useState({
+  //   available: false,
+  //   model: "",
+  //   model_pulled: false,
+  //   detail: "Checking AI service…",
+  //   loading: true,
+  // });
+
   const [health, setHealth] = useState({
     available: false,
     model: "",
-    model_pulled: false,
     detail: "Checking AI service…",
     loading: true,
   });
@@ -150,6 +157,10 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
     const h = await checkAiHealth();
     setHealth({ ...h, loading: false });
   }, []);
+
+  useEffect(() => {
+    refreshHealth();
+  }, [refreshHealth]);
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -170,19 +181,27 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
   const [busyLeadId, setBusyLeadId] = useState(null);
 
   const toast = useToast()
-  useEffect(() => {
-    refreshHealth();
-  }, [refreshHealth]);
 
   // ── Streaming state ────────────────────────────────────────────────
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState({ leads: 0, model: "" });
+  const [phase, setPhase] = useState("idle");     // building | context | streaming
+  const [stats, setStats] = useState({ depth: null, gaps: null, leads: 0 });
   const cancelRef = useRef(null);
+
+  const resetState = () => {
+    setGenerating(false);
+    setPhase("idle");
+    setStats({ depth: null, gaps: null, leads: 0 });
+    cancelRef.current = null;
+  };
 
   const handleGenerate = useCallback(() => {
     if (!caseId || generating) return;
 
     setGenerating(true);
+    setPhase("building");
+    setStats({ depth: null, gaps: null, leads: 0 });
     setProgress({ leads: 0, model: health.model });
 
     let leadsCount = 0;
@@ -190,10 +209,22 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
 
     const cancel = streamAiLeads(caseId, {
       onStarted: ({ model }) => {
+        setPhase("building");
         setProgress(p => ({ ...p, model }));
       },
 
+      onContext: ({ depth_score, gap_count }) => {
+        setPhase("context");
+        setStats(s => ({ ...s, depth: depth_score, gaps: gap_count }));
+        // Quick beat to let the user actually see this, then we
+        // transition to "streaming" as soon as the first lead
+        // arrives (or "done" if none come).
+      },
+
       onLead: (lead) => {
+        leadsCount += 1;
+        setPhase("streaming");
+        setStats(s => ({ ...s, leads: leadsCount }));
         setLeads(curr => {
           if (curr.some(l => l.id === lead.id)) return curr;
           return [lead, ...curr];
@@ -206,7 +237,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         rejectedHint = count;
       },
 
-      onDone: ({ accepted, rejected, duration_ms, reason }) => {
+      onDone: ({ accepted, rejected, duration_ms, reason, raw_lead_count, gap_count }) => {
         setGenerating(false);
         cancelRef.current = null;
 
@@ -217,6 +248,9 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
           if (rejected > 0) {
             parts.push(`${rejected} rejected by validation`);
           }
+          if (gap_count) {
+            parts.push(`${gap_count} gap${gap_count === 1 ? "" : "s"} spotted`);
+          }
           if (duration_ms) {
             parts.push(`${(duration_ms / 1000).toFixed(1)}s`);
           }
@@ -224,7 +258,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
         } else if (reason) {
           toast.info(reason);
         } else {
-          toast.info("No grounded leads were generated for this case.");
+          toast.info("No new leads found. All investigative angles may already be covered.");
         }
 
         // Trigger a fresh fetch on the parent so counts/filters
@@ -237,11 +271,12 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       },
 
       onError: ({ status, detail }) => {
+        resetState();
         setGenerating(false);
         cancelRef.current = null;
 
         if (status === 503) {
-          toast.error("AI service unavailable. Is Ollama running?");
+          toast.error("AI service unavailable. Check your GROQ_API_KEY in .env.");
         } else if (status === 504) {
           toast.error("AI took too long to respond. Try again.");
         } else if (status === 403 || status === 404) {
@@ -263,6 +298,7 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       cancelRef.current();
       cancelRef.current = null;
       setGenerating(false);
+      resetState();
       toast.info("Lead generation cancelled.");
     }
   }, [toast]);
@@ -275,11 +311,6 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
       }
     };
   }, []);
-
-  // ── Render ──────────────────────────────────────────────────────────
-  // When generating: show a spinner + count + cancel.
-  // When idle but healthy: show the magic icon + label.
-  // When idle but unhealthy: show greyed-out + tooltip with reason.
 
   // ── Fetch ───────────────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
@@ -518,13 +549,28 @@ const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
               </button>
             </div>
           ) : (
+            // <Button
+            //   variant={health.loading || !health.available || !health.model_pulled ? "outline" : "secondary"}
+            //   onClick={handleGenerate}
+            //   title={
+            //     health.loading
+            //       ? "Checking AI service availability…"
+            //       : health.available && health.model_pulled
+            //         ? `Generate AI-powered leads using ${health.model}`
+            //         : health.detail
+            //   }
+            //   className={`px-3 py-1.5 cursor-pointer`}
+            // >
+            //   <Sparkles className="h-4 w-4" aria-hidden />
+            //   Generate with AI
+            // </Button>
             <Button
-              variant={health.loading || !health.available || !health.model_pulled ? "outline" : "secondary"}
+              variant={health.loading || !health.available ? "outline" : "secondary"}
               onClick={handleGenerate}
               title={
                 health.loading
                   ? "Checking AI service availability…"
-                  : health.available && health.model_pulled
+                  : health.available
                     ? `Generate AI-powered leads using ${health.model}`
                     : health.detail
               }

@@ -98,7 +98,6 @@ export const checkAiHealth = async () => {
     }
 };
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Blocking generation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,18 +111,20 @@ export const checkAiHealth = async () => {
  * headroom in case the first request after a cold start triggers
  * Ollama to load the model from disk.
  */
+
 export const generateAiLeads = async (caseId) => {
     if (!caseId) throw new Error("caseId is required");
 
     const res = await axios.post(
         `${apiBase()}/api/investigator/cases/${caseId}/leads/generate`,
-        {},                              // body is empty — server reads case from URL
-        {
-            headers: getAuthHeader(),
-            timeout: 90_000,
-        },
+        {},
+        { headers: getAuthHeader(), timeout: 90_000 },
     );
     return res.data;
+    // Shape: {
+    //   case_id, accepted_leads, rejected_count, rejected_issues, reason,
+    //   duration_ms, model, context_depth_score, gap_count, raw_lead_count
+    // }
 };
 
 
@@ -143,8 +144,10 @@ export const generateAiLeads = async (caseId) => {
  *
  * Returns: () => void  — call to abort the stream early.
  */
+
 export const streamAiLeads = (caseId, {
     onStarted,
+    onContext,
     onLead,
     onRejected,
     onDone,
@@ -192,14 +195,12 @@ export const streamAiLeads = (caseId, {
         let buffer    = "";
 
         try {
-            // Read until the server closes or the caller aborts.
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
 
-                // Process complete lines (NDJSON = one object per \n)
                 let nl;
                 while ((nl = buffer.indexOf("\n")) !== -1) {
                     const line = buffer.slice(0, nl).trim();
@@ -210,15 +211,21 @@ export const streamAiLeads = (caseId, {
                     try {
                         evt = JSON.parse(line);
                     } catch {
-                        // Skip malformed line — defensively, this should
-                        // never happen but we shouldn't blow up the
-                        // whole stream over one bad chunk.
+                        // Skip malformed line — shouldn't happen, but
+                        // we won't blow up the whole stream over one
+                        // bad chunk.
                         continue;
                     }
 
                     switch (evt.event) {
                         case "started":
                             onStarted?.({ case_id: evt.case_id, model: evt.model });
+                            break;
+                        case "context":
+                            onContext?.({
+                                depth_score: evt.depth_score,
+                                gap_count:   evt.gap_count,
+                            });
                             break;
                         case "lead":
                             onLead?.(evt.lead);
@@ -228,17 +235,19 @@ export const streamAiLeads = (caseId, {
                             break;
                         case "done":
                             onDone?.({
-                                accepted:    evt.accepted,
-                                rejected:    evt.rejected,
-                                duration_ms: evt.duration_ms,
-                                reason:      evt.reason,
+                                accepted:       evt.accepted,
+                                rejected:       evt.rejected,
+                                duration_ms:    evt.duration_ms,
+                                reason:         evt.reason,
+                                raw_lead_count: evt.raw_lead_count,
+                                gap_count:      evt.gap_count,
                             });
                             break;
                         case "error":
                             onError?.({ status: evt.status, detail: evt.detail });
                             break;
                         default:
-                            // Unknown event — ignore to stay forward-compatible.
+                            // Unknown event — ignore (forward-compatible).
                             break;
                     }
                 }
@@ -250,7 +259,5 @@ export const streamAiLeads = (caseId, {
         }
     })();
 
-    // Returning the cancel function as a plain function keeps the
-    // contract symmetric with React's useEffect cleanup.
     return () => ctrl.abort();
 };

@@ -207,37 +207,54 @@ export default function StepFIRUpload({
       // Map API payload → formData fields
       const p = result.payload;
       onExtracted({
-        firNumber:          p.firNumber,
-        caseTitle:          p.caseTitle,
-        caseNumber:         p.caseNumber,
-        dateOfIncident:     p.dateOfIncident,
-        timeOfIncident:     p.timeOfIncident,
-        policeStation:      p.policeStation,
-        district:           p.district,
-        province:           p.province,
-        incidentAddress:    p.incidentAddress,
-        complainantName:    p.complainantName,
-        complainantFather:  p.complainantFather,
-        complainantCNIC:    p.complainantCNIC,
-        complainantAge:     p.complainantAge,
-        complainantPhone:   p.complainantPhone,
-        accusedPersons:     p.accusedPersons,
-        victims:            p.victims,
-        witnesses:          p.witnesses,
-        offenceType:        p.offenceType,
-        allOffences:        p.allOffences,
-        legalSections:      p.legalSections,
-        applicableAct:      p.applicableAct,
-        weaponsInvolved:    p.weaponsInvolved,
-        vehiclesInvolved:   p.vehiclesInvolved,
-        vehiclePlates:      p.vehiclePlates,
-        completeness:       p.completenessScore,
-        confidence:         p.confidence,
-        extractedEntities:  p.extractedEntities,
-        missingFields:      p.missingFields,
-        firLanguage:        p.firLanguage || "English",
-        firType:            p.firType || "FIR",
-        manualEntry:        false,
+        firNumber: p.firNumber,
+        caseTitle: p.caseTitle,
+        caseNumber: p.caseNumber,
+        dateOfIncident: p.dateOfIncident,
+        timeOfIncident: p.timeOfIncident,
+        policeStation: p.policeStation,
+        district: p.district,
+        province: p.province,
+        incidentAddress: p.incidentAddress,
+        complainantName: p.complainantName,
+        complainantFather: p.complainantFather,
+        complainantCNIC: p.complainantCNIC,
+        complainantAge: p.complainantAge,
+        complainantPhone: p.complainantPhone,
+        accusedPersons: p.accusedPersons,
+        victims: p.victims,
+        witnesses: p.witnesses,
+        offenceType: p.offenceType,
+        allOffences: p.allOffences,
+        legalSections: p.legalSections,
+        applicableAct: p.applicableAct,
+        weaponsInvolved: p.weaponsInvolved,
+        vehiclesInvolved: p.vehiclesInvolved,
+        vehiclePlates: p.vehiclePlates,
+        completeness: p.completenessScore,
+        confidence: p.confidence,
+        extractedEntities: p.extractedEntities,
+        missingFields: p.missingFields,
+        firLanguage: p.firLanguage || "English",
+        firType: p.firType || "FIR",
+        reportingDate: p.reportingDate,        // for buildCreateCasePayload
+        reportingOfficer: p.investigatingOfficer, // maps to reportingOfficer
+        investigatingOfficer: p.investigatingOfficer,
+        ioRank: p.ioRank,
+        sectionReadWith: p.sectionReadWith,
+        circle: p.circle,
+        complainantAddress: p.complainantAddress,
+        statementEnglish: p.statementEnglish,     // needed by StepAIAnalysis
+        crimeSummary: p.crimeSummary,
+
+        // caseApi.js aliases — _flatten_payload sets these, forward them:
+        description: p.description,          // = crimeSummary
+        ppcSections: p.ppcSections,          // = sections joined
+        address: p.address,              // = incidentAddress
+        city: p.city,                 // = district
+        area: p.area || "",           // not in pipeline yet — see note
+
+        manualEntry: false,
       });
 
       setXaiData({
@@ -348,13 +365,12 @@ export default function StepFIRUpload({
             {PROCESSING_STEPS.map((step, i) => (
               <div
                 key={i}
-                className={`flex items-center gap-2 text-sm transition-all ${
-                  i < processingStep
+                className={`flex items-center gap-2 text-sm transition-all ${i < processingStep
                     ? "text-emerald-700"
                     : i === processingStep
-                    ? "text-blue-700 font-medium"
-                    : "text-slate-400"
-                }`}
+                      ? "text-blue-700 font-medium"
+                      : "text-slate-400"
+                  }`}
               >
                 {i < processingStep ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
@@ -397,10 +413,9 @@ export default function StepFIRUpload({
             </div>
             <div className="w-full bg-slate-200 rounded-full h-2">
               <div
-                className={`h-2 rounded-full transition-all ${
-                  data.completeness >= 80 ? "bg-emerald-500"
+                className={`h-2 rounded-full transition-all ${data.completeness >= 80 ? "bg-emerald-500"
                     : data.completeness >= 60 ? "bg-amber-400"
-                    : "bg-red-400"}`}
+                      : "bg-red-400"}`}
                 style={{ width: `${data.completeness}%` }}
               />
             </div>
@@ -409,11 +424,11 @@ export default function StepFIRUpload({
           {/* Entity tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
-              { label: "Persons",   key: "persons",   color: "bg-blue-100 text-blue-700" },
+              { label: "Persons", key: "persons", color: "bg-blue-100 text-blue-700" },
               { label: "Locations", key: "locations", color: "bg-green-100 text-green-700" },
-              { label: "Weapons",   key: "weapons",   color: "bg-red-100 text-red-700" },
-              { label: "Vehicles",  key: "vehicles",  color: "bg-orange-100 text-orange-700" },
-              { label: "Dates",     key: "dates",     color: "bg-purple-100 text-purple-700" },
+              { label: "Weapons", key: "weapons", color: "bg-red-100 text-red-700" },
+              { label: "Vehicles", key: "vehicles", color: "bg-orange-100 text-orange-700" },
+              { label: "Dates", key: "dates", color: "bg-purple-100 text-purple-700" },
             ].map(e => (
               <div key={e.label} className={`rounded-lg p-3 text-center ${e.color}`}>
                 <p className="text-2xl font-bold">{(data.extractedEntities?.[e.key] || []).length}</p>
