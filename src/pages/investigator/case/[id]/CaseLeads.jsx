@@ -125,8 +125,9 @@ const StatusMenu = ({ lead, onChange, onAskDelete, busy }) => {
   );
 };
 
-const CaseInvestigationLeads = ({ caseId = 'C-2053' }) => {
+const CaseInvestigationLeads = ({ caseId: caseIdProp }) => {
   // ── Filter inputs (live) ────────────────────────────────────────────────
+  const caseId = caseIdProp || useParams().id || 'C-2053'; // graceful fallback if mounted outside the dynamic route
   const [keyword, setKeyword] = useState('');
   const [leadTypeFilter, setLeadTypeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');

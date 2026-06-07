@@ -31,9 +31,9 @@ const fmtDistance = (km) => (km == null ? '—' : `${Number(km).toFixed(1)} km`)
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-const CaseLocation = () => {
+const CaseLocation = ({ caseId: caseIdProp }) => {
     const { id: caseIdFromUrl } = useParams();
-    const caseId = caseIdFromUrl || 'C-2053'; // graceful fallback
+    const caseId = caseIdProp || caseIdFromUrl || 'C-2053'; // graceful fallback
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);

@@ -299,7 +299,7 @@ const ProfilePage = () => {
         }
     };
 
-    const handleLogout = () => { logout(); navigate('/'); };
+    const handleLogout = () => { logout(); navigate('/login'); };
 
     // Avatar: use picture_url if set, else initials
     const initials = profile.username

@@ -72,7 +72,7 @@ function App() {
     // Show main application if authenticated
     return (
         <div className="min-h-screen bg-gray-100">
-            <BrowserRouter>
+            <HashRouter>
                 <AuthProvider>
                     <ToastProvider>
                         <AuthenticatedShell>
@@ -84,7 +84,7 @@ function App() {
                         </AuthenticatedShell>
                     </ToastProvider>
                 </AuthProvider>
-            </BrowserRouter>
+            </HashRouter>
         </div>
     )
 }

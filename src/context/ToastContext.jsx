@@ -41,12 +41,20 @@ const ToastContext = createContext(null);
 let _idCounter = 0;
 const uid = () => `toast-${++_idCounter}-${Date.now()}`;
 
+const getSoundSrc = (file) => {
+    if (typeof window.__APP_PATH__ !== 'undefined') {
+        // __APP_PATH__ already points at the sounds folder
+        return `file://${window.__APP_PATH__}/${file}`;
+    }
+    return `/sounds/${file}`;
+};
+
 const SOUND_MAP = {
-    success:      "/sounds/success.mp3",
-    error:        "/sounds/error.mp3",
-    warning:      "/sounds/warning.mp3",
-    info:         "/sounds/info.mp3",
-    notification: "/sounds/alert.mp3",
+    success:      "success.mp3",
+    error:        "error.mp3",
+    warning:      "warning.mp3",
+    info:         "info.mp3",
+    notification: "alert.mp3",
 };
 
 // Persisted under this key so sound choice survives reloads.
@@ -73,9 +81,10 @@ const _writeSound = (enabled) => {
 
 /** Play one short clip. No preload (clips are tiny), no cache. */
 const playSound = (variant) => {
-    const src = SOUND_MAP[variant];
-    if (!src) return;
+    const file = SOUND_MAP[variant];
+    if (!file) return;
 
+    const src = getSoundSrc(file);
     const audio = new Audio(src);
     audio.volume = 0.5;
 

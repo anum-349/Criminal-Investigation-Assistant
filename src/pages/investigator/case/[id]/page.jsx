@@ -552,13 +552,13 @@ const CasePage = () => {
                         onAddEvent={handleAddTimelineEvent}
                         onDeleteEvent={handleDeleteTimelineEvent}
                     />
-                ) : activeTab === 'victims' ? <CaseVictim key={victimRefreshKey}/>
-                    : activeTab === 'evidences' ? <CaseEvidence key={evidenceRefreshKey}/>
-                        : activeTab === 'witnesses' ? <CaseWitnesses key={witnessRefreshKey}/>
-                            : activeTab === 'suspects' ? <CaseSuspects key={suspectRefreshKey} />
+                ) : activeTab === 'victims' ? <CaseVictim key={victimRefreshKey} caseId={caseId} />
+                    : activeTab === 'evidences' ? <CaseEvidence key={evidenceRefreshKey} caseId={caseId} />
+                        : activeTab === 'witnesses' ? <CaseWitnesses key={witnessRefreshKey} caseId={caseId} />
+                            : activeTab === 'suspects' ? <CaseSuspects key={suspectRefreshKey} caseId={caseId} />
                                 : activeTab === 'leads' ? <CaseInvestigationLeads caseId={caseId} />
-                                    : activeTab === 'linked cases' ? <LinkedCases />
-                                        : activeTab === 'location' ? <CaseLocation />
+                                    : activeTab === 'linked cases' ? <LinkedCases caseId={caseId} />
+                                        : activeTab === 'location' ? <CaseLocation caseId={caseId} />
                                             : null}
             </main>
 

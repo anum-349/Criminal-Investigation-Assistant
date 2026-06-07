@@ -2,50 +2,60 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+
 function createWindow() {
-  // Create the browser window
+  const iconPath = isDev
+    ? path.join(__dirname, '../build/icon.ico')
+    : path.join(process.resourcesPath, 'icon.ico');
+
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, "../icon.ico"),
+    icon: iconPath,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
+      autoplayPolicy: 'no-user-gesture-required', // ✅ lowercase 'p'
     },
   });
 
   mainWindow.setMenu(null);
-  // Load the app
+
   if (isDev) {
-    // In development, load from Vite dev server
     mainWindow.loadURL('http://localhost:5173');
-    // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load from the built files
-    mainWindow.loadFile(path.join(__dirname, '../index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // ✅ Inject the sounds path so ToastContext can build file:// URLs
+  // main.cjs
+  mainWindow.webContents.on('did-finish-load', () => {
+    // ✅ Force taskbar icon explicitly
+    mainWindow.setIcon(iconPath);
+
+    // ... your existing __APP_PATH__ injection
+    const soundsPath = isDev
+      ? path.join(__dirname, '../public/sounds')
+      : path.join(process.resourcesPath, 'sounds');
+
+    mainWindow.webContents.executeJavaScript(`
+    window.__APP_PATH__ = ${JSON.stringify(soundsPath.replace(/\\/g, '/'))};
+    window.__ELECTRON__ = true;
+  `);
+  });
 }
 
-// This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
   createWindow();
-
   app.on('activate', () => {
-    // On macOS, re-create a window when the dock icon is clicked
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-// Quit when all windows are closed, except on macOS
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });
-

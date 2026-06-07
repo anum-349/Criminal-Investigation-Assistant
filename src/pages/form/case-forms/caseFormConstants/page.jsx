@@ -70,8 +70,7 @@ export const CASE_STEPS = [
   { id: 6, label: "Crime Details", short: "Crime", icon: "Gavel" },
   { id: 7, label: "Evidence", short: "Evidence", icon: "Camera" },
   { id: 8, label: "Witness(s)", short: "Witness", icon: "File" },
-  { id: 9, label: "AI Analysis", short: "AI", icon: "Brain" },
-  { id: 10, label: "Review & Submit", short: "Submit", icon: "CheckCircle2" },
+  { id: 9, label: "Review & Submit", short: "Submit", icon: "CheckCircle2" },
 ];
 
 // UPDATE-only extra steps (appended when mode === "update")

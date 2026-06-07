@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
-
+import logo from '@/assets/logo.png';
 /**
  * LoginPage — improved error handling.
  *
@@ -177,7 +177,7 @@ const LoginPage = () => {
                     {/* Logo */}
                     <div className="flex flex-col items-center mb-8">
                         <div className="mb-4">
-                            <img src="/logo.png" alt="Criminal Investigation Assistant" width={150} height={150} />
+                            <img src={logo} alt="Criminal Investigation Assistant" width={150} height={150} />
                         </div>
                         <h1 className="text-2xl font-serif font-bold mb-2 text-center text-deep-ocean">
                             Criminal Investigation Assistant

@@ -224,7 +224,11 @@ const AnalyticsPage = () => {
     const predTrend = predictionsData?.predictionTrend ?? null;
     const provForecast = predictionsData?.provinceForecast ?? null;
     const crimeForecast = predictionsData?.crimeForecast ?? null;
+    const shapExplanation = predictionsData?.shapExplanation ?? null;
+    const limeExplanation = predictionsData?.limeExplanation ?? null;
+    const evaluationMetrics = predictionsData?.evaluationMetrics ?? null;
 
+    console.log(predictionsData);
     // Derived heatmap insights from live data
     const heatmapInsights = (() => {
         if (!heatmap) return null;
@@ -686,6 +690,117 @@ const AnalyticsPage = () => {
                                 </div>
                             ) : <Skeleton h="h-72" />}
                         </ChartCard>
+
+                        {/* ── SHAP + LIME Explanations ─────────────────────────────────── */}
+                        {(shapExplanation || limeExplanation) && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                                {/* SHAP */}
+                                {shapExplanation?.shap_values?.length > 0 && (
+                                    <Card className="p-5 space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-base">📊</span>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-800">SHAP — Forecast Drivers</h3>
+                                                <p className="text-xs text-slate-500">
+                                                    Which historical months are pushing the prediction up or down
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-slate-600 italic bg-slate-50 rounded px-3 py-2 border border-slate-200">
+                                            {shapExplanation.summary}
+                                        </p>
+                                        <div className="space-y-1.5">
+                                            {shapExplanation.shap_values.map(([feature, val]) => {
+                                                const positive = val > 0;
+                                                const barW = Math.min(Math.abs(val) * 300, 100);
+                                                return (
+                                                    <div key={feature} className="flex items-center gap-2 text-xs">
+                                                        <span className="w-28 text-slate-500 truncate shrink-0">{feature}</span>
+                                                        <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                            <div
+                                                                className={`h-2 rounded-full ${positive ? 'bg-red-500' : 'bg-green-500'}`}
+                                                                style={{ width: `${barW}%` }}
+                                                            />
+                                                        </div>
+                                                        <span className={`w-14 text-right font-mono font-semibold ${positive ? 'text-red-600' : 'text-green-600'}`}>
+                                                            {val > 0 ? '+' : ''}{val.toFixed(3)}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-mono">
+                                            model: {shapExplanation.model_used}
+                                        </p>
+                                    </Card>
+                                )}
+
+                                {/* LIME */}
+                                {limeExplanation && (
+                                    <Card className="p-5 space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-base">🧪</span>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-800">LIME — Anomaly Explanation</h3>
+                                                <p className="text-xs text-slate-500">
+                                                    Why the IQR detector flagged an unusual month
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-slate-600 italic bg-slate-50 rounded px-3 py-2 border border-slate-200">
+                                            {limeExplanation.summary}
+                                        </p>
+
+                                        {limeExplanation.iqr !== undefined && (
+                                            <div className="grid grid-cols-3 gap-2 text-center">
+                                                {[
+                                                    { label: 'Q1', value: limeExplanation.q1 },
+                                                    { label: 'IQR', value: limeExplanation.iqr },
+                                                    { label: 'Q3', value: limeExplanation.q3 },
+                                                ].map(({ label, value }) => (
+                                                    <div key={label} className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+                                                        <p className="text-[10px] text-slate-400 uppercase font-semibold">{label}</p>
+                                                        <p className="text-base font-bold text-slate-700">{value}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {limeExplanation.lime_weights?.length > 0 && (
+                                            <div className="space-y-1.5">
+                                                {limeExplanation.lime_weights.slice(0, 8).map(([month, dist]) => {
+                                                    const barW = Math.min((dist / (limeExplanation.lime_weights[0][1] || 1)) * 100, 100);
+                                                    return (
+                                                        <div key={month} className="flex items-center gap-2 text-xs">
+                                                            <span className="w-16 text-slate-500 truncate shrink-0">{month}</span>
+                                                            <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                                <div className="h-2 rounded-full bg-blue-400" style={{ width: `${barW}%` }} />
+                                                            </div>
+                                                            <span className="w-14 text-right font-mono text-slate-500">{dist.toFixed(2)}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-2 text-[10px]">
+                                            <span className={`px-2 py-0.5 rounded-full font-semibold ${limeExplanation.direction === 'spike'
+                                                ? 'bg-red-100 text-red-700'
+                                                : 'bg-green-100 text-green-700'
+                                                }`}>
+                                                {limeExplanation.direction === 'spike' ? '▲ Spike' : '▼ Drop'}
+                                            </span>
+                                            {limeExplanation.deviation !== undefined && (
+                                                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-mono">
+                                                    {limeExplanation.deviation}× IQR
+                                                </span>
+                                            )}
+                                        </div>
+                                    </Card>
+                                )}
+                            </div>
+                        )}
 
                         {/* Province forecast bar */}
                         <ChartCard

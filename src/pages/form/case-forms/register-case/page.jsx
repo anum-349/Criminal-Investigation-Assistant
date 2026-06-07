@@ -7,6 +7,7 @@ import {
   LayoutDashboard, FolderOpen, AlertTriangle, Loader2, Plus, Check, File,
   Save,
 } from "lucide-react";
+import { buildFirLeads } from "../ai-analysis/page";
 import { CASE_STEPS, emptyFormData } from "@/pages/form/case-forms/caseFormConstants/page";
 
 // ── Step components ───────────────────────────────────────────────────────────
@@ -347,15 +348,12 @@ export default function RegisterCasePage() {
     const allErrors = validateAll(formData);
     if (Object.keys(allErrors).length) {
       setErrors(allErrors);
-
       const firstFailingStep =
         Object.keys(allErrors).some(k => ["firNumber", "caseTitle", "incidentDate", "reportingDate", "caseType", "priority", "description"].includes(k)) ? 2
           : Object.keys(allErrors).some(k => ["province", "city", "address"].includes(k)) ? 3
             : 6;
       setCurrentStep(firstFailingStep);
-      toast.warning(
-        `Please fix ${Object.keys(allErrors).length} required field(s) before submitting.`
-      );
+      toast.warning(`Please fix ${Object.keys(allErrors).length} required field(s) before submitting.`);
       scrollTop();
       return;
     }
@@ -365,8 +363,12 @@ export default function RegisterCasePage() {
     setSubmitting(true);
 
     try {
+      // registerCaseFull = createCase + addAllChildEntities internally
+      // so by the time this resolves, suspects/victims/evidence are all in DB
       const result = await registerCaseFull(formData);
 
+      // Set caseId AFTER all children saved — StepAIAnalysis will now
+      // fire with full context available in the DB
       setFormData(d => ({
         ...d,
         caseId: result.caseId,
@@ -374,7 +376,8 @@ export default function RegisterCasePage() {
       }));
       setSubmitResult(result);
       setSubmitted(true);
-      navigate("/investigator/cases")
+
+      // Navigate removed — success screen shows StepAIAnalysis instead
     } catch (err) {
       console.error("Case registration failed:", err);
       setSubmitError(formatApiError(err, "Could not register the case. Please retry."));
@@ -410,54 +413,67 @@ export default function RegisterCasePage() {
   // ── Success screen ──────────────────────────────────────────────────────────
   if (submitted) {
     const partialFailures = submitResult?.partialFailures || [];
+    const caseId = submitResult?.caseId || formData.caseId;
 
     return (
       <div className="min-h-screen bg-soft-mist font-sans mt-14">
         <Header />
-        <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-4">
-          <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mx-auto shadow-lg shadow-emerald-200">
-            <CheckCircle2 className="h-12 w-12 text-emerald-600" />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-800">Case Registered Successfully</h1>
-          <p className="text-slate-500">
-            Case ID: <span className="font-bold text-deep-ocean">{submitResult?.caseId || formData.caseId}</span>
-          </p>
-          <p className="text-sm text-slate-400">
-            FIR Number: <strong>{submitResult?.firNumber || formData.firNumber}</strong> · AI analysis queued.
-          </p>
+        <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
 
+          {/* Success banner */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-slate-800">Case Registered Successfully</h1>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Case ID: <span className="font-bold text-deep-ocean">{caseId}</span>
+                {" · "}FIR: <strong>{submitResult?.firNumber || formData.firNumber}</strong>
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => navigate(`/investigator/case/${caseId}`)}
+                className="flex items-center gap-2 px-4 py-2 bg-deep-ocean text-white rounded-lg text-sm font-medium hover:bg-deep-ocean-900 transition-colors">
+                <FolderOpen className="h-4 w-4" /> View Case
+              </button>
+              <button
+                onClick={() => navigate("/investigator/cases")}
+                className="px-4 py-2 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors">
+                All Cases
+              </button>
+            </div>
+          </div>
+
+          {/* Partial failures */}
           {partialFailures.length > 0 && (
-            <div className="mt-6 text-left bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <div className="flex items-start gap-2 mb-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-800">
-                    Case was saved, but the following items need attention:
-                  </p>
-                  <ul className="mt-2 text-xs text-amber-800 list-disc ml-4 space-y-1">
-                    {partialFailures.map((f, i) => (
-                      <li key={i}>
-                        <span className="capitalize font-medium">{f.phase}</span>{": "}{f.error}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-[11px] text-amber-700">
-                    You can fix these from the case detail page.
-                  </p>
-                </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">
+                  Case saved, but some items need attention:
+                </p>
+                <ul className="mt-2 text-xs text-amber-800 list-disc ml-4 space-y-1">
+                  {partialFailures.map((f, i) => (
+                    <li key={i}><span className="font-medium capitalize">{f.phase}</span>: {f.error}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}
 
-          <div className="flex flex-wrap justify-center gap-3 pt-4">
+          {/* AI Analysis — runs automatically now that caseId exists */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8">
+            <StepAIAnalysis data={formData} setData={setFormData} />
+          </div>
+
+          {/* Bottom actions */}
+          <div className="flex justify-center gap-3 pb-10">
             <button
-              onClick={() => navigate(`/investigator/case/${submitResult?.caseId || formData.caseId}`)}
-              className="flex items-center gap-2 px-6 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-medium hover:bg-deep-ocean-900 cursor-pointer transition-colors">
-              <FolderOpen className="h-4 w-4" /> View Case
-            </button>
-            <button onClick={() => navigate("/investigator/cases")}
-              className="px-6 py-2.5 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm hover:bg-slate-50 cursor-pointer transition-colors">
-              All Cases
+              onClick={() => navigate(`/investigator/case/${caseId}`)}
+              className="flex items-center gap-2 px-6 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 transition-colors">
+              <FolderOpen className="h-4 w-4" /> Open Case
             </button>
             <button
               onClick={() => {
@@ -469,7 +485,7 @@ export default function RegisterCasePage() {
                 setFormData(emptyFormData());
                 lastSavedRef.current = "";
               }}
-              className="flex items-center gap-2 px-6 py-2.5 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm hover:bg-slate-50 cursor-pointer transition-colors">
+              className="flex items-center gap-2 px-6 py-2.5 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors">
               <Plus className="h-4 w-4" /> Register Another
             </button>
           </div>
@@ -555,7 +571,11 @@ export default function RegisterCasePage() {
             <div>
               <p className="text-sm font-semibold text-red-800">Please fix the following errors:</p>
               <ul className="mt-1 text-xs text-red-700 list-disc ml-4 space-y-0.5">
-                {Object.values(errors).map((err, i) => <li key={i}>{err}</li>)}
+                {Object.values(errors).map((err, i) => (
+                  <li key={i}>
+                    {typeof err === "string" ? err : err?.msg || JSON.stringify(err)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -582,8 +602,7 @@ export default function RegisterCasePage() {
           {currentStep === 6 && <StepCrimeDetails data={formData} setData={setFormData} errors={errors} />}
           {currentStep === 7 && <StepEvidence data={formData} setData={setFormData} mode="register" />}
           {currentStep === 8 && <StepWitnesses data={formData} setData={setFormData} mode="register" />}
-          {currentStep === 9 && <StepAIAnalysis data={formData} setData={setFormData} />}
-          {currentStep === 10 && <StepReview data={formData} mode="register" />}
+          {currentStep === 9 && <StepReview data={formData} mode="register" />}
         </div>
 
         {/* Navigation */}

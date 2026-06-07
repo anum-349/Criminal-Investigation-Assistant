@@ -1,12 +1,8 @@
 /**
- * StepFIRUpload.jsx  —  Step 1  (API-integrated version)
+ * StepFIRUpload.jsx  —  Step 1  (NDJSON streaming version)
  *
- * Real pipeline integration:
- *   POST /api/process-fir  (multipart, field: "file")
- *   ← { success, error, payload, steps, duration_ms }
- *
- * Props unchanged from the original stub:
- *   data, setData, onExtracted, onNext, onSkipAndSave, skipSaving
+ * Progress steps are now driven by real backend events instead of a fake timer.
+ * Every other prop / UI element is unchanged.
  */
 
 import { useRef, useState } from "react";
@@ -16,9 +12,22 @@ import {
 } from "lucide-react";
 import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
 import { useToast } from "@/context/ToastContext";
+import { defaultSuspect, defaultVictim } from "@/pages/form/case-forms/caseFormConstants/page";
 
 // ─── API config ────────────────────────────────────────────────────────────
-const API_BASE = import.meta.env.VITE_FIR_API_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+// ─── Real pipeline steps — must match on_step keys emitted by orchestrator ─
+const PIPELINE_STEPS = [
+  { key: "ocr", label: "OCR / text extraction…" },
+  { key: "lang", label: "Detecting language (Urdu / English)…" },
+  { key: "regex", label: "Running regex pre-pass…" },
+  { key: "groq", label: "Extracting with AI (Groq / Llama)…" },
+  { key: "validation", label: "Validating FIR document…" },
+  { key: "merge", label: "Mapping to form fields…" },
+  { key: "entities", label: "Running NER backfill…" },
+  { key: "lime", label: "Computing AI confidence (LIME)…" },
+];
 
 // ─── XAI Evidence panel ────────────────────────────────────────────────────
 function XAIPanel({ evidence = [], steps = {} }) {
@@ -43,7 +52,6 @@ function XAIPanel({ evidence = [], steps = {} }) {
 
       {open && (
         <div className="p-4 space-y-4 bg-white text-xs">
-          {/* Pipeline steps */}
           {steps.extraction && (
             <div>
               <p className="font-semibold text-slate-600 mb-2">📄 Extraction</p>
@@ -85,9 +93,30 @@ function XAIPanel({ evidence = [], steps = {} }) {
             </div>
           )}
 
-          {/* Classifier evidence */}
           <div>
             <p className="font-semibold text-slate-600 mb-2">🤖 Classifier Evidence</p>
+            {steps.lime?.lime_weights?.length > 0 && (
+              <div>
+                <p className="font-semibold text-slate-600 mb-1">🧠 LIME — Word Influence on FIR Classification</p>
+                <p className="text-slate-500 mb-2 italic">{steps.lime.summary}</p>
+                <div className="flex flex-wrap gap-1">
+                  {steps.lime.lime_weights.map(([word, weight]) => (
+                    <span
+                      key={word}
+                      className={`px-2 py-0.5 rounded border text-xs font-medium ${weight > 0
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                          : "bg-red-50 border-red-200 text-red-700"
+                        }`}
+                    >
+                      {word}{" "}
+                      <span className="opacity-60">
+                        {weight > 0 ? "+" : ""}{weight.toFixed(3)}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             {positive.length > 0 && (
               <div className="mb-2">
                 <p className="text-emerald-700 font-medium mb-1">Positive signals (FIR indicators):</p>
@@ -114,7 +143,6 @@ function XAIPanel({ evidence = [], steps = {} }) {
             )}
           </div>
 
-          {/* Entity extraction patterns */}
           {steps.entity_extraction && (
             <div>
               <p className="font-semibold text-slate-600 mb-2">🔍 Entity Extraction (Regex NLP)</p>
@@ -133,7 +161,176 @@ function XAIPanel({ evidence = [], steps = {} }) {
   );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────
+// ─── Helper: merge API suspect → defaultSuspect() shape ────────────────────
+function mergeApiSuspect(apiSuspect = {}) {
+  return {
+    ...defaultSuspect(),
+    name: apiSuspect.name ?? "",
+    age: apiSuspect.age ?? "",
+    gender: apiSuspect.gender ?? "",
+    cnic: apiSuspect.cnic ?? "",
+    address: apiSuspect.address ?? "",
+    contact: apiSuspect.contact ?? "",
+    occupation: apiSuspect.occupation ?? "",
+    physicalDescription: apiSuspect.physicalDescription ?? "",
+    knownAffiliations: apiSuspect.knownAffiliations ?? "",
+    criminalRecord: apiSuspect.criminalRecord ?? false,
+    arrested: apiSuspect.arrested ?? false,
+    status: apiSuspect.status ?? "At Large",
+    vehicleDescription: apiSuspect.vehicleDescription ?? "",
+    arrivalMethod: apiSuspect.arrivalMethod ?? "",
+    relationToCase: apiSuspect.relationToCase ?? "",
+    alibi: apiSuspect.alibi ?? "",
+    notes: apiSuspect.notes ?? "",
+    reason: apiSuspect.reason ?? "",
+  };
+}
+
+// ─── Helper: merge API victim → defaultVictim() shape ──────────────────────
+function mergeApiVictim(apiVictim = {}) {
+  return {
+    ...defaultVictim(),
+    name: apiVictim.name ?? "",
+    age: apiVictim.age ?? "",
+    gender: apiVictim.gender ?? "",
+    cnic: apiVictim.cnic ?? "",
+    contact: apiVictim.contact ?? "",
+    address: apiVictim.address ?? "",
+    occupation: apiVictim.occupation ?? "",
+    status: apiVictim.status ?? "Alive",
+    injuryType: apiVictim.injuryType ?? "",
+    natureOfInjuries: apiVictim.natureOfInjuries ?? "",
+    causeOfDeath: apiVictim.causeOfDeath ?? "",
+    declaredDead: apiVictim.declaredDead ?? "",
+    postmortemAutopsy: apiVictim.postmortemAutopsy ?? "",
+    injurySummary: apiVictim.injurySummary ?? "",
+    injuryRecordedBy: apiVictim.injuryRecordedBy ?? "",
+    caseType: apiVictim.caseType ?? "",
+    primaryLabel: apiVictim.primaryLabel ?? "",
+    relation: apiVictim.relation ?? "",
+    threatLevel: apiVictim.threatLevel ?? "",
+    medicalReport: apiVictim.medicalReport ?? false,
+    postmortem: apiVictim.postmortem ?? false,
+    protectionRequired: apiVictim.protectionRequired ?? false,
+    cooperative: apiVictim.cooperative ?? true,
+    statement: apiVictim.statement ?? "",
+    forensic: Array.isArray(apiVictim.forensic) ? apiVictim.forensic : [],
+    timeline: Array.isArray(apiVictim.timeline) ? apiVictim.timeline : [],
+    legal: Array.isArray(apiVictim.legal) ? apiVictim.legal : [],
+    nextFollowUp: apiVictim.nextFollowUp ?? "",
+    protectionAssigned: apiVictim.protectionAssigned ?? "",
+    protectionNotes: apiVictim.protectionNotes ?? "",
+  };
+}
+
+// ─── Date / time normalizers ───────────────────────────────────────────────
+function normalizeDate(val) {
+  if (!val) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  const dmyMatch = val.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, "0")}-${dmyMatch[1].padStart(2, "0")}`;
+  const d = new Date(val);
+  if (!isNaN(d)) return d.toISOString().split("T")[0];
+  return "";
+}
+
+function normalizeTime(val) {
+  if (!val) return "";
+  if (/^\d{2}:\d{2}$/.test(val)) return val;
+  const m = val.match(/^(\d{1,2}):(\d{2})/);
+  if (m) return `${m[1].padStart(2, "0")}:${m[2]}`;
+  return val;
+}
+
+// ─── Build extracted fields from pipeline payload ──────────────────────────
+function buildExtracted(p) {
+  const rawSuspects = Array.isArray(p.accusedPersons) && p.accusedPersons.length
+    ? p.accusedPersons
+    : Array.isArray(p.suspects) && p.suspects.length
+      ? p.suspects
+      : [];
+  const mergedSuspects = rawSuspects.length ? rawSuspects.map(mergeApiSuspect) : undefined;
+
+  const rawVictims = Array.isArray(p.victims) && p.victims.length ? p.victims : [];
+  const mergedVictims = rawVictims.length ? rawVictims.map(mergeApiVictim) : undefined;
+
+  return {
+    firLanguage: p.firLanguage || "English",
+    firType: p.firType || "FIR",
+    manualEntry: false,
+    completeness: p.completenessScore ?? p.completeness ?? 0,
+    confidence: p.confidence ?? 0,
+    extractedEntities: p.extractedEntities ?? { persons: [], locations: [], weapons: [], vehicles: [], dates: [] },
+    missingFields: Array.isArray(p.missingFields) ? p.missingFields : [],
+
+    priority: p.priority ?? "Medium",
+    firNumber: p.firNumber ?? "",
+    caseTitle: p.caseTitle ?? "",
+    incidentDate: normalizeDate(p.incidentDate ?? p.dateOfIncident),
+    incidentTime: normalizeTime(p.incidentTime ?? p.timeOfIncident),
+    reportingDate: normalizeDate(p.reportingDate),
+    reportingTime: normalizeTime(p.reportingTime ?? ""),
+    caseType: p.caseType ?? p.crimeType ?? "",
+    caseStatus: p.caseStatus ?? "Open",
+    ppcSections: Array.isArray(p.ppcSections) ? p.ppcSections.join(", ") : (p.ppcSections ?? ""),
+    description: p.description ?? p.crimeSummary ?? "",
+    reportingOfficer: p.reportingOfficer ?? p.investigatingOfficer ?? "",
+    assignedInvestigator: p.assignedInvestigator ?? p.investigatingOfficer ?? "",
+
+    province: p.province ?? "",
+    city: p.city ?? p.district ?? "",
+    area: p.area ?? "",
+    policeStation: p.policeStation ?? "",
+    address: p.address ?? p.incidentAddress ?? "",
+    latitude: p.latitude ?? "",
+    longitude: p.longitude ?? "",
+    crimeSceneType: p.crimeSceneType ?? "",
+    sceneAccess: p.sceneAccess ?? "",
+    landmarks: p.landmarks ?? "",
+
+    ...(mergedVictims ? { victims: mergedVictims } : {}),
+    ...(mergedSuspects ? { suspects: mergedSuspects } : {}),
+
+    crimeDescription: p.crimeDescription ?? p.description ?? "",
+    motive: p.motive ?? "",
+    modus: p.modus ?? p.modusOperandi ?? "",
+    weaponUsed: p.weaponUsed ?? (Array.isArray(p.weaponsInvolved) ? p.weaponsInvolved[0] : "") ?? "",
+    weaponDescription: p.weaponDescription ?? "",
+    vehicleUsed: p.vehicleUsed ?? (Array.isArray(p.vehiclesInvolved) ? p.vehiclesInvolved[0] : "") ?? "",
+    numSuspects: p.numSuspects ?? rawSuspects.length ?? "",
+    witnessAvailable: p.witnessAvailable ?? false,
+    cctv: p.cctv ?? false,
+    causeOfDeath: p.causeOfDeath ?? "",
+    bodyLocation: p.bodyLocation ?? "",
+    timeOfDeath: p.timeOfDeath ?? "",
+    postmortemDone: p.postmortemDone ?? false,
+    forensicDone: p.forensicDone ?? false,
+    medicalExam: p.medicalExam ?? "",
+    victimCounseling: p.victimCounseling ?? false,
+    protectionOrder: p.protectionOrder ?? false,
+    stolenItems: p.stolenItems ?? "",
+    stolenValue: p.stolenValue ?? "",
+    recoveryStatus: p.recoveryStatus ?? "",
+    entryPoint: p.entryPoint ?? "",
+
+    ...(Array.isArray(p.evidences) && p.evidences.length ? { evidences: p.evidences } : { evidences: [] }),
+    ...(Array.isArray(p.witnesses) && p.witnesses.length ? { witnesses: p.witnesses } : { witnesses: [] }),
+
+    statementEnglish: p.statementEnglish ?? "",
+    crimeSummary: p.crimeSummary ?? "",
+    _legalSections: Array.isArray(p._legalSections) ? p._legalSections : Array.isArray(p.legalSections) ? p.legalSections : [],
+    _ioRank: p._ioRank ?? p.ioRank ?? "",
+    investigatingOfficer: p.investigatingOfficer ?? "",
+    ioRank: p.ioRank ?? p._ioRank ?? "",
+    vehiclePlates: Array.isArray(p.vehiclePlates) ? p.vehiclePlates : [],
+    weaponsInvolved: Array.isArray(p.weaponsInvolved) ? p.weaponsInvolved : [],
+    vehiclesInvolved: Array.isArray(p.vehiclesInvolved) ? p.vehiclesInvolved : [],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Main component
+// ═══════════════════════════════════════════════════════════════════════════
 export default function StepFIRUpload({
   data,
   setData,
@@ -145,21 +342,16 @@ export default function StepFIRUpload({
   const fileRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState(0);
   const [done, setDone] = useState(false);
   const [xaiData, setXaiData] = useState({ evidence: [], steps: {} });
+
+  // ── Real step tracking (driven by backend events) ─────────────────────────
+  const [completedSteps, setCompletedSteps] = useState([]);   // array of completed keys
+  const [currentStepKey, setCurrentStepKey] = useState(null); // key currently running
+
   const toast = useToast();
 
-  const PROCESSING_STEPS = [
-    "Running OCR / extracting text…",
-    "Detecting language (Urdu / English)…",
-    "Translating to English if needed…",
-    "Validating FIR document…",
-    "Extracting entities (NLP rules)…",
-    "Building registration payload…",
-  ];
-
-  // ── File handler ─────────────────────────────────────────────────────────
+  // ── File handler ───────────────────────────────────────────────────────────
   const handleFile = (file) => {
     if (!file) return;
     const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/jpg", "image/bmp"];
@@ -169,118 +361,117 @@ export default function StepFIRUpload({
     }
     setDone(false);
     setXaiData({ evidence: [], steps: {} });
+    setCompletedSteps([]);
+    setCurrentStepKey(null);
     setData(d => ({ ...d, firFile: file, firFileName: file.name }));
     processWithAPI(file);
   };
 
-  // ── Real API call ─────────────────────────────────────────────────────────
+  // ── NDJSON streaming pipeline call ────────────────────────────────────────
   const processWithAPI = async (file) => {
     setProcessing(true);
-    setProcessingStep(0);
-
-    // Animate steps while waiting
-    const stepTimer = setInterval(() => {
-      setProcessingStep(prev => Math.min(prev + 1, PROCESSING_STEPS.length - 1));
-    }, 900);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      const formPayload = new FormData();
+      formPayload.append("file", file);
 
       const res = await fetch(`${API_BASE}/api/process-fir`, {
         method: "POST",
-        body: formData,
+        body: formPayload,
       });
 
-      const result = await res.json();
-      clearInterval(stepTimer);
-
-      if (!result.success) {
-        // Pipeline rejected → show toast error
-        toast.error(result.error || "Document is not a valid FIR.");
+      if (!res.ok || !res.body) {
+        toast.error("Server error — is the FIR pipeline running?");
         setData(d => ({ ...d, firFile: null, firFileName: "" }));
         setProcessing(false);
-        setDone(false);
         return;
       }
 
-      // Map API payload → formData fields
-      const p = result.payload;
-      onExtracted({
-        firNumber: p.firNumber,
-        caseTitle: p.caseTitle,
-        caseNumber: p.caseNumber,
-        dateOfIncident: p.dateOfIncident,
-        timeOfIncident: p.timeOfIncident,
-        policeStation: p.policeStation,
-        district: p.district,
-        province: p.province,
-        incidentAddress: p.incidentAddress,
-        complainantName: p.complainantName,
-        complainantFather: p.complainantFather,
-        complainantCNIC: p.complainantCNIC,
-        complainantAge: p.complainantAge,
-        complainantPhone: p.complainantPhone,
-        accusedPersons: p.accusedPersons,
-        victims: p.victims,
-        witnesses: p.witnesses,
-        offenceType: p.offenceType,
-        allOffences: p.allOffences,
-        legalSections: p.legalSections,
-        applicableAct: p.applicableAct,
-        weaponsInvolved: p.weaponsInvolved,
-        vehiclesInvolved: p.vehiclesInvolved,
-        vehiclePlates: p.vehiclePlates,
-        completeness: p.completenessScore,
-        confidence: p.confidence,
-        extractedEntities: p.extractedEntities,
-        missingFields: p.missingFields,
-        firLanguage: p.firLanguage || "English",
-        firType: p.firType || "FIR",
-        reportingDate: p.reportingDate,        // for buildCreateCasePayload
-        reportingOfficer: p.investigatingOfficer, // maps to reportingOfficer
-        investigatingOfficer: p.investigatingOfficer,
-        ioRank: p.ioRank,
-        sectionReadWith: p.sectionReadWith,
-        circle: p.circle,
-        complainantAddress: p.complainantAddress,
-        statementEnglish: p.statementEnglish,     // needed by StepAIAnalysis
-        crimeSummary: p.crimeSummary,
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
 
-        // caseApi.js aliases — _flatten_payload sets these, forward them:
-        description: p.description,          // = crimeSummary
-        ppcSections: p.ppcSections,          // = sections joined
-        address: p.address,              // = incidentAddress
-        city: p.city,                 // = district
-        area: p.area || "",           // not in pipeline yet — see note
+      while (true) {
+        const { value, done: streamDone } = await reader.read();
+        if (streamDone) break;
 
-        manualEntry: false,
-      });
+        buffer += decoder.decode(value, { stream: true });
 
-      setXaiData({
-        evidence: result.steps?.validation?.evidence || [],
-        steps: result.steps || {},
-      });
+        let nl;
+        while ((nl = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line) continue;
 
-      setProcessing(false);
-      setDone(true);
+          let evt;
+          try { evt = JSON.parse(line); } catch { continue; }
 
-      toast.success(
-        `FIR processed in ${result.duration_ms}ms — ` +
-        `${p.completenessScore}% complete · ${p.confidence}% AI confidence.`
-      );
+          // ── Step event: mark previous done, set new current ────────────
+          if (evt.event === "step") {
+            const key = evt.step;
+            setCurrentStepKey(prev => {
+              if (prev) setCompletedSteps(cs => [...cs, prev]);
+              return key;
+            });
+          }
+          else if (evt.event === "heartbeat") {
+            // keep-alive — ignore, just prevents connection drop
+          }
+          // ── Error event ────────────────────────────────────────────────
+          else if (evt.event === "error") {
+            toast.error(evt.detail || "Document is not a valid FIR.");
+            setData(d => ({ ...d, firFile: null, firFileName: "" }));
+            setProcessing(false);
+            setDone(false);
+            return;
+          }
 
+          // ── Done event — pipeline finished ─────────────────────────────
+          else if (evt.event === "done") {
+            // Mark all steps complete
+            setCompletedSteps(PIPELINE_STEPS.map(s => s.key));
+            setCurrentStepKey(null);
+
+            if (!evt.success) {
+              toast.error(evt.error || "Document is not a valid FIR.");
+              setData(d => ({ ...d, firFile: null, firFileName: "" }));
+              setProcessing(false);
+              return;
+            }
+
+            const p = evt.payload;
+            console.log("[FIR Pipeline] Raw payload:", p);
+
+            const extracted = buildExtracted(p);
+            console.log("[FIR Pipeline] Mapped extracted:", extracted);
+
+            onExtracted(extracted);
+
+            setXaiData({
+              evidence: evt.steps?.validation?.evidence || [],
+              steps: evt.steps || {},
+            });
+
+            setProcessing(false);
+            setDone(true);
+
+            toast.success(
+              `FIR processed in ${evt.duration_ms}ms — ` +
+              `${extracted.completeness}% complete · ${extracted.confidence}% AI confidence.`
+            );
+          }
+        }
+      }
     } catch (err) {
-      clearInterval(stepTimer);
-      console.error(err);
-      toast.error("Failed to reach the processing server. Is it running on port 5000?");
+      console.error("[FIR Pipeline] Error:", err);
+      toast.error("Failed to reach the processing server. Is it running?");
       setData(d => ({ ...d, firFile: null, firFileName: "" }));
       setProcessing(false);
       setDone(false);
     }
   };
 
-  // ── Manual entry ──────────────────────────────────────────────────────────
+  // ── Manual entry ───────────────────────────────────────────────────────────
   const handleManualEntry = () => {
     setData(d => ({ ...d, firFile: null, firFileName: "", manualEntry: true }));
     onExtracted({
@@ -303,7 +494,7 @@ export default function StepFIRUpload({
         subtitle="Upload a scanned or digital FIR in English or Urdu. The AI pipeline will OCR, translate if needed, validate, and auto-fill the registration form."
       />
 
-      {/* ── Drop zone ────────────────────────────────────────────────────── */}
+      {/* ── Drop zone ─────────────────────────────────────────────────────── */}
       <div
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
@@ -349,7 +540,7 @@ export default function StepFIRUpload({
         )}
       </div>
 
-      {/* ── Processing indicator ──────────────────────────────────────────── */}
+      {/* ── Real-time pipeline progress ───────────────────────────────────── */}
       {processing && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
           <div className="flex items-center gap-3 mb-4">
@@ -357,39 +548,38 @@ export default function StepFIRUpload({
             <div>
               <p className="font-semibold text-blue-800">AI Pipeline Running…</p>
               <p className="text-xs text-blue-600 mt-0.5">
-                OCR → Language detection → Translation → Validation → NLP extraction
+                OCR → Language detection → AI extraction → Validation → NLP
               </p>
             </div>
           </div>
           <div className="space-y-2">
-            {PROCESSING_STEPS.map((step, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-2 text-sm transition-all ${i < processingStep
-                    ? "text-emerald-700"
-                    : i === processingStep
-                      ? "text-blue-700 font-medium"
-                      : "text-slate-400"
-                  }`}
-              >
-                {i < processingStep ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                ) : i === processingStep ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                ) : (
-                  <div className="h-3.5 w-3.5 rounded-full border border-slate-300" />
-                )}
-                {step}
-              </div>
-            ))}
+            {PIPELINE_STEPS.map(({ key, label }) => {
+              const isDone = completedSteps.includes(key);
+              const isCurrent = currentStepKey === key;
+              return (
+                <div
+                  key={key}
+                  className={`flex items-center gap-2 text-sm transition-all
+                    ${isDone ? "text-emerald-700"
+                      : isCurrent ? "text-blue-700 font-medium"
+                        : "text-slate-400"}`}
+                >
+                  {isDone
+                    ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    : isCurrent
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600 shrink-0" />
+                      : <div className="h-3.5 w-3.5 rounded-full border border-slate-300 shrink-0" />}
+                  {label}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* ── Post-extraction summary ────────────────────────────────────────── */}
+      {/* ── Post-extraction summary ───────────────────────────────────────── */}
       {extractionDone && (
         <div className="space-y-4">
-          {/* Success banner */}
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
             <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -405,7 +595,6 @@ export default function StepFIRUpload({
             </div>
           </div>
 
-          {/* Completeness bar */}
           <div>
             <div className="flex justify-between text-xs text-slate-500 mb-1">
               <span>Completeness Score</span>
@@ -414,14 +603,13 @@ export default function StepFIRUpload({
             <div className="w-full bg-slate-200 rounded-full h-2">
               <div
                 className={`h-2 rounded-full transition-all ${data.completeness >= 80 ? "bg-emerald-500"
-                    : data.completeness >= 60 ? "bg-amber-400"
-                      : "bg-red-400"}`}
+                  : data.completeness >= 60 ? "bg-amber-400"
+                    : "bg-red-400"}`}
                 style={{ width: `${data.completeness}%` }}
               />
             </div>
           </div>
 
-          {/* Entity tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
               { label: "Persons", key: "persons", color: "bg-blue-100 text-blue-700" },
@@ -437,7 +625,6 @@ export default function StepFIRUpload({
             ))}
           </div>
 
-          {/* Missing fields warning */}
           {data.missingFields?.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -457,10 +644,8 @@ export default function StepFIRUpload({
             </div>
           )}
 
-          {/* XAI panel */}
           <XAIPanel evidence={xaiData.evidence} steps={xaiData.steps} />
 
-          {/* Skip & Register now */}
           <div className="bg-deep-ocean/5 border border-deep-ocean/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-deep-ocean">Ready to register with extracted data?</p>
@@ -483,7 +668,6 @@ export default function StepFIRUpload({
             </button>
           </div>
 
-          {/* Continue to manual review */}
           <button
             onClick={() => onNext?.()}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-deep-ocean/30 text-deep-ocean font-semibold hover:bg-deep-ocean/5 transition-all"
@@ -493,7 +677,7 @@ export default function StepFIRUpload({
         </div>
       )}
 
-      {/* ── Bottom utility row ─────────────────────────────────────────────── */}
+      {/* ── Bottom utility row ────────────────────────────────────────────── */}
       <div className="border-t border-slate-200 pt-4">
         <p className="text-xs text-slate-500 text-center">
           No physical FIR available?{" "}

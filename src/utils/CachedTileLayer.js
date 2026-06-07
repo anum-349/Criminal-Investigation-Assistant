@@ -2,6 +2,7 @@ import L from 'leaflet';
 import { getCachedTile, cacheTile } from './tileCache';
 
 const CachedTileLayer = L.TileLayer.extend({
+    // CachedTileLayer.js
     createTile(coords, done) {
         const tile = document.createElement('img');
         tile.setAttribute('role', 'presentation');
@@ -10,13 +11,19 @@ const CachedTileLayer = L.TileLayer.extend({
 
         getCachedTile(url).then((cached) => {
             if (cached) {
-                // Serve from IndexedDB cache
                 tile.src = URL.createObjectURL(cached);
                 done(null, tile);
             } else {
-                // Fetch from network and cache it
-                fetch(url)
-                    .then((res) => res.blob())
+                fetch(url, {
+                    headers: {
+                        'User-Agent': 'YourAppName/1.0 (contact@yourdomain.com)',
+                        'Referer': 'https://yourdomain.com',
+                    },
+                })
+                    .then((res) => {
+                        if (!res.ok) throw new Error(`Tile fetch failed: ${res.status}`);
+                        return res.blob();
+                    })
                     .then((blob) => {
                         cacheTile(url, blob);
                         tile.src = URL.createObjectURL(blob);

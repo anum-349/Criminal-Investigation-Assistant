@@ -103,9 +103,9 @@ const triggerDownload = (url, fileName) => {
 
 // ────────────────────────────────────────────────────────────────────────────
 
-const CaseEvidence = () => {
+const CaseEvidence = ({ caseId: caseIdProp }) => {
     const { id: caseIdFromUrl } = useParams();
-    const caseId = caseIdFromUrl || 'C-2053';
+    const caseId = caseIdProp || caseIdFromUrl || 'C-2053';
 
     // ── Filter inputs (live state) ────────────────────────────────────────
     const [searchName, setSearchName] = useState('');

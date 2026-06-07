@@ -11,13 +11,28 @@ import { getAuthHeader } from "@/services/caseApi";
 import { useToast } from "@/context/ToastContext";
 import { useRealtimeEvent } from "@/context/RealtimeContext";
 
+const getRoleFromToken = () => {
+  const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.role || null;
+  } catch { return null; }
+};
 
-const navItems = [
+const investigatorNavItems = [
   { label: "File", items: [{ label: "New Case", path: "/register-case" }, { label: "Drafts", path: "/investigator/drafts" }] },
   { label: "Cases", items: [{ label: "All Cases", path: "/investigator/cases?tab=all" }, { label: "Active", path: "/investigator/cases?tab=Active" }, { label: "Closed", path: "/investigator/cases?tab=Closed" }] },
   { label: "Analytics", items: [{ label: "Dashboard", path: "/investigator" }, { label: "Generate Report", path: "/investigator/report" }, { label: "Trends", path: "/investigator/trends?tab=trends" }, { label: "Predictions", path: "/investigator/trends?tab=predictions" }] },
   { label: "Settings", items: [{ label: "Profile", path: "/investigator/profile" }, { label: "Help", path: "/investigator/help" }] },
 ];
+
+const adminNavItems = [
+  { label: "Dashboard", items: [{ label: "Admin Home", path: "/admin" }, { label: "Analytics", path: "/admin/analytics" }, { label: "Reports", path: "/admin/reports" }] },
+  { label: "Users", items: [{ label: "All Users", path: "/admin/users" }, {label: "Tickets", path: "/admin/tickets"}] },
+  { label: "Cases", items: [{ label: "All Cases", path: "/admin/cases" }] },
+  { label: "Settings", items: [{ label: "Profile", path: "/admin/profile" }, { label: "System Logs", path: "/admin/audit-logs" }, { label: "Help", path: "/admin/help" }] },
+]
 
 const photoSrc = (rawUrl) => {
   if (!rawUrl) return "";
@@ -165,6 +180,13 @@ const Header = () => {
 
   const toastRef = useRef(toast);
   const prefsRef = useRef(prefs);
+
+  const role = getRoleFromToken();
+
+  const isAdmin = role === "admin" || role === "superadmin";
+  const activeNavItems = isAdmin ? adminNavItems : investigatorNavItems;
+  const profilePath = isAdmin ? "/admin/profile" : "/investigator/profile";
+
   useEffect(() => { toastRef.current = toast; }, [toast]);
   useEffect(() => { prefsRef.current = prefs; }, [prefs]);
 
@@ -175,62 +197,67 @@ const Header = () => {
   useEffect(() => {
     (async () => {
       try {
+        const role = getRoleFromToken();
+        const endpoint = (role === "admin" || role === "superadmin")
+          ? "/api/auth/admin/profile"
+          : "/api/auth/investigator/profile";
+
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/auth/investigator/profile`,
+          `${import.meta.env.VITE_API_URL}${endpoint}`,
           { headers: getAuthHeader() },
         );
-        setCurrentUser(res.data.user);
+        setCurrentUser(res.data.user ?? res.data);
       } catch { /* ignore */ }
     })();
   }, []);
 
- const refreshNotifications = useCallback(async (silent = false) => {
-  console.log("[Header] refreshNotifications called, silent=", silent);
-  if (!silent) setNotifLoading(true);
-  try {
-    const data = await fetchNotifications({        // ← fetch first
-      page: 1, page_size: 30, unread_only: false,
-    });
+  const refreshNotifications = useCallback(async (silent = false) => {
+    console.log("[Header] refreshNotifications called, silent=", silent);
+    if (!silent) setNotifLoading(true);
+    try {
+      const data = await fetchNotifications({        // ← fetch first
+        page: 1, page_size: 30, unread_only: false,
+      });
 
-    const newItems = data.items ?? [];
-    const currentIds = new Set(prevUnreadIdsRef.current);
-    const brandNew = newItems.filter(n => !n.isRead && !currentIds.has(n.id));
+      const newItems = data.items ?? [];
+      const currentIds = new Set(prevUnreadIdsRef.current);
+      const brandNew = newItems.filter(n => !n.isRead && !currentIds.has(n.id));
 
-    console.log("[Header] 🔔 brand-new notifications:", brandNew.length); // ← now valid
+      console.log("[Header] 🔔 brand-new notifications:", brandNew.length); // ← now valid
 
-    if (silent && brandNew.length > 0) {
-      const livePrefs = prefsRef.current;
-      const liveToast = toastRef.current;
-      if (livePrefs === null || livePrefs?.email_notifications !== false) {
-        brandNew.slice(0, 3).forEach(n => {
-          liveToast.notification(n.message ?? n.title, {
-            title: n.message ? n.title : undefined,
-            severity: n.severity,
-            duration: 5000,
+      if (silent && brandNew.length > 0) {
+        const livePrefs = prefsRef.current;
+        const liveToast = toastRef.current;
+        if (livePrefs === null || livePrefs?.email_notifications !== false) {
+          brandNew.slice(0, 3).forEach(n => {
+            liveToast.notification(n.message ?? n.title, {
+              title: n.message ? n.title : undefined,
+              severity: n.severity,
+              duration: 5000,
+            });
           });
-        });
+        }
+        brandNew.forEach(n => currentIds.add(n.id));
+        prevUnreadIdsRef.current = currentIds;
+      } else if (!silent) {
+        prevUnreadIdsRef.current = new Set(
+          newItems.filter(n => !n.isRead).map(n => n.id),
+        );
       }
-      brandNew.forEach(n => currentIds.add(n.id));
-      prevUnreadIdsRef.current = currentIds;
-    } else if (!silent) {
-      prevUnreadIdsRef.current = new Set(
-        newItems.filter(n => !n.isRead).map(n => n.id),
-      );
+
+      setItems(newItems);
+      setUnreadCount(data.unreadCount ?? 0);
+    } catch (err) {
+      console.error("[Header] refreshNotifications failed:", err); // ← also make catch visible
+    } finally {
+      if (!silent) setNotifLoading(false);
     }
+  }, []);
 
-    setItems(newItems);
-    setUnreadCount(data.unreadCount ?? 0);
-  } catch (err) {
-    console.error("[Header] refreshNotifications failed:", err); // ← also make catch visible
-  } finally {
-    if (!silent) setNotifLoading(false);
-  }
-}, []);
-
-const { status } = useRealtimeEvent(useCallback(() => {
-  console.log("[Header] 🔄 WS triggered refetch");
-  refreshNotifications(true);
-}, [refreshNotifications]));
+  const { status } = useRealtimeEvent(useCallback(() => {
+    console.log("[Header] 🔄 WS triggered refetch");
+    refreshNotifications(true);
+  }, [refreshNotifications]));
 
   // Keep the initial fetch in its own effect
   useEffect(() => {
@@ -296,7 +323,7 @@ const { status } = useRealtimeEvent(useCallback(() => {
       <header className="fixed top-0 left-0 w-full h-14 z-40 bg-deep-ocean shadow shadow-black/80">
         <nav className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-1" ref={menuRef}>
-            {navItems.map((item) => (
+            {activeNavItems.map((item) => (
               <div key={item.label} className="relative">
                 <button
                   className={`cursor-pointer text-sm font-medium hover:bg-gray-400 hover:text-deep-ocean-500
@@ -355,7 +382,7 @@ const { status } = useRealtimeEvent(useCallback(() => {
             </Button>
 
             <button
-              onClick={() => navigate("/investigator/profile")}
+              onClick={() => navigate(profilePath)}
               className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 transition-transform shrink-0"
             >
               {currentUser?.picture_url ? (

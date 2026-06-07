@@ -1,11 +1,10 @@
 import axios from "axios";
 
-import { addVictimsToCase }   from "@/services/victimApi";
-import { addSuspectsToCase }  from "@/services/suspectApi";
+import { addVictimsToCase } from "@/services/victimApi";
+import { addSuspectsToCase } from "@/services/suspectApi";
 import { addWitnessesToCase } from "@/services/witnessApi";
 import { addEvidencesToCase, fileToDataUrl } from "@/services/evidenceApi";
-import { addLeadsToCase }     from "@/services/leadApi";
-import { deleteDraft }        from "@/services/draftApi";
+import { deleteDraft } from "@/services/draftApi";
 
 export const getAuthHeader = () => {
     const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
@@ -29,85 +28,93 @@ const _num = (v) => {
 };
 
 export const buildCreateCasePayload = (f) => ({
-    firNumber:        _s(f.firNumber),
-    caseTitle:        _s(f.caseTitle),
-    caseType:         _s(f.caseType),
-    priority:         _s(f.priority),
-    caseStatus:       _s(f.caseStatus) || "Open",
-    ppcSections:      _s(f.ppcSections),
-    description:      _s(f.description),
+    firNumber: _s(f.firNumber),
+    caseTitle: _s(f.caseTitle),
+    caseType: _s(f.caseType),
+    priority: _s(f.priority),
+    caseStatus: _s(f.caseStatus) || "Open",
+    ppcSections: _s(f.ppcSections),
+    description: _s(f.description),
 
-    incidentDate:     _s(f.incidentDate),
-    incidentTime:     _s(f.incidentTime),
-    reportingDate:    _s(f.reportingDate),
-    reportingTime:    _s(f.reportingTime),
+    incidentDate: _s(f.incidentDate),
+    incidentTime: _s(f.incidentTime),
+    reportingDate: _s(f.reportingDate),
+    reportingTime: _s(f.reportingTime),
 
-    reportingOfficer:     _s(f.reportingOfficer),
+    reportingOfficer: _s(f.reportingOfficer),
     assignedInvestigator: _s(f.assignedInvestigator),
 
-    firLanguage:      _s(f.firLanguage) || "English",
-    firType:          _s(f.firType) || "FIR",
-    manualEntry:      !!f.manualEntry,
+    firLanguage: _s(f.firLanguage) || "English",
+    firType: _s(f.firType) || "FIR",
+    manualEntry: !!f.manualEntry,
 
     location: {
-        province:       _s(f.province),
-        city:           _s(f.city),
-        area:           _s(f.area),
-        policeStation:  _s(f.policeStation),
-        address:        _s(f.address) || _s(f.displayAddress),
-        latitude:       _num(f.latitude),
-        longitude:      _num(f.longitude),
+        province: _s(f.province),
+        city: _s(f.city),
+        area: _s(f.area),
+        policeStation: _s(f.policeStation),
+        address: _s(f.address) || _s(f.displayAddress),
+        latitude: _num(f.latitude),
+        longitude: _num(f.longitude),
         crimeSceneType: _s(f.crimeSceneType),
-        sceneAccess:    _s(f.sceneAccess),
-        landmarks:      _s(f.landmarks),
+        sceneAccess: _s(f.sceneAccess),
+        landmarks: _s(f.landmarks),
     },
 
     crime: {
-        weaponUsed:       _s(f.weaponUsed),
-        weaponDescription:_s(f.weaponDescription),
-        vehicleUsed:      _s(f.vehicleUsed),
-        numSuspects:      _num(f.numSuspects),
-        motive:           _s(f.motive),
-        modus:            _s(f.modus),
+        weaponUsed: _s(f.weaponUsed),
+        weaponDescription: _s(f.weaponDescription),
+        vehicleUsed: _s(f.vehicleUsed),
+        numSuspects: _num(f.numSuspects),
+        motive: _s(f.motive),
+        modus: _s(f.modus),
         witnessAvailable: !!f.witnessAvailable,
-        cctv:             !!f.cctv,
+        cctv: !!f.cctv,
         crimeDescription: _s(f.crimeDescription),
 
-        causeOfDeath:    _s(f.causeOfDeath),
-        bodyLocation:    _s(f.bodyLocation),
-        timeOfDeath:     _s(f.timeOfDeath),
-        postmortemDone:  !!f.postmortemDone,
-        forensicDone:    !!f.forensicDone,
+        causeOfDeath: _s(f.causeOfDeath),
+        bodyLocation: _s(f.bodyLocation),
+        timeOfDeath: _s(f.timeOfDeath),
+        postmortemDone: !!f.postmortemDone,
+        forensicDone: !!f.forensicDone,
 
-        medicalExam:      _s(f.medicalExam),
+        medicalExam: _s(f.medicalExam),
         victimCounseling: !!f.victimCounseling,
-        protectionOrder:  !!f.protectionOrder,
+        protectionOrder: !!f.protectionOrder,
 
-        stolenItems:    _s(f.stolenItems),
-        stolenValue:    _num(f.stolenValue),
+        stolenItems: _s(f.stolenItems),
+        stolenValue: _num(f.stolenValue),
         recoveryStatus: _s(f.recoveryStatus),
-        entryPoint:     _s(f.entryPoint),
+        entryPoint: _s(f.entryPoint),
     },
 });
 
+export const fetchLinkedCases = async (caseId) => {
+    const { data } = await axios.get(
+        `${apiBase()}/api/investigator/cases/${encodeURIComponent(caseId)}/linked-cases`,
+        { headers: getAuthHeader() },
+    );
+    return data; // array or { items: [...] }
+};
+
 export const createCase = async (formData) => {
-    const url     = apiBase();
+    const url = apiBase();
     const headers = getAuthHeader();
- 
+
     const body = buildCreateCasePayload(formData);
- 
+
     const res = await axios.post(
         `${url}/api/investigator/cases/register`,
         body,
         { headers },
     );
- 
-    const data   = res.data || {};
+
+    const data = res.data || {};
     const caseId = data.case_id || data.caseId;
     if (!caseId) {
         throw new Error("Server did not return a case_id");
     }
- 
+
     // ── Optional FIR file upload ──────────────────────────────────────
     if (formData.firFile instanceof File || formData.firFileDataUrl) {
         try {
@@ -119,10 +126,10 @@ export const createCase = async (formData) => {
                     `${url}/api/investigator/cases/${caseId}/fir-file`,
                     {
                         fileDataUrl: dataUrl,
-                        fileName:    formData.firFileName ||
-                                     formData.firFile?.name ||
-                                     null,
-                        fileMime:    formData.firFile?.type || null,
+                        fileName: formData.firFileName ||
+                            formData.firFile?.name ||
+                            null,
+                        fileMime: formData.firFile?.type || null,
                     },
                     { headers },
                 );
@@ -141,7 +148,7 @@ export const createCase = async (formData) => {
             };
         }
     }
- 
+
     return {
         caseId,
         firNumber: data.fir_number || data.firNumber,
@@ -175,18 +182,17 @@ const _isBlankLead = (l) =>
 export const addAllChildEntities = async (caseId, formData) => {
     if (!caseId) throw new Error("caseId is required");
 
-    const victims   = (formData.victims   || []).filter(v => !_isBlankPerson(v));
-    const suspects  = (formData.suspects  || []).filter(s => !_isBlankPerson(s));
+    const victims = (formData.victims || []).filter(v => !_isBlankPerson(v));
+    const suspects = (formData.suspects || []).filter(s => !_isBlankPerson(s));
     const witnesses = (formData.witnesses || []).filter(w => !_isBlankPerson(w));
     const evidences = (formData.evidences || []).filter(e => !_isBlankEvidence(e));
-    const aiLeads   = (formData.aiLeads   || []).filter(l => !_isBlankLead(l));
 
     const childResults = {
-        victims:   { created_ids: [], photo_failures: [], timeline_events: [] },
-        suspects:  { created_ids: [], photo_failures: [] },
+        victims: { created_ids: [], photo_failures: [], timeline_events: [] },
+        suspects: { created_ids: [], photo_failures: [] },
         witnesses: { created_ids: [], photo_failures: [] },
         evidences: { created_ids: [], photo_failures: [], timeline_events: [] },
-        leads:     { created: [], failures: [] },
+        leads: { created: [], failures: [] },
     };
     const partialFailures = [];
 
@@ -234,24 +240,6 @@ export const addAllChildEntities = async (caseId, formData) => {
         }
     }
 
-    if (aiLeads.length) {
-        try {
-            childResults.leads = await addLeadsToCase(caseId, aiLeads);
-           
-            for (const f of (childResults.leads.failures || [])) {
-                partialFailures.push({
-                    phase: "leads",
-                    error: `${f.lead?.type || "Lead"}: ${f.error}`,
-                });
-            }
-        } catch (err) {
-            partialFailures.push({
-                phase: "leads",
-                error: err?.response?.data?.detail || err.message || "Failed to add leads",
-            });
-        }
-    }
-
     return { childResults, partialFailures };
 };
 
@@ -259,18 +247,18 @@ export const registerCaseFull = async (formData) => {
     // Phase 1
     const caseResult = await createCase(formData);
     const { caseId } = caseResult;
- 
+
     // Phase 2
     const { childResults, partialFailures } =
         await addAllChildEntities(caseId, formData);
- 
+
     if (caseResult.fir_file_failed) {
         partialFailures.unshift({
             phase: "fir_file",
             error: caseResult.fir_file_error || "FIR file upload failed",
         });
     }
- 
+
     // Phase 0 cleanup: if this submission came from a draft, throw the
     // draft away now that we have a real case. Best-effort — a failure
     // here doesn't matter to the user (worst case: a stale draft they
@@ -282,7 +270,7 @@ export const registerCaseFull = async (formData) => {
             console.warn("Draft cleanup failed (non-fatal):", err);
         }
     }
- 
+
     return {
         caseId,
         firNumber: caseResult.firNumber,
@@ -291,7 +279,7 @@ export const registerCaseFull = async (formData) => {
         partialFailures,
     };
 };
- 
+
 // ───────────────────────────────────────────────────────────────────────────
 // Error utility
 // ───────────────────────────────────────────────────────────────────────────
@@ -306,8 +294,8 @@ export const formatApiError = (err, fallback = "Request failed") => {
 };
 
 export const regenerateLinkedCases = async (caseId) => {
-  const { data } = await axios.post(
-    `${apiBase()}/api/investigator/cases/${encodeURIComponent(caseId)}/links/regenerate`,
-  );
-  return data;
+    const { data } = await axios.post(
+        `${apiBase()}/api/investigator/cases/${encodeURIComponent(caseId)}/links/regenerate`,
+    );
+    return data;
 };

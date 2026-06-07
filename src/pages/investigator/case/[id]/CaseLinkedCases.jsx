@@ -99,9 +99,9 @@ const renderDetailMarkdown = (raw) => {
 };
 
 
-const LinkedCases = () => {
+const LinkedCases = ({ caseId: caseIdProp }) => {
   const { id: caseIdFromUrl } = useParams();
-  const caseId = caseIdFromUrl || 'C-2053'; // graceful fallback if mounted outside the dynamic route
+  const caseId = caseIdProp || caseIdFromUrl || 'C-2053';
   const [expandedRow, setExpandedRow] = useState(null);
 
   // ── Filter inputs (live state) ─────────────────────────────────────────

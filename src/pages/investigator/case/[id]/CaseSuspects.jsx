@@ -78,9 +78,9 @@ const formShapeToPatchBody = (formItem) => ({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CaseSuspects = () => {
+const CaseSuspects = ({ caseId: caseIdProp }) => {
   const { id: caseIdFromUrl } = useParams();
-  const caseId = caseIdFromUrl || 'C-2053';   // graceful fallback
+  const caseId = caseIdProp || caseIdFromUrl || 'C-2053';   // graceful fallback
 
   // Filter inputs (live)
   const [searchName, setSearchName] = useState('');

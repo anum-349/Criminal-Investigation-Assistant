@@ -80,9 +80,9 @@ const STATUSES = [
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-const CaseWitnesses = () => {
+const CaseWitnesses = ({ caseId: caseIdProp }) => {
   const { id: caseIdFromUrl } = useParams();
-  const caseId = caseIdFromUrl || 'C-2053';
+  const caseId = caseIdProp || caseIdFromUrl || 'C-2053';
 
   // Filter inputs (live)
   const [searchName, setSearchName] = useState('');

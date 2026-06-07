@@ -16,11 +16,19 @@ const UserManagementPage = lazy(() => import('@/pages/admin/user-management/page
 const SystemSettingsPage = lazy(() => import('@/pages/admin/system-setting/page'));
 const ChangePasswordForm = lazy(() => import('@/pages/admin/change-password/page'));
 // const InvestigationNotesPage = lazy(() => import('@/pages/form/investigation-notes/page'));
-const AuditLogsPage = lazy(() => import('@/pages/admin/admin-audit/page'));
 
+import AuditLogsPage from "@/pages/admin/admin-audit/page";
 import LoginPage from "@/pages/login/page";
 import ProtectedRoute from "./protected-routes/page";
 import DraftsPage from "@/pages/investigator/drafts/page";
+import AdminAnalyticsPage from "@/pages/admin/analytics/page";
+import AdminAllCasesPage from "@/pages/admin/cases/page";
+import AdminHelpPage from "@/pages/admin/help/page";
+import AdminCaseDetailPage from "@/pages/admin/case/[id]/page";
+import AdminProfilePage from "@/pages/admin/profile/page";
+import AdminTicketsPage from "@/pages/admin/tickets/page";
+import AdminReportsPage from "@/pages/admin/reports/page";
+import ManageDatabasePage from "@/pages/admin/manage-database/page";
 
 export default function AppRoutes() {
     return (
@@ -78,31 +86,75 @@ export default function AppRoutes() {
                 <RegisterCasePage />
             } />
 
-            {/* <Route path="/update-case" element={
-                <UpdateCasePage />
-            } /> */}
-
-            <Route path="user-management" element={
-                <UserManagementPage />
+            <Route path="/admin/analytics" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AdminAnalyticsPage />
+                </ProtectedRoute>
             } />
 
-            <Route path="system-settings" element={
-                <SystemSettingsPage />
+            <Route path="/admin/audit-logs" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AuditLogsPage />
+                </ProtectedRoute>
             } />
-            <Route path="change-password" element={
-                <ChangePasswordForm />
+
+            <Route path="/admin/cases" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AdminAllCasesPage />
+                </ProtectedRoute>
             } />
-            {/* <Route path="investigation-notes" element={
-                <InvestigationNotesPage />
-            } /> */}
-            <Route path="admin-audit" element={
-                <AuditLogsPage />
+
+            <Route path="/admin/case/:id" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AdminCaseDetailPage />
+                </ProtectedRoute>
             } />
+
+            <Route path="/admin/help" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AdminHelpPage />
+                </ProtectedRoute>} />
+
+            <Route path="/admin/change-password" element={
+                <ProtectedRoute requiredRole="admin">
+                    <ChangePasswordForm />
+                </ProtectedRoute>} />
+
+            <Route path="/admin/profile" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AdminProfilePage />
+                </ProtectedRoute>} />
+
+            <Route path="/admin/system-settings" element={
+                <ProtectedRoute requiredRole="admin">
+                    <SystemSettingsPage />
+                </ProtectedRoute>} />
+
+            <Route path="/admin/tickets" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AdminTicketsPage />
+                </ProtectedRoute>} />
+
+            <Route path="/admin/reports" element={
+                <ProtectedRoute requiredRole="admin">
+                    <AdminReportsPage />
+                </ProtectedRoute>} />
+
+            <Route path="/admin/users" element={
+                <ProtectedRoute requiredRole="admin">
+                    <UserManagementPage />
+                </ProtectedRoute>} />
+
+            <Route path="/admin/database" element={
+                <ProtectedRoute requiredRole="admin">
+                    <ManageDatabasePage />
+                </ProtectedRoute>} />
 
             <Route path="/admin" element={
                 <ProtectedRoute requiredRole="admin">
                     <AdminPage />
                 </ProtectedRoute>} />
+
             <Route path="*" element={<NotFoundPage />} />
         </Routes>
     );

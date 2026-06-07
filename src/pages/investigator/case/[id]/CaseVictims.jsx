@@ -421,9 +421,9 @@ const LegalCard = ({ legal }) => (
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-const CaseVictim = () => {
+const CaseVictim = ({ caseId: caseIdProp }) => {
   const { id: caseIdFromUrl } = useParams();
-  const caseId = caseIdFromUrl || 'C-2053';
+  const caseId = caseIdProp || caseIdFromUrl || 'C-2053';
 
   const [victims, setVictims] = useState([]);
   const [selectedVictimId, setSelectedVictimId] = useState(null);
