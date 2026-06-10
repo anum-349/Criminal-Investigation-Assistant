@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Sparkles } from 'lucide-react';                          // NEW
 import { regenerateLinkedCases } from '@/services/caseApi';
 import { useToast } from '@/context/ToastContext';
+import { getAuthHeader } from '@/services/apiCommon';
 
 const PAGE_SIZE = 5;
 
@@ -23,11 +24,6 @@ const DEFAULT_RELATIONS = [
 const DEFAULT_STATUSES = [
   { value: 'all', label: 'Status All', variant: 'default' },
 ];
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 const renderDetailMarkdown = (raw) => {
   if (!raw) return null;

@@ -1,53 +1,15 @@
-/**
- * src/pages/investigator/drafts/page.jsx
- * ─────────────────────────────────────────────────────────────────────────────
- * "My Drafts" — list every case the investigator started but didn't finish.
- *
- * Routes:
- *   /investigator/drafts           — this page
- *   /register-case?draftId=…       — resume a draft (handled by register-case page)
- *
- * Where this page lives in the UI:
- *   Header → File → Drafts.
- *
- * What a draft is:
- *   A snapshot of the register-case wizard's formData saved to the server
- *   while still being filled in. Drafts are NOT cases — they live in their
- *   own case_drafts table so they don't appear in All Cases / search /
- *   reports / hotspots. They become real cases only when the investigator
- *   submits them (at which point the draft is deleted server-side).
- *
- * Actions per row:
- *   - Resume → opens /register-case?draftId=… which hydrates the wizard.
- *   - Delete → confirm + DELETE the draft.
- */
-
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     FilePlus, FileText, Trash2, Loader2, AlertTriangle, ChevronRight,
-    LayoutDashboard, FolderOpen, Clock, Play,
+    LayoutDashboard, Clock, Play,
 } from "lucide-react";
 
 import Header from "@/components/Header";
 import { listDrafts, deleteDraft } from "@/services/draftApi";
-import { formatApiError } from "@/services/caseApi";
+import { formatApiError } from "@/services/apiCommon";
+import { formatRelativeTime } from "@/utils/formatters";
 import { useToast } from "@/context/ToastContext";
-
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-const _formatRelative = (iso) => {
-    if (!iso) return "—";
-    const t = new Date(iso).getTime();
-    if (Number.isNaN(t)) return "—";
-    const secs = Math.max(1, Math.round((Date.now() - t) / 1000));
-    if (secs < 60) return `${secs}s ago`;
-    if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-    if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
-    return `${Math.round(secs / 86400)}d ago`;
-};
-
 
 export default function DraftsPage() {
     const navigate = useNavigate();
@@ -56,11 +18,10 @@ export default function DraftsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const [confirmDelete, setConfirmDelete] = useState(null); // draftId | null
+    const [confirmDelete, setConfirmDelete] = useState(null);
     const [busyId, setBusyId] = useState(null);
-    const toast = useToast()
+    const toast = useToast();
 
-    // ── Fetch list on mount and after deletes ───────────────────────────
     const fetchList = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -69,7 +30,7 @@ export default function DraftsPage() {
             setDrafts(Array.isArray(rows) ? rows : []);
         } catch (err) {
             const msg = formatApiError(err, "Could not load your drafts.");
-            setError(msg);          // inline banner stays
+            setError(msg);
             toast.error(msg);
             setDrafts([]);
         } finally {
@@ -79,12 +40,10 @@ export default function DraftsPage() {
 
     useEffect(() => { fetchList(); }, [fetchList]);
 
-    // ── Resume → navigate to wizard with ?draftId= ──────────────────────
     const handleResume = (draftId) => {
         navigate(`/register-case?draftId=${encodeURIComponent(draftId)}`);
     };
 
-    // ── Delete with confirm ─────────────────────────────────────────────
     const handleDelete = async (draftId) => {
         setBusyId(draftId);
         try {
@@ -102,11 +61,10 @@ export default function DraftsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-soft-mist font-sans mt-14">
+        <div className="min-h-screen bg-soft-mist font-sans mt-10">
             <Header />
 
             <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-                {/* Breadcrumb */}
                 <nav className="flex items-center gap-1.5 text-xs text-slate-500">
                     <button onClick={() => navigate("/investigator")}
                         className="flex items-center gap-1.5 hover:text-slate-800 cursor-pointer transition-colors">
@@ -116,14 +74,13 @@ export default function DraftsPage() {
                     <span className="text-slate-800 font-medium">My Drafts</span>
                 </nav>
 
-                {/* Page header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                             <FileText className="h-6 w-6 text-deep-ocean" /> My Drafts
                         </h1>
                         <p className="text-sm text-slate-500 mt-1">
-                            Case registrations you've saved but not yet submitted. Drafts are private to you.
+                            Case registrations you've saved but not yet submitted.
                         </p>
                     </div>
                     <button
@@ -133,7 +90,6 @@ export default function DraftsPage() {
                     </button>
                 </div>
 
-                {/* Error banner */}
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
                         <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -148,7 +104,6 @@ export default function DraftsPage() {
                     </div>
                 )}
 
-                {/* Loading state */}
                 {loading && (
                     <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                         <Loader2 className="h-8 w-8 text-deep-ocean animate-spin mx-auto mb-2" />
@@ -156,7 +111,6 @@ export default function DraftsPage() {
                     </div>
                 )}
 
-                {/* Empty state */}
                 {!loading && !error && drafts.length === 0 && (
                     <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                         <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
@@ -164,7 +118,7 @@ export default function DraftsPage() {
                         </div>
                         <h2 className="text-base font-semibold text-slate-800">No drafts yet</h2>
                         <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                            When you click "Save Draft" inside the case registration wizard, your work will appear here so you can pick it up later.
+                            When you click "Save Draft" inside the case registration wizard, your work will appear here.
                         </p>
                         <button onClick={() => navigate("/register-case")}
                             className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-deep-ocean text-white rounded-lg text-sm font-semibold hover:bg-deep-ocean-900 cursor-pointer transition-colors">
@@ -173,7 +127,6 @@ export default function DraftsPage() {
                     </div>
                 )}
 
-                {/* List */}
                 {!loading && !error && drafts.length > 0 && (
                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                         <ul className="divide-y divide-slate-100">
@@ -185,7 +138,6 @@ export default function DraftsPage() {
                                     <li key={d.draftId}
                                         className="px-4 py-4 sm:px-6 hover:bg-slate-50 transition-colors">
                                         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                            {/* Title + meta */}
                                             <button
                                                 onClick={() => handleResume(d.draftId)}
                                                 className="flex-1 text-left cursor-pointer min-w-0">
@@ -193,7 +145,6 @@ export default function DraftsPage() {
                                                     <p className="font-semibold text-slate-800 truncate">
                                                         {d.title || "Untitled draft"}
                                                     </p>
-                                                    {/* Progress pill — server-computed %. Falls back to 0 if missing. */}
                                                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full
                                                         ${(d.progressPercent || 0) >= 80 ? "bg-emerald-100 text-emerald-700"
                                                             : (d.progressPercent || 0) >= 40 ? "bg-amber-100 text-amber-700"
@@ -208,12 +159,11 @@ export default function DraftsPage() {
                                                     {d.caseType && <span>{d.caseType}</span>}
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="h-3 w-3" />
-                                                        {_formatRelative(d.updatedAt)}
+                                                        {formatRelativeTime(d.updatedAt)}
                                                     </span>
                                                 </div>
                                             </button>
 
-                                            {/* Actions */}
                                             <div className="flex items-center gap-2 sm:shrink-0">
                                                 {confirming ? (
                                                     <>
@@ -256,7 +206,6 @@ export default function DraftsPage() {
                     </div>
                 )}
 
-                {/* Helper text */}
                 {!loading && drafts.length > 0 && (
                     <p className="text-xs text-slate-400 text-center">
                         Drafts auto-save while you work if you've enabled "Auto Save Drafts" in

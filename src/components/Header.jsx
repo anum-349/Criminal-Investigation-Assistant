@@ -7,12 +7,15 @@ import {
 } from "@/services/notificationApi";
 import { Search, Bell, ChevronDown, Check, Trash2, User } from "lucide-react";
 import axios from "axios";
-import { getAuthHeader } from "@/services/caseApi";
+import { getAuthHeader, getStoredToken } from "@/services/apiCommon";
 import { useToast } from "@/context/ToastContext";
 import { useRealtimeEvent } from "@/context/RealtimeContext";
+import { photoSrc } from "@/utils/formatters";
+import { getSeverityDotClass } from "@/utils/styling";
+import logo from '@/assets/logo.png';
 
 const getRoleFromToken = () => {
-  const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
+  const token = getStoredToken();
   if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
@@ -29,25 +32,10 @@ const investigatorNavItems = [
 
 const adminNavItems = [
   { label: "Dashboard", items: [{ label: "Admin Home", path: "/admin" }, { label: "Analytics", path: "/admin/analytics" }, { label: "Reports", path: "/admin/reports" }] },
-  { label: "Users", items: [{ label: "All Users", path: "/admin/users" }, {label: "Tickets", path: "/admin/tickets"}] },
+  { label: "Users", items: [{ label: "All Users", path: "/admin/users" }, { label: "Tickets", path: "/admin/tickets" }] },
   { label: "Cases", items: [{ label: "All Cases", path: "/admin/cases" }] },
   { label: "Settings", items: [{ label: "Profile", path: "/admin/profile" }, { label: "System Logs", path: "/admin/audit-logs" }, { label: "Help", path: "/admin/help" }] },
-]
-
-const photoSrc = (rawUrl) => {
-  if (!rawUrl) return "";
-  if (rawUrl.startsWith("http")) return rawUrl;
-  if (rawUrl.startsWith("/uploads")) return `${import.meta.env.VITE_API_URL}${rawUrl}`;
-  return rawUrl;
-};
-
-const severityDot = (sev) => {
-  if (!sev) return "bg-slate-300";
-  const s = sev.toLowerCase();
-  if (s === "critical") return "bg-red-500";
-  if (s === "high") return "bg-orange-400";
-  return "bg-blue-400";
-};
+];
 
 const NotificationsDropdown = ({
   items, unreadCount, loading,
@@ -117,7 +105,7 @@ const NotificationsDropdown = ({
                 : "bg-blue-50 border-l-[3px] border-l-[#1b3c53] hover:bg-blue-100"
                 }`}
             >
-              <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${severityDot(n.severity)}`} />
+              <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${getSeverityDotClass(n.severity)}`} />
               <div className="flex-1 min-w-0">
                 <p className={`text-xs leading-snug ${n.isRead ? "font-normal text-slate-700" : "font-semibold text-slate-900"
                   }`}>
@@ -207,23 +195,20 @@ const Header = () => {
           { headers: getAuthHeader() },
         );
         setCurrentUser(res.data.user ?? res.data);
-      } catch { /* ignore */ }
+      } catch { }
     })();
   }, []);
 
   const refreshNotifications = useCallback(async (silent = false) => {
-    console.log("[Header] refreshNotifications called, silent=", silent);
     if (!silent) setNotifLoading(true);
     try {
-      const data = await fetchNotifications({        // ← fetch first
+      const data = await fetchNotifications({
         page: 1, page_size: 30, unread_only: false,
       });
 
       const newItems = data.items ?? [];
       const currentIds = new Set(prevUnreadIdsRef.current);
       const brandNew = newItems.filter(n => !n.isRead && !currentIds.has(n.id));
-
-      console.log("[Header] 🔔 brand-new notifications:", brandNew.length); // ← now valid
 
       if (silent && brandNew.length > 0) {
         const livePrefs = prefsRef.current;
@@ -248,23 +233,20 @@ const Header = () => {
       setItems(newItems);
       setUnreadCount(data.unreadCount ?? 0);
     } catch (err) {
-      console.error("[Header] refreshNotifications failed:", err); // ← also make catch visible
+      console.error("[Header] refreshNotifications failed:", err);
     } finally {
       if (!silent) setNotifLoading(false);
     }
   }, []);
 
   const { status } = useRealtimeEvent(useCallback(() => {
-    console.log("[Header] 🔄 WS triggered refetch");
     refreshNotifications(true);
   }, [refreshNotifications]));
 
-  // Keep the initial fetch in its own effect
   useEffect(() => {
     refreshNotifications(false);
   }, [refreshNotifications]);
 
-  // ── Outside-click handlers ─────────────────────────────────────────────
   useEffect(() => {
     const h = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null);
@@ -288,7 +270,6 @@ const Header = () => {
     };
   }, [showNotifications]);
 
-  // ── Notification actions (optimistic — no refetch needed) ──────────────
   const handleMarkRead = async (id) => {
     await markRead(id).catch(() => { });
     setItems(p => p.map(n => n.id === id ? { ...n, isRead: true } : n));
@@ -308,7 +289,6 @@ const Header = () => {
     if (was) setUnreadCount(c => Math.max(0, c - 1));
   };
 
-  // ── Search ──────────────────────────────────────────────────────────────
   const handleSearch = () => {
     const q = keywords.trim();
     if (q) {
@@ -317,31 +297,47 @@ const Header = () => {
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────
   return (
     <>
-      <header className="fixed top-0 left-0 w-full h-14 z-40 bg-deep-ocean shadow shadow-black/80">
-        <nav className="h-full flex items-center justify-between px-4">
-          <div className="flex items-center gap-1" ref={menuRef}>
+      <header
+        className="fixed top-0 left-0 w-full h-10 z-40 bg-deep-ocean"
+        style={{ WebkitAppRegion: 'drag' }}
+      >
+        <nav
+          className="h-full flex items-center pr-34.5"
+          style={{ WebkitAppRegion: 'no-drag' }}
+        >
+          {/* Logo */}
+          <div
+            className="flex items-center gap-1.5 px-3 mr-1 border-r border-white/15 h-full cursor-pointer shrink-0"
+            onClick={() => navigate(isAdmin ? '/admin' : '/investigator')}
+          >
+            <img src={logo} alt="" className="w-5 h-5 rounded" />
+            <span className="text-white/90 text-xs font-medium">CIA</span>
+          </div>
+
+          {/* Nav items */}
+          <div className="flex items-center" ref={menuRef}>
             {activeNavItems.map((item) => (
               <div key={item.label} className="relative">
                 <button
-                  className={`cursor-pointer text-sm font-medium hover:bg-gray-400 hover:text-deep-ocean-500
-                    ${openMenu === item.label ? "bg-cool-silver text-gray-700" : "text-white"}
-                    rounded-md px-3 py-2 flex items-center`}
+                  className={`cursor-pointer text-xs font-medium px-2.5 py-1.5 rounded flex items-center gap-0.5 transition-colors
+                  ${openMenu === item.label
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/75 hover:bg-white/10 hover:text-white'
+                    }`}
                   onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)}
                 >
                   {item.label}
-                  <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${openMenu === item.label ? "rotate-180" : ""
-                    }`} />
+                  <ChevronDown className={`h-2.5 w-2.5 opacity-50 transition-transform ${openMenu === item.label ? 'rotate-180' : ''}`} />
                 </button>
                 {openMenu === item.label && (
-                  <div className="absolute left-0 w-48 text-nowrap bg-cool-silver rounded-md border-deep-ocean border shadow-lg z-20">
+                  <div className="absolute left-0 top-full mt-0.5 w-44 bg-white rounded-md border border-slate-200 shadow-lg z-50">
                     {item.items.map(sub => (
                       <button
                         key={sub.label}
                         onClick={() => { navigate(sub.path); setOpenMenu(null); }}
-                        className="cursor-pointer block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                        className="cursor-pointer block w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 first:rounded-t-md last:rounded-b-md"
                       >
                         {sub.label}
                       </button>
@@ -352,50 +348,47 @@ const Header = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-              <input
-                type="text"
-                value={keywords}
-                onChange={e => setKeywords(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSearch()}
-                placeholder="search case, evidence, suspect"
-                className="pl-9 w-md h-9 border-white text-white px-4 py-2 border focus:outline-none placeholder:text-gray-300 focus:border-white rounded-full"
-              />
-            </div>
+          {/* Spacer */}
+          <div className="flex-1" />
 
-            <Button
+          {/* Search */}
+          <div className="relative mr-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/40" />
+            <input
+              type="text"
+              value={keywords}
+              onChange={e => setKeywords(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="Search cases, suspects…"
+              className="pl-7 pr-3 h-7 w-48 bg-white/8 border border-white/15 rounded-full text-xs text-white/80 placeholder:text-white/35 focus:outline-none focus:border-white/30 focus:bg-white/12 transition-all"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 pl-2 ml-1 border-l border-white/15">
+            {/* Bell */}
+            <button
               ref={bellButtonRef}
-              variant="ghost"
-              size="icon"
               onClick={() => setShowNotifications(v => !v)}
-              className={`${showNotifications ? "bg-slate-blue" : ""
-                } hover:bg-slate-blue cursor-pointer relative border-0 p-2 rounded-full transition`}
+              className={`relative w-8 h-8 flex items-center justify-center rounded cursor-pointer transition-colors
+              ${showNotifications ? 'bg-white/15' : 'hover:bg-white/10'}`}
             >
-              <Bell className="h-7 w-7 text-white" />
+              <Bell className="h-4 w-4 text-white/80" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full border border-deep-ocean" />
               )}
-            </Button>
+            </button>
 
+            {/* Avatar */}
             <button
               onClick={() => navigate(profilePath)}
-              className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 transition-transform shrink-0"
+              className="w-7 h-7 ml-1 rounded-full border border-white/25 overflow-hidden cursor-pointer hover:scale-105 transition-transform shrink-0"
             >
               {currentUser?.picture_url ? (
-                <img
-                  src={photoSrc(currentUser.picture_url)}
-                  alt={currentUser.name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-white/30"
-                />
+                <img src={photoSrc(currentUser.picture_url)} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-12 h-12 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-white text-xs font-bold select-none">
-                  {currentUser?.name
-                    ? currentUser.name.slice(0, 2).toUpperCase()
-                    : <User className="h-4 w-4" />}
+                <div className="w-full h-full bg-white/20 flex items-center justify-center text-white text-[10px] font-medium">
+                  {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : <User className="h-3 w-3" />}
                 </div>
               )}
             </button>

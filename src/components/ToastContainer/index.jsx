@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  CheckCircle2, XCircle, AlertTriangle, Info,
-  Bell, X,
-} from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Info, Bell, X } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 
 const DEFAULT_DURATION = 4000;
@@ -54,6 +51,7 @@ const SEVERITY_BAR = {
   critical: "bg-red-500",
   high:     "bg-orange-400",
 };
+
 const SEVERITY_DOT = {
   critical: "bg-red-500",
   high:     "bg-orange-400",

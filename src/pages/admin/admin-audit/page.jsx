@@ -1,6 +1,3 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// FORM 20 — Audit Logs  (backend-paginated)
-// ══════════════════════════════════════════════════════════════════════════════
 import Header from "@/components/Header";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -22,7 +19,6 @@ const ACTION_COLORS = {
 
 const PAGE_SIZE = 10;
 
-// Skeleton row for loading state
 const LogSkeleton = () => (
   <tr>
     {Array.from({ length: 9 }).map((_, i) => (
@@ -36,7 +32,6 @@ const LogSkeleton = () => (
 export default function AuditLogsPage() {
   const navigate = useNavigate();
 
-  // ── Filter state ──────────────────────────────────────────────────────────
   const [search,       setSearch]       = useState("");
   const [moduleFilter, setModuleFilter] = useState("All");
   const [actionFilter, setActionFilter] = useState("All");
@@ -45,7 +40,6 @@ export default function AuditLogsPage() {
   const [page,         setPage]         = useState(1);
   const [expanded,     setExpanded]     = useState(null);
 
-  // ── Data state ────────────────────────────────────────────────────────────
   const [logs,       setLogs]       = useState([]);
   const [total,      setTotal]      = useState(0);
   const [stats,      setStats]      = useState({ total_events: 0, today: 0, failed: 0, unique_users: 0 });
@@ -53,7 +47,6 @@ export default function AuditLogsPage() {
   const [error,      setError]      = useState(null);
   const [exporting,  setExporting]  = useState(false);
 
-  // ── Debounced search ──────────────────────────────────────────────────────
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -121,7 +114,7 @@ export default function AuditLogsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
 

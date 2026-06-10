@@ -12,7 +12,6 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser]       = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // ─── Helpers ─────────────────────────────────────────────────────────
     const getStoredToken = () => {
         const remember = localStorage.getItem(REMEMBER_KEY) === "true";
         return remember
@@ -31,7 +30,6 @@ export const AuthProvider = ({ children }) => {
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     };
 
-    // ─── App load — validate stored token against server ─────────────────
     useEffect(() => {
         const token = getStoredToken();
         if (!token) {
@@ -59,7 +57,6 @@ export const AuthProvider = ({ children }) => {
             .finally(() => setLoading(false));
     }, []);
 
-    // ─── Login ───────────────────────────────────────────────────────────
     const login = useCallback(async ({ identifier, password, secret_code, rememberMe = true }) => {
         const res = await axios.post(`${API_URL}/api/auth/login`, {
             identifier,
@@ -86,19 +83,10 @@ export const AuthProvider = ({ children }) => {
         return me.data;
     }, []);
 
-    // ─── Logout ──────────────────────────────────────────────────────────
-    /**
-     * Tells the backend to write the LOGOUT audit row, then clears
-     * client-side state. If the server call fails (network down, token
-     * already expired, etc.), we still clear the token — never trap
-     * the user in a logged-in state.
-     */
     const logout = useCallback(async () => {
         try {
             await axios.post(`${API_URL}/api/auth/logout`);
         } catch (err) {
-            // Non-fatal: backend audit log won't be written, but frontend
-            // logout proceeds. Could surface a toast in the future.
             console.warn("Logout audit call failed:", err.message);
         } finally {
             clearStoredToken();

@@ -10,6 +10,7 @@ import {
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/Card';
 import axios from 'axios';
+import { getAuthHeader } from '@/services/apiCommon';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -144,6 +145,8 @@ const SHORTCUTS = [
     { keys: ['Ctrl', 'K'], action: 'Open search' },
     { keys: ['Ctrl', 'N'], action: 'Register new case' },
     { keys: ['Ctrl', 'D'], action: 'Go to dashboard' },
+    { keys: ['Ctrl', 'A'], action: 'Go to all cases' },
+    { keys: ['Ctrl', 'R'], action: 'Go to reports' },
     { keys: ['Ctrl', '/'], action: 'Open help' },
     { keys: ['Esc'], action: 'Close modal / go back' },
     { keys: ['Enter'], action: 'Submit search' },
@@ -187,11 +190,6 @@ const KeyBadge = ({ k }) => (
     </kbd>
 );
 
-export const getAuthHeader = () => {
-    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
 const HelpPage = () => {
     const navigate = useNavigate();
     const [activeCategory, setActiveCategory] = useState('cases');
@@ -228,7 +226,6 @@ const HelpPage = () => {
         setSubmitError(null);
 
         try {
-            const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
             await axios.post(
                 `${import.meta.env.VITE_API_URL}/api/tickets`,
                 {
@@ -262,7 +259,7 @@ const HelpPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-100 font-sans text-slate-900 mt-14">
+        <div className="min-h-screen bg-slate-100 font-sans text-slate-900 mt-10">
             <Header />
 
             <main className="max-w-6xl mx-auto px-4 lg:px-6 py-8 space-y-8">

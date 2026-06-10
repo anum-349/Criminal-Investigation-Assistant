@@ -521,7 +521,7 @@ export function ManageDatabasePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">

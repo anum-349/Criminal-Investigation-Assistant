@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -15,41 +15,10 @@ import {
     Table, TableBody, TableCell, TableHead,
     TableHeader, TableRow, TableWrapper,
 } from "@/components/ui/Table";
-
-const PAGE_SIZE = 10;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const getAuthHeader = () => {
-    const token =
-        localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-const STATUS_TABS = [
-    { key: "all", label: "All Cases" },
-    { key: "Active", label: "Active" },
-    { key: "Pending", label: "Pending" },
-    { key: "Closed", label: "Closed" },
-];
-
-// Status label → Badge variant. Keep matchers loose because backend may
-// return labels like "Under Investigation" or "Open" too.
-const getStatusVariant = (status) => {
-    const s = (status || "").toLowerCase();
-    if (s.includes("active") || s.includes("open") || s.includes("under")) return "success";
-    if (s.includes("pending")) return "warning";
-    if (s.includes("closed") || s.includes("solved")) return "default";
-    return "default";
-};
-
-const getSeverityStyle = (severity) => {
-    const s = (severity || "").toLowerCase();
-    if (s === "critical") return "text-red-700 bg-red-50 border border-red-200";
-    if (s === "high") return "text-orange-700 bg-orange-50 border border-orange-200";
-    if (s === "medium") return "text-yellow-700 bg-yellow-50 border border-yellow-200";
-    return "text-green-700 bg-green-50 border border-green-200";
-};
+import { useDebounce, useSortAndFilter, useRequestSequence } from "@/utils/hooks";
+import { getStatusVariant, getSeverityStyle } from "@/utils/styling";
+import { PAGE_SIZES, STATUS_TABS } from "@/utils/constants";
+import { getAuthHeader } from "@/services/apiCommon";
 
 const SortIcon = ({ field, sortField, sortDir }) => {
     if (sortField !== field)
@@ -61,38 +30,20 @@ const SortIcon = ({ field, sortField, sortDir }) => {
     );
 };
 
-// Tiny debounce hook — keeps the search box from hammering the API.
-const useDebounce = (value, ms = 350) => {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(value), ms);
-        return () => clearTimeout(t);
-    }, [value, ms]);
-    return debounced;
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-
 const AllCasesPage = () => {
     const [searchParams] = useSearchParams();
     const initialTab = searchParams.get("tab") || "all";
     const navigate = useNavigate();
 
-    // Filters
     const [searchInput, setSearchInput] = useState("");
     const debouncedSearch = useDebounce(searchInput, 400);
     const [statusTab, setStatusTab] = useState(initialTab);
     const [crimeType, setCrimeType] = useState("All Types");
     const [severity, setSeverity] = useState("All Severities");
 
-    // Sorting
-    const [sortField, setSortField] = useState("registered");
-    const [sortDir, setSortDir] = useState("desc");
+    const { sortField, sortDir, currentPage, setCurrentPage, handleSort } = 
+        useSortAndFilter("registered", "desc");
 
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-
-    // Server data
     const [items, setItems] = useState([]);
     const [total, setTotal] = useState(0);
     const [tabCounts, setTabCounts] = useState({
@@ -101,23 +52,20 @@ const AllCasesPage = () => {
     const [crimeTypes, setCrimeTypes] = useState(["All Types"]);
     const [severities, setSeverities] = useState(["All Severities"]);
 
-    // UI state
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const requestSeq = useRef(0);   // race-condition guard for fast typing
+    const { nextSeq, isStale } = useRequestSequence();
 
-    // Sync tab from URL changes (e.g. Header → "Active" link)
     useEffect(() => {
         const t = searchParams.get("tab") || "all";
         setStatusTab(t);
         setCurrentPage(1);
     }, [searchParams]);
 
-    // ── Fetch ─────────────────────────────────────────────────────────────
     const fetchCases = useCallback(async () => {
         setLoading(true);
         setError(null);
-        const seq = ++requestSeq.current;
+        const seq = nextSeq();
 
         try {
             const url = import.meta.env.VITE_API_URL;
@@ -131,12 +79,11 @@ const AllCasesPage = () => {
                     sort_field: sortField,
                     sort_dir: sortDir,
                     page: currentPage,
-                    page_size: PAGE_SIZE,
+                    page_size: PAGE_SIZES.CASES,
                 },
             });
 
-            // Drop stale responses if a newer request started after this one
-            if (seq !== requestSeq.current) return;
+            if (isStale(seq)) return;
 
             const d = res.data || {};
             setItems(d.items || []);
@@ -147,8 +94,7 @@ const AllCasesPage = () => {
             setCrimeTypes(["All Types", ...(opts.crime_types || [])]);
             setSeverities(["All Severities", ...(opts.severities || [])]);
         } catch (err) {
-            if (seq !== requestSeq.current) return;
-            console.error("Failed to load cases:", err);
+            if (isStale(seq)) return;
             setError(
                 err?.response?.data?.detail ||
                 "Could not load cases. Please retry."
@@ -156,18 +102,17 @@ const AllCasesPage = () => {
             setItems([]);
             setTotal(0);
         } finally {
-            if (seq === requestSeq.current) setLoading(false);
+            if (!isStale(seq)) setLoading(false);
         }
     }, [
         debouncedSearch, statusTab, crimeType, severity,
-        sortField, sortDir, currentPage,
+        sortField, sortDir, currentPage, nextSeq, isStale,
     ]);
 
     useEffect(() => {
         fetchCases();
     }, [fetchCases]);
 
-    // ── Handlers ──────────────────────────────────────────────────────────
     const handleClear = () => {
         setSearchInput("");
         setCrimeType("All Types");
@@ -176,18 +121,7 @@ const AllCasesPage = () => {
         setCurrentPage(1);
     };
 
-    const handleSort = (field) => {
-        if (sortField === field) {
-            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-        } else {
-            setSortField(field);
-            setSortDir("asc");
-        }
-        setCurrentPage(1);
-    };
-
     const handleViewCase = async (caseId) => {
-        // Fire-and-forget summary fetch — server logs the VIEW audit row.
         try {
             const url = import.meta.env.VITE_API_URL;
             await axios.get(
@@ -195,16 +129,14 @@ const AllCasesPage = () => {
                 { headers: getAuthHeader() }
             );
         } catch (err) {
-            // Don't block navigation on audit-log failure
-            console.warn("Pre-view audit failed:", err);
+            // Non-fatal
         }
         navigate(`/investigator/case/${caseId}`);
     };
 
-    // ── Derived ───────────────────────────────────────────────────────────
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const end = Math.min(start + PAGE_SIZE, total);
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZES.CASES));
+    const start = (currentPage - 1) * PAGE_SIZES.CASES;
+    const end = Math.min(start + PAGE_SIZES.CASES, total);
 
     const isFiltered =
         debouncedSearch ||
@@ -212,14 +144,12 @@ const AllCasesPage = () => {
         severity !== "All Severities" ||
         statusTab !== "all";
 
-    // ─────────────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-background text-foreground mt-14">
+        <div className="min-h-screen bg-background text-foreground mt-10">
             <Header />
 
             <main className="p-4 lg:p-6 max-w-7xl mx-auto space-y-5">
 
-                {/* Page header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -244,7 +174,6 @@ const AllCasesPage = () => {
                     </Button>
                 </div>
 
-                {/* Error banner */}
                 {error && (
                     <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
                         <AlertTriangle className="h-4 w-4" />
@@ -252,7 +181,6 @@ const AllCasesPage = () => {
                     </div>
                 )}
 
-                {/* Status tabs */}
                 <div className="flex flex-wrap gap-2 border-b border-border pb-3">
                     {STATUS_TABS.map((tab) => (
                         <button
@@ -281,10 +209,8 @@ const AllCasesPage = () => {
                     ))}
                 </div>
 
-                {/* Search + Filters */}
                 <Card className="p-4">
                     <div className="flex flex-wrap gap-3 items-end">
-                        {/* Search */}
                         <div className="relative flex-1 min-w-52">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input
@@ -299,7 +225,6 @@ const AllCasesPage = () => {
                             />
                         </div>
 
-                        {/* Crime Type filter */}
                         <div className="relative">
                             <select
                                 value={crimeType}
@@ -316,7 +241,6 @@ const AllCasesPage = () => {
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         </div>
 
-                        {/* Severity filter */}
                         <div className="relative">
                             <select
                                 value={severity}
@@ -341,7 +265,6 @@ const AllCasesPage = () => {
                     </div>
                 </Card>
 
-                {/* Table */}
                 <Card className="p-0">
                     <TableWrapper>
                         <Table>
@@ -479,7 +402,6 @@ const AllCasesPage = () => {
                     </TableWrapper>
                 </Card>
 
-                {/* Pagination */}
                 {!loading && total > 0 && (
                     <Pagination
                         currentPage={currentPage}

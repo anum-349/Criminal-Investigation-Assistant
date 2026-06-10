@@ -1,8 +1,8 @@
 import { Lock, FileText } from "lucide-react";
 import {
   SectionHeading, TextField, SelectField, TextareaField, FieldLabel,
-} from "@/pages/form/case-forms/CaseFormFields/page";
-import { CASE_TYPES } from "@/pages/form/case-forms/caseFormConstants/page";
+} from "@/pages/form/CaseFormFields/page";
+import { CASE_TYPES } from "@/pages/form/caseFormConstants/page";
 import InvestigatorPicker from "@/components/InvestigatorPicker";
 
 // ──────────────────────────────────────────────────────────────────────────

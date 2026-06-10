@@ -26,53 +26,9 @@ import { addVictimsToCase, listVictims } from '@/services/victimApi';
 import { addWitnessesToCase, listWitnesses } from '@/services/witnessApi';
 import { addSuspectsToCase, listSuspects } from "@/services/suspectApi";
 import { useToast } from '@/context/ToastContext';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const getAuthHeader = () => {
-    const token =
-        localStorage.getItem('token') || sessionStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-// ─── Header status badge styling ─────────────────────────────────────────────
-
-const getSeverityBadgeVariant = (label) => {
-    const s = (label || '').toLowerCase();
-    if (s === 'critical') return 'destructive';
-    if (s === 'high') return 'warning';
-    if (s === 'medium') return 'default';
-    return 'default';
-};
-
-const getStatusPillClass = (label) => {
-    const s = (label || '').toLowerCase();
-    if (s.includes('closed') || s.includes('solved')) return 'bg-slate-500';
-    if (s.includes('pending')) return 'bg-amber-500';
-    return 'bg-forest-teal';
-};
-
-// ─── Static case status list ──────────────────────────────────────────────────
-// Mirrors lkp_case_statuses exactly. No API call needed — codes are stable.
-// is_terminal=true means the case is closed and the backend will lock further changes.
-
-const CASE_STATUSES = [
-    { code: 'OPEN',               label: 'Open',               is_terminal: false },
-    { code: 'UNDER_INVESTIGATION',label: 'Under Investigation', is_terminal: false },
-    { code: 'ACTIVE',             label: 'Active',             is_terminal: false },
-    { code: 'PENDING',            label: 'Pending',            is_terminal: false },
-    { code: 'COLD_CASE',          label: 'Cold Case',          is_terminal: false },
-    { code: 'CLOSED',             label: 'Closed',             is_terminal: true  },
-    { code: 'ARCHIVED',           label: 'Archived',           is_terminal: true  },
-];
-
-const getDotClass = (code) => {
-    if (code === 'CLOSED' || code === 'ARCHIVED') return 'bg-slate-400';
-    if (code === 'PENDING')                        return 'bg-amber-400';
-    return 'bg-forest-teal';
-};
-
-// ─── Status Update Dropdown ───────────────────────────────────────────────────
+import { getAuthHeader } from '@/services/apiCommon';
+import { CASE_STATUSES } from '@/utils/constants';
+import { getSeverityBadgeVariant, getStatusPillClass, getDotClass } from '@/utils/styling';
 
 const StatusUpdateDropdown = ({ caseId, currentStatus, onStatusUpdated }) => {
     const [open,     setOpen]     = useState(false);
@@ -372,7 +328,7 @@ const CasePage = () => {
     // ─── Loading / error states ───────────────────────────────────────────
     if (loading) {
         return (
-            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
                 <Header />
                 <div className="flex items-center justify-center py-32 text-muted-foreground">
                     <Loader2 className="h-6 w-6 animate-spin mr-3" />
@@ -384,7 +340,7 @@ const CasePage = () => {
 
     if (loadError === 'not_found') {
         return (
-            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
                 <Header />
                 <div className="max-w-xl mx-auto py-32 text-center">
                     <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-amber-500" />
@@ -405,7 +361,7 @@ const CasePage = () => {
 
     if (loadError === 'forbidden') {
         return (
-            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
                 <Header />
                 <div className="max-w-xl mx-auto py-32 text-center">
                     <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-red-500" />
@@ -418,7 +374,7 @@ const CasePage = () => {
 
     if (loadError) {
         return (
-            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+            <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
                 <Header />
                 <div className="max-w-xl mx-auto py-32 text-center">
                     <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-red-500" />
@@ -437,7 +393,7 @@ const CasePage = () => {
     ] : [];
 
     return (
-        <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+        <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
             <Header />
 
             {/* Case Header */}

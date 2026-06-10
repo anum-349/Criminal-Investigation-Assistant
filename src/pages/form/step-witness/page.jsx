@@ -9,11 +9,11 @@ import {
   defaultWitness,
   WITNESS_TYPES, WITNESS_CREDIBILITY, WITNESS_STATUSES,
   WITNESS_RELATIONS,
-} from "@/pages/form/case-forms/caseFormConstants/page";
+} from "@/pages/form/caseFormConstants/page";
 import {
   CheckField, FieldLabel, SectionHeading,
   SelectField, TextareaField, TextField,
-} from "@/pages/form/case-forms/CaseFormFields/page";
+} from "@/pages/form/CaseFormFields/page";
 
 // ─── Validation helper (call before submit in AddWitnessDialog) ────────────
 export const validateWitness = (w) => {

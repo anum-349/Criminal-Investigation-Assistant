@@ -33,14 +33,10 @@ import { Badge } from "@/components/ui/Badge";
 
 import { deleteCase, assignCase, formatApiError } from "@/services/adminApi";
 import { listInvestigators } from "@/services/investigatorApi";
+import { getAuthHeader } from "@/services/apiCommon";
+import { getStatusVariant, getSeverityStyle } from "@/utils/styling";
 
 const PAGE_SIZE = 10;
-
-// ── Auth helper ─────────────────────────────────────────────────────────────
-const getAuthHeader = () => {
-  const t = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-  return t ? { Authorization: `Bearer ${t}` } : {};
-};
 
 const STATUS_TABS = [
   { key: "all",         label: "All Cases" },
@@ -50,21 +46,6 @@ const STATUS_TABS = [
   { key: "Unassigned",  label: "Unassigned" },
 ];
 
-// ── Style helpers ────────────────────────────────────────────────────────────
-const getStatusVariant = (s) => {
-  const v = (s || "").toLowerCase();
-  if (v.includes("active") || v.includes("open") || v.includes("under")) return "success";
-  if (v.includes("pending")) return "warning";
-  if (v.includes("closed") || v.includes("solved")) return "default";
-  return "default";
-};
-const getSeverityStyle = (s) => {
-  const v = (s || "").toLowerCase();
-  if (v === "critical") return "text-red-700 bg-red-50 border border-red-200";
-  if (v === "high")     return "text-orange-700 bg-orange-50 border border-orange-200";
-  if (v === "medium")   return "text-yellow-700 bg-yellow-50 border border-yellow-200";
-  return "text-green-700 bg-green-50 border border-green-200";
-};
 const SortIcon = ({ field, sortField, sortDir }) => {
   if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
   return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
@@ -441,7 +422,7 @@ export default function AdminAllCasesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-6 py-8 space-y-6">

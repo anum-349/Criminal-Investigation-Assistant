@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
     ChevronDown, Search, Loader2, User as UserIcon, Check, X,
 } from "lucide-react";
-import { FieldLabel } from "@/pages/form/case-forms/CaseFormFields/page";
+import { FieldLabel } from "@/pages/form/CaseFormFields/page";
 import { listInvestigators } from "@/services/investigatorApi";
 
 
@@ -22,7 +22,6 @@ export default function InvestigatorPicker({
     const [loadError, setLoadError] = useState(null);
     const wrapRef = useRef(null);
 
-    // Fetch once on mount. Cheap call; rarely changes.
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
@@ -41,7 +40,6 @@ export default function InvestigatorPicker({
         return () => { cancelled = true; };
     }, []);
 
-    // Close on outside click
     useEffect(() => {
         if (!open) return;
         const close = (e) => {
@@ -53,16 +51,11 @@ export default function InvestigatorPicker({
         return () => document.removeEventListener("mousedown", close);
     }, [open]);
 
-    // Match the currently-selected option against whichever storage mode
-    // is active. For displayLabel storage we use a tolerant comparison
-    // so legacy free-text entries (typed before the dropdown existed)
-    // still highlight if they happen to match a known investigator.
     const selected = items.find(i => {
         if (storeAs === "displayLabel") return i.displayLabel === value;
         return i.username === value;
     }) || null;
 
-    // Filter rows
     const filtered = (() => {
         const q = query.trim().toLowerCase();
         if (!q) return items;
@@ -74,11 +67,8 @@ export default function InvestigatorPicker({
         );
     })().slice(0, 50);
 
-    // Fallback plain text — if the lookup returns nothing, the form stays
-    // usable. The user can type whatever they want.
     const showFallback = !loading && !loadError && items.length === 0;
 
-    // Trigger label shows the friendly label even when storage is username.
     const triggerLabel = (() => {
         if (selected) return selected.displayLabel;
         if (value)    return value;             // legacy / free-text fallback

@@ -1,35 +1,19 @@
-// src/services/notificationApi.js
-import axios from "axios";
-
-const getAuthHeader = () => {
-    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-const apiBase = () => import.meta.env.VITE_API_URL;
+import { apiGet, apiPatch, apiDelete, apiPost } from "./apiCommon";
 
 export const fetchNotifications = (params = {}) =>
-    axios.get(`${apiBase()}/api/notifications`, {
-        headers: getAuthHeader(), params,
-    }).then(r => r.data);
+    apiGet(`/api/notifications`).then(r => r.data);
 
 export const markRead = (id) =>
-    axios.patch(`${apiBase()}/api/notifications/${id}/read`, {}, {
-        headers: getAuthHeader(),
-    }).then(r => r.data);
+    apiPatch(`/api/notifications/${id}/read`, {}).then(r => r.data);
 
 export const markAllRead = () =>
-    axios.patch(`${apiBase()}/api/notifications/read-all`, {}, {
-        headers: getAuthHeader(),
-    }).then(r => r.data);
+    apiPatch(`/api/notifications/read-all`, {}).then(r => r.data);
 
 export const deleteNotification = (id) =>
-    axios.delete(`${apiBase()}/api/notifications/${id}`, {
-        headers: getAuthHeader(),
-    }).then(r => r.data);
+    apiDelete(`/api/notifications/${id}`).then(r => r.data);
 
 export const fetchPreferences = () =>
-    axios.get(`${apiBase()}/api/auth/preferences`, {
-        headers: getAuthHeader(),
-    }).then(r => r.data);
+    apiGet(`/api/auth/preferences`).then(r => r.data);
 
+export const createNotification = (notification) =>
+    apiPost(`/api/notifications`, notification).then(r => r.data);

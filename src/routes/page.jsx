@@ -10,12 +10,9 @@ const HelpPage = lazy(() => import('@/pages/investigator/help/page'));
 const ProfilePage = lazy(() => import('@/pages/investigator/profile/page'));
 const ReportPage = lazy(() => import('@/pages/investigator/report/page'));
 const AnalyticsPage = lazy(() => import('@/pages/investigator/analytics/page'));
-const RegisterCasePage = lazy(() => import('@/pages/form/case-forms/register-case/page'));
-// const UpdateCasePage = lazy(() => import('@/pages/form/case-forms/update-case/page'));
+const RegisterCasePage = lazy(() => import('@/pages/form/register-case/page'));
 const UserManagementPage = lazy(() => import('@/pages/admin/user-management/page'));
 const SystemSettingsPage = lazy(() => import('@/pages/admin/system-setting/page'));
-const ChangePasswordForm = lazy(() => import('@/pages/admin/change-password/page'));
-// const InvestigationNotesPage = lazy(() => import('@/pages/form/investigation-notes/page'));
 
 import AuditLogsPage from "@/pages/admin/admin-audit/page";
 import LoginPage from "@/pages/login/page";
@@ -113,11 +110,6 @@ export default function AppRoutes() {
             <Route path="/admin/help" element={
                 <ProtectedRoute requiredRole="admin">
                     <AdminHelpPage />
-                </ProtectedRoute>} />
-
-            <Route path="/admin/change-password" element={
-                <ProtectedRoute requiredRole="admin">
-                    <ChangePasswordForm />
                 </ProtectedRoute>} />
 
             <Route path="/admin/profile" element={

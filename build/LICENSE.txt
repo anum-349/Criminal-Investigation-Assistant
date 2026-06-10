@@ -1,0 +1,143 @@
+CRIMINAL INVESTIGATION ASSISTANT
+END USER LICENSE AGREEMENT (EULA)
+
+Copyright (c) 2026 Aetheron. All rights reserved.
+
+PLEASE READ THIS END USER LICENSE AGREEMENT CAREFULLY BEFORE INSTALLING OR
+USING THE SOFTWARE. BY INSTALLING, COPYING, OR OTHERWISE USING THE SOFTWARE,
+YOU AGREE TO BE BOUND BY THE TERMS OF THIS AGREEMENT. IF YOU DO NOT AGREE TO
+THE TERMS OF THIS AGREEMENT, DO NOT INSTALL OR USE THE SOFTWARE.
+
+
+1. DEFINITIONS
+
+   "Software" means the Criminal Investigation Assistant application, including
+   all associated files, documentation, and updates provided by Aetheron.
+
+   "Licensee" means the individual or organization that has been granted access
+   to the Software by Aetheron or an authorized administrator.
+
+   "Authorized User" means a licensed law enforcement officer, investigator, or
+   personnel explicitly authorized by the Licensee to use the Software.
+
+2. GRANT OF LICENSE
+
+   Subject to the terms of this Agreement, Aetheron grants the Licensee a
+   limited, non-exclusive, non-transferable license to:
+
+   a) Install and use the Software on devices owned or controlled by the
+      Licensee for official law enforcement and investigative purposes only.
+
+   b) Make one (1) backup copy of the Software for archival purposes.
+
+3. RESTRICTIONS
+
+   The Licensee shall NOT:
+
+   a) Copy, modify, adapt, translate, or create derivative works of the
+      Software without prior written consent from Aetheron.
+
+   b) Reverse engineer, disassemble, decompile, or otherwise attempt to derive
+      the source code of the Software.
+
+   c) Sell, sublicense, rent, lease, transfer, or otherwise distribute the
+      Software or any rights therein to any third party.
+
+   d) Use the Software for any unlawful purpose or in violation of any
+      applicable law or regulation.
+
+   e) Remove or alter any proprietary notices, labels, or marks on the Software.
+
+   f) Use the Software to process or store data in violation of applicable
+      data protection and privacy laws.
+
+4. AUTHORIZED USE
+
+   The Software is intended exclusively for use by authorized law enforcement
+   agencies, investigative bodies, and personnel with legitimate legal authority.
+   Use of this Software is subject to all applicable laws governing criminal
+   investigations, data privacy, and law enforcement conduct in the jurisdiction
+   of use.
+
+   Unauthorized access to or use of this Software is strictly prohibited and
+   may be subject to civil and criminal penalties.
+
+5. DATA AND PRIVACY
+
+   a) The Licensee is solely responsible for ensuring that all data entered
+      into or processed by the Software complies with applicable data protection
+      laws, including but not limited to local law enforcement data regulations.
+
+   b) Aetheron does not collect, transmit, or retain any case data, personal
+      information, or investigative records entered into the Software.
+
+   c) The Licensee is responsible for maintaining the security and
+      confidentiality of all data processed through the Software.
+
+6. INTELLECTUAL PROPERTY
+
+   The Software and all copies thereof are proprietary to Aetheron and title
+   thereto remains in Aetheron. All rights in the Software not specifically
+   granted in this Agreement are reserved to Aetheron. The Software is
+   protected by copyright laws and international treaty provisions.
+
+7. DISCLAIMER OF WARRANTIES
+
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. AETHERON
+   EXPRESSLY DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, STATUTORY,
+   OR OTHERWISE, INCLUDING WITHOUT LIMITATION ANY IMPLIED WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+   AETHERON DOES NOT WARRANT THAT THE SOFTWARE WILL MEET YOUR REQUIREMENTS,
+   THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE,
+   OR THAT DEFECTS IN THE SOFTWARE WILL BE CORRECTED.
+
+8. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL AETHERON BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+   OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+   WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+   OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+   AETHERON'S TOTAL CUMULATIVE LIABILITY ARISING OUT OF OR RELATED TO THIS
+   AGREEMENT SHALL NOT EXCEED THE AMOUNT PAID BY THE LICENSEE FOR THE SOFTWARE
+   IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.
+
+9. TERMINATION
+
+   This Agreement is effective until terminated. Aetheron may terminate this
+   Agreement immediately upon written notice if the Licensee breaches any
+   provision of this Agreement. Upon termination, the Licensee must destroy
+   all copies of the Software in its possession. Sections 3, 5, 6, 7, 8, and
+   10 shall survive termination of this Agreement.
+
+10. GOVERNING LAW
+
+    This Agreement shall be governed by and construed in accordance with
+    applicable laws. Any disputes arising under or in connection with this
+    Agreement shall be subject to the exclusive jurisdiction of the competent
+    courts in the jurisdiction where Aetheron is registered.
+
+11. ENTIRE AGREEMENT
+
+    This Agreement constitutes the entire agreement between the parties with
+    respect to the subject matter hereof and supersedes all prior agreements,
+    understandings, negotiations, and discussions, whether oral or written,
+    between the parties relating to the subject matter hereof.
+
+12. CONTACT
+
+    For licensing inquiries, support, or legal notices, contact:
+
+    Aetheron
+    Email: contact@aetheron.com
+
+
+By installing this Software, you acknowledge that you have read this Agreement,
+understand it, and agree to be bound by its terms and conditions.
+
+Criminal Investigation Assistant v1.0.0
+Copyright (c) 2026 Aetheron. All rights reserved.

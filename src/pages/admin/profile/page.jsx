@@ -25,12 +25,8 @@ import Header from "@/components/Header";
 import { Card } from "@/components/ui/Card";
 import { formatApiError } from "@/services/adminApi";
 import { AuthContext } from '@/context/AuthContext';
+import { getAuthHeader } from "@/services/apiCommon";
 
-// ── Auth ────────────────────────────────────────────────────────────────────
-const getAuthHeader = () => {
-  const t = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-  return t ? { Authorization: `Bearer ${t}` } : {};
-};
 const apiBase = () => import.meta.env.VITE_API_URL;
 
 const TABS = [
@@ -204,7 +200,7 @@ export default function AdminProfilePage() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-soft-mist mt-14">
+      <div className="min-h-screen bg-soft-mist mt-10">
         <Header />
         <main className="max-w-6xl mx-auto px-4 py-16 text-center text-slate-500">
           <Loader2 className="h-8 w-8 mx-auto animate-spin mb-3 text-deep-ocean" />
@@ -216,7 +212,7 @@ export default function AdminProfilePage() {
 
   if (profileError) {
     return (
-      <div className="min-h-screen bg-soft-mist mt-14">
+      <div className="min-h-screen bg-soft-mist mt-10">
         <Header />
         <main className="max-w-3xl mx-auto px-4 py-16">
           <Card className="p-8 text-center">
@@ -232,7 +228,7 @@ export default function AdminProfilePage() {
   const initials = (profile.username || "??").slice(0, 2).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="max-w-6xl mx-auto px-4 lg:px-6 py-8 space-y-6">

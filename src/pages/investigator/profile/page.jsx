@@ -12,13 +12,10 @@ import Header from '@/components/Header';
 import { Card } from '@/components/ui/Card';
 import { AuthContext } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { getAuthHeader, getStoredToken } from '@/services/apiCommon';
+import { photoSrc } from '@/utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL;
-
-const getAuthHeader = () => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 // ── Tab definitions ────────────────────────────────────────────────────────────
 const TABS = [
@@ -62,14 +59,6 @@ const Toggle = ({ label, description, value, onChange }) => (
     </div>
 );
 
-const photoSrc = (rawUrl) => {
-    if (!rawUrl) return '';
-    if (rawUrl.startsWith('http')) return rawUrl;
-    if (rawUrl.startsWith('/uploads')) return `${import.meta.env.VITE_API_URL}${rawUrl}`;
-    return rawUrl;
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
 const ProfilePage = () => {
     const navigate = useNavigate();
     const { logout } = useContext(AuthContext);
@@ -77,7 +66,7 @@ const ProfilePage = () => {
     const toast = useToast();
 
     const getTokenData = () => {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const token = getStoredToken();
         if (!token) return {};
         try { return jwtDecode(token); }
         catch { return {}; }
@@ -307,7 +296,7 @@ const ProfilePage = () => {
         : (tokenData.role === 'admin' ? 'AD' : 'IN');
 
     return (
-        <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14 py-4">
+        <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10 py-4">
             <Header />
 
             <main className="max-w-6xl mx-auto px-4 lg:px-6 py-8 space-y-6 bg-white/70 rounded-lg border border-slate-300 shadow-sm">

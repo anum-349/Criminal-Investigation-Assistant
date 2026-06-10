@@ -8,11 +8,11 @@ import {
   defaultVictim,
   INJURY_TYPES, VICTIM_STATUSES, RELATION_TO_VICTIM,
   THREAT_LEVELS, DECLARED_DEAD_OPTIONS, POSTMORTEM_OPTIONS,
-} from "@/pages/form/case-forms/caseFormConstants/page";
+} from "@/pages/form/caseFormConstants/page";
 import {
   CheckField, FieldLabel, SectionHeading,
   SelectField, TextareaField, TextField,
-} from "@/pages/form/case-forms/CaseFormFields/page";
+} from "@/pages/form/CaseFormFields/page";
 import { Input } from "@/components/ui/Input";
 import InvestigatorPicker from "@/components/InvestigatorPicker";
 

@@ -1,7 +1,7 @@
 {
   "name": "criminal-investigation-assistant",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -43,12 +43,14 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "rcedit": "^5.0.2",
     "vite": "^7.2.4",
     "wait-on": "^9.0.4"
   },
   "build": {
     "appId": "com.criminalinvestigationassistant.app",
     "productName": "Criminal Investigation Assistant",
+    "copyright": "Copyright © 2026 AETHERON Team",
     "directories": {
       "output": "release"
     },
@@ -63,7 +65,27 @@
         "portable"
       ],
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "requestedExecutionLevel": "asInvoker",
+      "executableName": "Criminal Investigation Assistant"
+    },
+    "afterPack": "./electron/build-hooks.cjs",
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "license": "build/LICENSE.txt",
+      "shortcutName": "Criminal Investigation Assistant",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    },
+    "extraMetadata": {
+      "author": {
+        "name": "Aetheron",
+        "email": "contact@aetheron.com"
+      }
     },
     "extraResources": [
       {

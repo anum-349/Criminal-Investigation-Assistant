@@ -24,7 +24,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Camera, Save, X, AlertCircle, Loader2 } from "lucide-react";
-import { StepEvidence } from "@/pages/form/case-forms/step-evidence/page";
+import { StepEvidence } from "@/pages/form/step-evidence/page";
 
 export default function AddEvidenceDialog({
     isOpen,

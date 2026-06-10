@@ -1,67 +1,42 @@
 import axios from "axios";
-
-// ── Auth header (same convention as the rest of the app) ───────────────────
-const getAuthHeader = () => {
-    const token =
-        localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
+import { apiPost, apiGet, getAuthHeader } from "./apiCommon";
 
 const apiBase = () => import.meta.env.VITE_API_URL;
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. Health check
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Probe the AI service. Returns the parsed health object.
- * NEVER throws — a failure to reach the backend returns
- * { available: false, detail: "..." }. The button uses this to grey out.
- */
 
 export const buildLeadPayload = (lead) => {
     const out = {};
     const fwd = (k, v) => { if (v !== undefined && v !== null && v !== "") out[k] = v; };
 
-    fwd("type",             lead?.type);
-    fwd("severity",         lead?.severity);
-    fwd("description",      lead?.description);
-    fwd("nextStep",         lead?.nextStep);
-    fwd("source",           lead?.source);          // "AI Analysis" preserves provenance
+    fwd("type", lead?.type);
+    fwd("severity", lead?.severity);
+    fwd("description", lead?.description);
+    fwd("nextStep", lead?.nextStep);
+    fwd("source", lead?.source);
     fwd("suggestedSuspect", lead?.suggestedSuspect?.name || lead?.suggestedSuspect);
-    fwd("suspectBasis",     lead?.suggestedSuspect?.basis || lead?.suspectBasis);
-    fwd("similarCaseId",    lead?.similarCase?.id || lead?.similarCaseId);
-    fwd("weaponPattern",    lead?.weaponPattern);
-    fwd("locationArea",     lead?.locationArea);
-    fwd("confidence",       typeof lead?.confidence === "number" ? lead.confidence : undefined);
-    fwd("status",           lead?.status || "New");
+    fwd("suspectBasis", lead?.suggestedSuspect?.basis || lead?.suspectBasis);
+    fwd("similarCaseId", lead?.similarCase?.id || lead?.similarCaseId);
+    fwd("weaponPattern", lead?.weaponPattern);
+    fwd("locationArea", lead?.locationArea);
+    fwd("confidence", typeof lead?.confidence === "number" ? lead.confidence : undefined);
+    fwd("status", lead?.status || "New");
     return out;
 };
 
-// ── 1. Add a single lead to a case ────────────────────────────────────────
 export const addLeadToCase = async (caseId, lead) => {
     if (!caseId) throw new Error("caseId is required");
-
-    const res = await axios.post(
-        `${apiBase()}/api/investigator/cases/${caseId}/leads`,
-        buildLeadPayload(lead),
-        { headers: getAuthHeader() },
+    const res = await apiPost(
+        `/api/investigator/cases/${caseId}/leads`,
+        buildLeadPayload(lead)
     );
-    return res.data;     // LeadRow shape from schemas/case_lead_schema.py
+    return res.data;
 };
 
-// ── 2. Bulk-add a batch (one POST per lead — backend has no bulk endpoint
-//      and 3-5 leads/case is well under any rate limit). Returns
-//      { created: LeadRow[], failures: [{ lead, error }] }. NEVER throws
-//      on a partial failure — registration shouldn't be undone just
-//      because one lead didn't save. */
 export const addLeadsToCase = async (caseId, leads) => {
     if (!caseId) throw new Error("caseId is required");
     const list = Array.isArray(leads) ? leads : [];
     if (!list.length) return { created: [], failures: [] };
 
-    const created  = [];
+    const created = [];
     const failures = [];
 
     for (const lead of list) {
@@ -81,9 +56,8 @@ export const addLeadsToCase = async (caseId, leads) => {
 
 export const checkAiHealth = async () => {
     try {
-        const res = await axios.get(
-            `${apiBase()}/api/investigator/cases/leads/ai/health`,
-            { headers: getAuthHeader(), timeout: 5000 },
+        const res = await apiGet(
+            `/api/investigator/cases/leads/ai/health`
         );
         return res.data;
     } catch (err) {
@@ -91,26 +65,10 @@ export const checkAiHealth = async () => {
             available: false,
             model: "—",
             model_pulled: false,
-            detail:
-                err?.response?.data?.detail ||
-                "AI service is unreachable.",
+            detail: err?.response?.data?.detail || "AI service is unreachable.",
         };
     }
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. Blocking generation
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Trigger AI lead generation for a case and await all generated leads.
- * Resolves with the full GenerationResult-shaped payload. Throws on
- * non-2xx with a useful message.
- *
- * Long timeout — design § 8 budgets ~13s on CPU; we give it 90s of
- * headroom in case the first request after a cold start triggers
- * Ollama to load the model from disk.
- */
 
 export const generateAiLeads = async (caseId) => {
     if (!caseId) throw new Error("caseId is required");
@@ -118,32 +76,10 @@ export const generateAiLeads = async (caseId) => {
     const res = await axios.post(
         `${apiBase()}/api/investigator/cases/${caseId}/leads/generate`,
         {},
-        { headers: getAuthHeader(), timeout: 90_000 },
+        { headers: getAuthHeader(), timeout: 90_000 }
     );
     return res.data;
-    // Shape: {
-    //   case_id, accepted_leads, rejected_count, rejected_issues, reason,
-    //   duration_ms, model, context_depth_score, gap_count, raw_lead_count
-    // }
 };
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. Streaming generation (NDJSON)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Streaming variant. Calls callbacks as the server emits NDJSON events.
- *
- * Callbacks (all optional):
- *   onStarted({ case_id, model })   when the server confirms it has started
- *   onLead(leadRow)                 each accepted lead, in priority order
- *   onRejected({ count, issues })   if any were rejected
- *   onDone({ accepted, rejected, duration_ms, reason })
- *   onError({ status, detail })     any error mid-stream — terminal
- *
- * Returns: () => void  — call to abort the stream early.
- */
 
 export const streamAiLeads = (caseId, {
     onStarted,
@@ -159,19 +95,19 @@ export const streamAiLeads = (caseId, {
     }
 
     const ctrl = new AbortController();
-    const url  = `${apiBase()}/api/investigator/cases/${caseId}/leads/generate/stream`;
+    const url = `${apiBase()}/api/investigator/cases/${caseId}/leads/generate/stream`;
 
     (async () => {
         let res;
         try {
             res = await fetch(url, {
-                method:  "POST",
+                method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     ...getAuthHeader(),
                 },
-                body:    "{}",
-                signal:  ctrl.signal,
+                body: "{}",
+                signal: ctrl.signal,
             });
         } catch (err) {
             if (err.name !== "AbortError") {
@@ -185,14 +121,14 @@ export const streamAiLeads = (caseId, {
             try {
                 const body = await res.json();
                 detail = body?.detail || detail;
-            } catch { /* response wasn't JSON */ }
+            } catch { }
             onError?.({ status: res.status, detail });
             return;
         }
 
-        const reader  = res.body.getReader();
+        const reader = res.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let buffer    = "";
+        let buffer = "";
 
         try {
             while (true) {
@@ -211,9 +147,6 @@ export const streamAiLeads = (caseId, {
                     try {
                         evt = JSON.parse(line);
                     } catch {
-                        // Skip malformed line — shouldn't happen, but
-                        // we won't blow up the whole stream over one
-                        // bad chunk.
                         continue;
                     }
 
@@ -224,7 +157,7 @@ export const streamAiLeads = (caseId, {
                         case "context":
                             onContext?.({
                                 depth_score: evt.depth_score,
-                                gap_count:   evt.gap_count,
+                                gap_count: evt.gap_count,
                             });
                             break;
                         case "lead":
@@ -235,19 +168,18 @@ export const streamAiLeads = (caseId, {
                             break;
                         case "done":
                             onDone?.({
-                                accepted:       evt.accepted,
-                                rejected:       evt.rejected,
-                                duration_ms:    evt.duration_ms,
-                                reason:         evt.reason,
+                                accepted: evt.accepted,
+                                rejected: evt.rejected,
+                                duration_ms: evt.duration_ms,
+                                reason: evt.reason,
                                 raw_lead_count: evt.raw_lead_count,
-                                gap_count:      evt.gap_count,
+                                gap_count: evt.gap_count,
                             });
                             break;
                         case "error":
                             onError?.({ status: evt.status, detail: evt.detail });
                             break;
                         default:
-                            // Unknown event — ignore (forward-compatible).
                             break;
                     }
                 }
@@ -261,3 +193,5 @@ export const streamAiLeads = (caseId, {
 
     return () => ctrl.abort();
 };
+
+export { formatApiError } from "./apiCommon";

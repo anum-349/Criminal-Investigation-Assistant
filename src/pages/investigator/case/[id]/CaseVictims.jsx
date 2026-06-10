@@ -17,10 +17,7 @@ import {
   detailToFormShape,
   formatApiError,
 } from '@/services/victimApi';
-
-// ─── Case type config ────────────────────────────────────────────────────────
-// Defines which detail sections are relevant per case type.
-// Add new types here — the UI adapts automatically.
+import { photoSrc } from '@/utils/formatters';
 
 const CASE_TYPE_CONFIG = {
   // ── Murder / Homicide ──────────────────────────────────────────────────────
@@ -371,22 +368,6 @@ const ProtectionCard = ({ protection }) => (
   </article>
 );
 
-//photoSrc helper at the top of the file:
-const photoSrc = (rawUrl) => {
-  if (!rawUrl) return '';
-  if (rawUrl.startsWith('http')) return rawUrl;
-  if (rawUrl.startsWith('/uploads')) return `${import.meta.env.VITE_API_URL}${rawUrl}`;
-  return rawUrl;
-};
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CHANGE 6 (optional) — Tab cards: render a tiny photoUrl thumbnail next to
-// the title so the tab is recognizable at a glance. Inside the existing
-// .map((v) => <button …>) replace the inner content with:
-// //
-
-/** Legal Status — shown when showLegal=true */
 const LegalCard = ({ legal }) => (
   <article
     className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm"
@@ -418,8 +399,6 @@ const LegalCard = ({ legal }) => (
     )}
   </article>
 );
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 const CaseVictim = ({ caseId: caseIdProp }) => {
   const { id: caseIdFromUrl } = useParams();

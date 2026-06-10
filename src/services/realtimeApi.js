@@ -1,38 +1,3 @@
-// src/services/realtimeApi.js
-// ─────────────────────────────────────────────────────────────────────────────
-// Real-time client for the notifications WebSocket.
-//
-// PUBLIC API
-// ──────────
-//   connectRealtime({ onNotification, onReady }) → { close }
-//
-//   - onNotification:  called every time the server pushes an event whose
-//                      `type` is anything other than "ping" / "ready".
-//                      The payload includes `type`, `title`, `severity`.
-//                      Treat it as a hint to refetch — we don't try to
-//                      render the row directly from the socket frame
-//                      because the canonical store is the REST endpoint.
-//   - onReady:         called once on successful handshake.
-//
-//   Returns an object with `close()` that tears down the connection.
-//   Callers should invoke it from a useEffect cleanup.
-//
-// WHY A SEPARATE FILE
-// ───────────────────
-// `Header.jsx` doesn't care about reconnection math, exponential backoff,
-// or message parsing — it just wants "tell me when a notification fires."
-// Pulling all that out keeps Header.jsx focused on rendering.
-//
-// RECONNECT STRATEGY
-// ──────────────────
-// Browsers do NOT auto-reconnect WebSockets (unlike EventSource). We
-// implement it ourselves: exponential backoff capped at 30s, with a
-// small ±20% jitter so a reconnect storm after a server restart doesn't
-// hammer the backend in lockstep.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Same token-finder pattern as Header.jsx used for the SSE token. Kept
-// inline so this module has no internal deps.
 const getRawToken = () => {
   for (const store of [localStorage, sessionStorage]) {
     for (let i = 0; i < store.length; i++) {
@@ -45,21 +10,16 @@ const getRawToken = () => {
   return "";
 };
 
-// Convert http(s) base URL to ws(s) for the WS endpoint. Handles both
-// dev (http://localhost:8000) and prod (https://…) uniformly.
 const wsBaseFromHttp = (httpBase) => {
   if (!httpBase) return "";
   return httpBase.replace(/^http/i, "ws");
 };
 
-// Backoff params — start fast, cap at 30s.
 const BACKOFF_INITIAL_MS = 500;
 const BACKOFF_MAX_MS = 30_000;
 const BACKOFF_FACTOR = 2;
-const JITTER = 0.2; // ±20%
+const JITTER = 0.2;
 
-// Close codes the backend uses for auth failures. If we get any of these,
-// don't bother reconnecting — the user has to log in again.
 const TERMINAL_CLOSE_CODES = new Set([4401, 4403, 4404]);
 
 export const connectRealtime = ({ onNotification, onReady } = {}) => {
@@ -73,7 +33,6 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
 
   const scheduleReconnect = () => {
     if (stopped) return;
-    // Jitter: backoff * (1 ± JITTER)
     const jittered = backoff * (1 + (Math.random() * 2 - 1) * JITTER);
     reconnectTimer = setTimeout(() => connect(), jittered);
     backoff = Math.min(backoff * BACKOFF_FACTOR, BACKOFF_MAX_MS);
@@ -83,9 +42,6 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
     if (stopped) return;
     const token = getRawToken();
     if (!token) {
-      // No token — nothing we can do until the user logs in. Bail
-      // permanently; whoever calls connectRealtime again after login
-      // will start fresh.
       console.warn("[realtime] no JWT in storage — not connecting");
       return;
     }
@@ -100,12 +56,11 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
     }
 
     ws.onopen = () => {
-      if (stopped) {          // ← ADD THIS: Strict Mode closed us mid-handshake
+      if (stopped) {
         ws.close();
         return;
       }
       backoff = BACKOFF_INITIAL_MS;
-      console.log("[realtime] ✅ WS connected");
     };
 
     ws.onmessage = (event) => {
@@ -118,8 +73,6 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
       const t = msg?.type;
 
       if (t === "ping") {
-        // Server liveness probe — reply with pong. Not required by the
-        // backend but cheap and helps NAT keepalive.
         try { ws.send(JSON.stringify({ type: "pong" })); } catch { }
         return;
       }
@@ -137,20 +90,16 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
         }
         return;
       }
-      // Unknown message type — ignore.
     };
 
     ws.onerror = (e) => {
-      // Don't act on this directly — onclose always follows and that's
-      // where we handle reconnection. We just log so the network tab
-      // isn't the only signal during dev.
       console.debug("[realtime] ws error:", e);
     };
 
     ws.onclose = (e) => {
       ws = null;
       if (TERMINAL_CLOSE_CODES.has(e.code)) {
-        console.warn("[realtime] auth-related close code", e.code, "— stopping reconnects");
+        console.warn("[realtime] auth-related close code", e.code);
         stopped = true;
         return;
       }
@@ -158,8 +107,6 @@ export const connectRealtime = ({ onNotification, onReady } = {}) => {
     };
   };
 
-  // Kick off the first connection synchronously so the caller sees a
-  // working channel immediately on a logged-in page load.
   connect();
 
   return {

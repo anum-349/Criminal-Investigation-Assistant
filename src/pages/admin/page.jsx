@@ -16,16 +16,14 @@ import Header from "@/components/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { fetchAdminDashboard, formatApiError } from "@/services/adminApi";
+import { formatRelativeTime } from "@/utils/formatters";
 
-// ─── Theme ────────────────────────────────────────────────────────────────────
 const COLORS = {
   primary: "#1B3C53", second: "#345A76", accent: "#4A90B8",
   light: "#7FB3D0", success: "#16a34a", warning: "#d97706", danger: "#dc2626",
 };
 const PIE_COLORS = ["#1B3C53", "#4A90B8", "#7FB3D0", "#d97706", "#dc2626", "#16a34a"];
 
-// Static map from KPI label → icon + bg/color classes. Keeps the look
-// consistent regardless of what the backend returns.
 const KPI_VISUAL = {
   "Total Cases":     { icon: FolderOpen,  bg: "bg-blue-50",    color: "text-deep-ocean" },
   "Active Users":    { icon: Users,       bg: "bg-emerald-50", color: "text-emerald-600" },
@@ -51,7 +49,6 @@ const QUICK_ACTIONS = [
     color: "text-emerald-600", bg: "bg-emerald-50 hover:bg-emerald-100 border-emerald-200" },
 ];
 
-// ─── Cards ────────────────────────────────────────────────────────────────────
 const StatCard = ({ stat }) => {
   const v = KPI_VISUAL[stat.label] || KPI_VISUAL["Total Cases"];
   const TrendIcon = stat.trend === "up" ? TrendingUp : TrendingDown;
@@ -100,12 +97,8 @@ const QuickActionCard = ({ action, onClick }) => (
   </button>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAGE
-// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminPage() {
   const navigate = useNavigate();
-
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -128,11 +121,10 @@ export default function AdminPage() {
   const totalCases = (data?.case_status || []).reduce((sum, s) => sum + s.value, 0);
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-6 py-8 space-y-6">
-        {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -149,7 +141,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Error banner */}
         {error && (
           <div className="flex items-start gap-3 p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -160,7 +151,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Stats Row */}
         <section aria-label="Key Statistics">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {loading
@@ -169,7 +159,6 @@ export default function AdminPage() {
           </div>
         </section>
 
-        {/* Quick Actions */}
         <section aria-label="Quick Actions">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
             Quick Actions
@@ -181,7 +170,6 @@ export default function AdminPage() {
           </div>
         </section>
 
-        {/* Charts Row */}
         <section aria-label="Analytics" className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="lg:col-span-2 p-5">
             <div className="flex items-center justify-between mb-4">
@@ -214,7 +202,6 @@ export default function AdminPage() {
             )}
           </Card>
 
-          {/* Case status pie */}
           <Card className="p-5">
             <h3 className="text-base font-bold text-slate-800">Cases by Status</h3>
             <p className="text-xs text-slate-500 mt-0.5 mb-4">{totalCases.toLocaleString()} total</p>
@@ -237,7 +224,6 @@ export default function AdminPage() {
           </Card>
         </section>
 
-        {/* Alerts + Users by Role */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="lg:col-span-2 p-5">
             <div className="flex items-center justify-between mb-4">
@@ -293,7 +279,6 @@ export default function AdminPage() {
           </Card>
         </section>
 
-        {/* Recent activity */}
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div>

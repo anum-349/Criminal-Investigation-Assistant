@@ -13,11 +13,12 @@ import {
   Brain, AlertTriangle, Loader2, CheckCircle2,
   RefreshCw, Link2, Sparkles,
 } from "lucide-react";
-import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
+import { SectionHeading } from "@/pages/form/CaseFormFields/page";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { streamAiLeads } from "@/services/leadApi";
 import { regenerateLinkedCases, fetchLinkedCases } from "@/services/caseApi";
+import { getAuthHeader } from "@/services/apiCommon";
 
 // ── Static preview leads from FIR extraction (shown before caseId exists) ────
 export function buildFirLeads(data) {
@@ -204,8 +205,7 @@ export default function StepAIAnalysis({ data, setData }) {
 
     abortRef.current = streamAiLeads(caseId, {
       onStarted: ({ model }) => {
-        console.log("[StepAIAnalysis] Stream started — model:", model, "caseId:", caseId);
-        setStreamMeta(m => ({ ...m, model }));
+       setStreamMeta(m => ({ ...m, model }));
       },
 
       onContext: ({ depth_score, gap_count }) => {

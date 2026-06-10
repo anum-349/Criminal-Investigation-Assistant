@@ -1,27 +1,85 @@
-import axios from "axios";
-
-export const getAuthHeader = () => {
-    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
+import {
+    apiPost, apiPatch, apiDelete, apiGetWithParams,
+    isNewPhoto, parseAge, uploadPhotos, formatApiError
+} from "./apiCommon";
 
 const apiBase = () => import.meta.env.VITE_API_URL;
 
-const isNewPhoto = (p) =>
-    !p?.existingPhotoId && typeof p?.dataUrl === "string" && p.dataUrl.startsWith("data:");
+const suspectSchema = {
+    suspectId: () => undefined,
+    name: v => v || undefined,
+    cnic: v => v || undefined,
+    age: parseAge,
+    gender: v => v || undefined,
+    contact: v => v || undefined,
+    address: v => v || undefined,
+    occupation: v => v || undefined,
+    status: v => v || undefined,
+    relationToCase: v => v || undefined,
+    reason: v => v || undefined,
+    alibi: v => v || undefined,
+    physicalDescription: v => v || undefined,
+    knownAffiliations: v => v || undefined,
+    arrivalMethod: v => v || undefined,
+    vehicleDescription: v => v || undefined,
+    notes: v => v || undefined,
+};
 
-const parseAge = (v) => {
-    if (v === undefined || v === null || v === "") return undefined;
-    const n = parseInt(v, 10);
-    return Number.isNaN(n) ? undefined : n;
+const suspectPatchSchema = {
+    name: v => v,
+    cnic: v => v,
+    age: { type: "age" },
+    gender: v => v,
+    contact: v => v,
+    address: v => v,
+    occupation: v => v,
+    status: v => v,
+    relationToCase: v => v,
+    reason: v => v,
+    alibi: v => v,
+    physicalDescription: v => v,
+    knownAffiliations: v => v,
+    arrivalMethod: v => v,
+    vehicleDescription: v => v,
+    notes: v => v,
+    arrested: { type: "boolean" },
+    criminalRecord: { type: "boolean" },
 };
 
 export const listSuspects = async (caseId, params = {}) => {
-    const res = await axios.get(
-        `${apiBase()}/api/investigator/cases/${caseId}/suspects`,
-        { headers: getAuthHeader(), params },
+    const res = await apiGetWithParams(
+        `/api/investigator/cases/${caseId}/suspects`,
+        params
     );
     return res.data;
+};
+
+export const suspectToCreatePayload = (s) => {
+    const payload = {};
+    Object.entries(suspectSchema).forEach(([key, processor]) => {
+        const value = processor(s?.[key]);
+        if (value !== undefined) payload[key] = value;
+    });
+    payload.criminalRecord = !!s?.criminalRecord;
+    payload.arrested = !!s?.arrested;
+    return payload;
+};
+
+export const suspectToPatchPayload = (s) => {
+    const payload = {};
+    const fwd = (k, v) => { if (v !== undefined) payload[k] = v; };
+    
+    Object.entries(suspectPatchSchema).forEach(([key, config]) => {
+        if (config.type === "boolean") {
+            if (s?.[key] !== undefined) payload[key] = !!s[key];
+        } else if (config.type === "age") {
+            if (s?.age !== undefined && s?.age !== "") payload.age = parseAge(s.age);
+        } else {
+            fwd(key, s?.[key]);
+        }
+    });
+    
+    return payload;
 };
 
 export const addSuspectsToCase = async (caseId, suspects) => {
@@ -29,95 +87,45 @@ export const addSuspectsToCase = async (caseId, suspects) => {
     const list = Array.isArray(suspects) ? suspects : [];
     if (!list.length) return { created_ids: [], photo_failures: [] };
 
-    const url     = apiBase();
-    const headers = getAuthHeader();
-
-    const res = await axios.post(
-        `${url}/api/investigator/cases/${caseId}/suspects`,
-        {
-            suspects: list.map(s => ({
-                suspectId:           s.suspectId           || undefined,
-                name:                s.name                || undefined,
-                cnic:                s.cnic                || undefined,
-                age:                 parseAge(s.age),
-                gender:              s.gender              || undefined,
-                contact:             s.contact             || undefined,
-                address:             s.address             || undefined,
-                occupation:          s.occupation          || undefined,
-                status:              s.status              || undefined,
-                relationToCase:      s.relationToCase      || undefined,
-                reason:              s.reason              || undefined,
-                alibi:               s.alibi               || undefined,
-                physicalDescription: s.physicalDescription || undefined,
-                knownAffiliations:   s.knownAffiliations   || undefined,
-                arrivalMethod:       s.arrivalMethod       || undefined,
-                vehicleDescription:  s.vehicleDescription  || undefined,
-                notes:               s.notes               || undefined,
-                criminalRecord:      !!s.criminalRecord,
-                arrested:            !!s.arrested,
-            })),
-        },
-        { headers },
+    const res = await apiPost(
+        `/api/investigator/cases/${caseId}/suspects`,
+        { suspects: list.map(suspectToCreatePayload) }
     );
 
-    const data       = res.data || {};
+    const data = res.data || {};
     const createdIds = data.created_ids || [];
-    const photoFailures = [];
-
-    // Upload photo per-suspect (index-aligned with createdIds)
-    for (let i = 0; i < list.length; i++) {
-        const s         = list[i];
-        const suspectId = createdIds[i];
-        if (!suspectId) continue;
-
-        const photoArr = Array.isArray(s.photoUrl) ? s.photoUrl : [];
-        const newPhoto = photoArr.find(isNewPhoto);
-        if (!newPhoto) continue;
-
-        try {
-            await axios.post(
-                `${url}/api/investigator/cases/${caseId}/suspect/${suspectId}/photo`,
-                { dataUrl: newPhoto.dataUrl, fileName: newPhoto.name },
-                { headers },
-            );
-        } catch (err) {
-            photoFailures.push({
-                suspectId,
-                photoName: newPhoto.name || "(unnamed)",
-                error: err?.response?.data?.detail || err.message || "Upload failed",
-            });
-        }
-    }
+    
+    const photoFailures = await uploadPhotos(caseId, "suspect", createdIds, list);
 
     return { created_ids: createdIds, photo_failures: photoFailures };
 };
 
 export const updateSuspect = async (caseId, suspectId, formItem) => {
     if (!caseId || !suspectId) throw new Error("caseId and suspectId are required");
-    const url     = apiBase();
-    const headers = getAuthHeader();
 
-    const patchRes = await axios.patch(
-        `${url}/api/investigator/cases/${caseId}/suspects/${suspectId}`,
-        suspectToPatchPayload(formItem),
-        { headers },
+    const patchRes = await apiPatch(
+        `/api/investigator/cases/${caseId}/suspects/${suspectId}`,
+        suspectToPatchPayload(formItem)
     );
     let latest = patchRes.data;
     const photoFailures = [];
+
     const photoArr = Array.isArray(formItem?.photoUrl) ? formItem.photoUrl : [];
     const newPhoto = photoArr.find(isNewPhoto);
 
     if (newPhoto) {
         try {
-            const photoRes = await axios.post(
-                `${url}/api/investigator/cases/${caseId}/suspect/${suspectId}/photo`,
-                { dataUrl: newPhoto.dataUrl, fileName: newPhoto.name },
-                { headers },
+            const photoRes = await apiPost(
+                `/api/investigator/cases/${caseId}/suspect/${suspectId}/photos`,
+                { dataUrl: newPhoto.dataUrl, fileName: newPhoto.name }
             );
             latest = { ...latest, photoUrl: photoRes.data?.photoUrl || latest.photoUrl };
         } catch (err) {
-            photoFailures.push({ suspectId, photoName: newPhoto.name || "(unnamed)",
-                error: err?.response?.data?.detail || err.message });
+            photoFailures.push({
+                suspectId,
+                photoName: newPhoto.name || "(unnamed)",
+                error: err?.response?.data?.detail || err.message,
+            });
         }
     }
 
@@ -125,46 +133,13 @@ export const updateSuspect = async (caseId, suspectId, formItem) => {
     const hasPhoto = photoArr.length > 0;
     if (hadPhoto && !hasPhoto) {
         try {
-            await axios.delete(
-                `${url}/api/investigator/cases/${caseId}/suspect/${suspectId}/photo`,
-                { headers },
-            );
+            await apiDelete(`/api/investigator/cases/${caseId}/suspect/${suspectId}/photo`);
             latest = { ...latest, photoUrl: null };
         } catch (err) {
-            console.warn("Photo delete failed:", err);
+            // Non-fatal
         }
     }
     return { detail: latest, photo_failures: photoFailures };
 };
 
-export const suspectToPatchPayload = (s) => {
-    const p = {};
-    const fwd = (k, v) => { if (v !== undefined) p[k] = v; };
-    fwd("name",                s?.name);
-    fwd("cnic",                s?.cnic);
-    if (s?.age !== undefined && s?.age !== "") p.age = parseAge(s.age);
-    fwd("gender",              s?.gender);
-    fwd("contact",             s?.contact);
-    fwd("address",             s?.address);
-    fwd("occupation",          s?.occupation);
-    fwd("status",              s?.status);
-    fwd("relationToCase",      s?.relationToCase);
-    fwd("reason",              s?.reason);
-    fwd("alibi",               s?.alibi);
-    fwd("physicalDescription", s?.physicalDescription);
-    fwd("knownAffiliations",   s?.knownAffiliations);
-    fwd("arrivalMethod",       s?.arrivalMethod);
-    fwd("vehicleDescription",  s?.vehicleDescription);
-    fwd("notes",               s?.notes);
-    if (s?.arrested      !== undefined) p.arrested      = !!s.arrested;
-    if (s?.criminalRecord !== undefined) p.criminalRecord = !!s.criminalRecord;
-    return p;
-};
-
-export const formatApiError = (err, fallback = "Request failed") => {
-    if (!err) return fallback;
-    const detail = err?.response?.data?.detail;
-    if (Array.isArray(detail)) return detail.map(d => d?.msg || JSON.stringify(d)).join("; ");
-    if (typeof detail === "string") return detail;
-    return err.message || fallback;
-};
+export { formatApiError };

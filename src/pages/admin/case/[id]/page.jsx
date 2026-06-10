@@ -39,14 +39,8 @@ import { listEvidences } from "@/services/evidenceApi";
 import { listSuspects } from "@/services/suspectApi";
 import { listWitnesses } from "@/services/witnessApi";
 import { listVictims } from "@/services/victimApi";
+import { getAuthHeader } from "@/services/apiCommon";
 
-// ── Auth ────────────────────────────────────────────────────────────────────
-const getAuthHeader = () => {
-  const t = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-  return t ? { Authorization: `Bearer ${t}` } : {};
-};
-
-// ── Tabs ────────────────────────────────────────────────────────────────────
 const TABS = [
   { key: "overview",  label: "Overview",  icon: FileText },
   { key: "evidence",  label: "Evidence",  icon: ShieldAlert },
@@ -500,7 +494,7 @@ export default function AdminCaseDetailPage() {
   // ─────────────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-soft-mist mt-14">
+      <div className="min-h-screen bg-soft-mist mt-10">
         <Header />
         <main className="max-w-7xl mx-auto px-4 py-16 text-center text-slate-500">
           <Loader2 className="h-8 w-8 mx-auto animate-spin mb-3 text-deep-ocean" />
@@ -512,7 +506,7 @@ export default function AdminCaseDetailPage() {
 
   if (error || !header) {
     return (
-      <div className="min-h-screen bg-soft-mist mt-14">
+      <div className="min-h-screen bg-soft-mist mt-10">
         <Header />
         <main className="max-w-3xl mx-auto px-4 py-16">
           <Card className="p-8 text-center">
@@ -530,7 +524,7 @@ export default function AdminCaseDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-6 py-8 space-y-6">

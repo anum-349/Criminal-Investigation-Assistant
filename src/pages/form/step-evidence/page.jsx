@@ -6,8 +6,8 @@ import { useRef, useState, forwardRef, useImperativeHandle } from "react";
 import {
     SectionHeading, SelectField, TextField,
     TextareaField, FieldLabel,
-} from "@/pages/form/case-forms/CaseFormFields/page";
-import { defaultEvidence, EVIDENCE_TYPES } from "@/pages/form/case-forms/caseFormConstants/page";
+} from "@/pages/form/CaseFormFields/page";
+import { defaultEvidence, EVIDENCE_TYPES } from "@/pages/form/caseFormConstants/page";
 import InvestigatorPicker from "@/components/InvestigatorPicker";
 
 // ─────────────────────────────────────────────────────────────────────────────

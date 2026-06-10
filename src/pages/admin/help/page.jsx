@@ -226,7 +226,7 @@ export default function AdminHelpPage() {
   });
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="max-w-6xl mx-auto px-4 lg:px-6 py-8 space-y-6">

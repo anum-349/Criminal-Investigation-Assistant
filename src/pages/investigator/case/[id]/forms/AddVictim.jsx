@@ -25,7 +25,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { User, Save, X, AlertCircle, Loader2 } from "lucide-react";
-import StepVictims, { validateVictims } from "@/pages/form/case-forms/step-victim/page";
+import StepVictims, { validateVictims } from "@/pages/form/step-victim/page";
 import { detailToFormShape } from "@/services/victimApi";
 
 // ── Pretty labels for the error banner ─────────────────────────────────────

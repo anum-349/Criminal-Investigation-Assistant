@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Users, Save, X, Loader2 } from "lucide-react";
-import StepSuspects, { validateSuspect } from "@/pages/form/case-forms/step-suspects/page";
+import StepSuspects, { validateSuspect } from "@/pages/form/step-suspects/page";
 
 export default function AddSuspectDialog({ isOpen, onClose, onSubmit, caseId = "", initialData = null }) {
     const closeButtonRef = useRef(null);

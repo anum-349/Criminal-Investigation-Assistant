@@ -79,7 +79,7 @@ export const UPDATE_EXTRA_STEPS = [
 ];
 
 /**
- * ADDITIONS for: src/pages/form/case-forms/caseFormConstants/page.jsx
+ * ADDITIONS for: src/pages/form/caseFormConstants/page.jsx
  *
  * Add the constants below alongside the existing exports
  * (RELATION_TO_VICTIM, INJURY_TYPES, VICTIM_STATUSES, …).

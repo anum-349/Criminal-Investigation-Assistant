@@ -6,15 +6,8 @@ import {
     Clock, Shield, Loader2,
 } from 'lucide-react';
 import LeafletMap from '@/components/HotSpot/map';
+import { getAuthHeader } from '@/services/apiCommon';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const getAuthHeader = () => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-// Severity → border/bg/text classes for the nearby-case badge.
 const SEVERITY_STYLE = {
     Critical: 'text-red-700 bg-red-50 border-red-200',
     High:     'text-orange-700 bg-orange-50 border-orange-200',

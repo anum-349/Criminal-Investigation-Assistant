@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 import { checkAiHealth, streamAiLeads } from "@/services/leadApi";
+import { getAuthHeader } from '@/services/apiCommon';
 
 import {
   LEAD_STATUSES,
@@ -47,11 +48,6 @@ const getSeverityClass = (s) => {
   if (s === 'High') return 'bg-rose-800/90 text-white';
   if (s === 'Medium') return 'bg-amber-500 text-white';
   return 'bg-slate-500 text-white';
-};
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

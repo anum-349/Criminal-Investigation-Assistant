@@ -9,16 +9,9 @@ import Header from "@/components/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Pagination } from "@/components/ui/Pagination";
+import { getAuthHeader } from "@/services/apiCommon";
 
 const PAGE_SIZE = 5;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const getAuthHeader = () => {
-  const token =
-    localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 const getStatusVariant = (status) => {
   const s = (status || "").toLowerCase();
@@ -342,7 +335,7 @@ const CaseSearch = () => {
   };
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="p-4 mt-6 lg:p-6 max-w-6xl mx-auto">

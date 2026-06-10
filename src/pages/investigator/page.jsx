@@ -3,13 +3,8 @@ import axios from "axios";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-    TableWrapper,
+    Table, TableBody, TableCell, TableHead,
+    TableHeader, TableRow, TableWrapper,
 } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import Header from "@/components/Header";
@@ -17,29 +12,9 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight, AlertTriangle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import LeafletMap from "@/components/HotSpot/map";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const getAuthHeader = () => {
-    const token =
-        localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-// Pretty "X minutes ago" formatter for activity timestamps
-const timeAgo = (iso) => {
-    if (!iso) return "";
-    const diffMs = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days} day${days === 1 ? "" : "s"} ago`;
-};
-
-// ─── Stat card ────────────────────────────────────────────────────────────────
+import { getAuthHeader, formatApiError } from "@/services/apiCommon";
+import { timeAgo } from "@/utils/formatters";
+import { getActivityStyles } from "@/utils/styling";
 
 const StatCard = ({ value, label, loading }) => (
     <Card className="p-4 bg-card border border-border shadow-sm hover:shadow-md transition-shadow duration-200 animate-fade-in">
@@ -55,8 +30,6 @@ const StatCard = ({ value, label, loading }) => (
         </div>
     </Card>
 );
-
-// ─── Active cases table ───────────────────────────────────────────────────────
 
 const ActiveCasesTable = ({ cases, loading }) => {
     const navigate = useNavigate();
@@ -76,7 +49,7 @@ const ActiveCasesTable = ({ cases, loading }) => {
                     </Link>
                 </div>
                 <p className="text-sm text-muted-foreground text-left">
-                    Click view case to view case details and generate ai leads
+                    Click view case to see case details and generate AI leads
                 </p>
             </div>
 
@@ -154,23 +127,6 @@ const ActiveCasesTable = ({ cases, loading }) => {
     );
 };
 
-// ─── Recent activities ────────────────────────────────────────────────────────
-
-const getActivityStyles = (type) => {
-    switch (type) {
-        case "new":
-            return "bg-accent border-l-4 border-l-status-info";
-        case "update":
-            return "bg-accent border-l-4 border-l-muted-foreground";
-        case "investigation":
-            return "bg-accent border-l-4 border-l-status-warning";
-        case "lead":
-            return "bg-primary/10 border-l-4 border-l-primary";
-        default:
-            return "bg-accent";
-    }
-};
-
 const RecentActivities = ({ activities, loading }) => (
     <Card className="p-5 bg-card border border-border shadow-sm h-full animate-slide-up">
         <h2 className="text-lg font-semibold text-foreground mb-4 text-left">
@@ -217,8 +173,6 @@ const RecentActivities = ({ activities, loading }) => (
     </Card>
 );
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 const STAT_LABELS = [
     { key: "new_cases_this_month", label: "New cases this month" },
     { key: "total_active_cases", label: "Total active cases" },
@@ -247,11 +201,7 @@ const InvestigatorPage = () => {
                 setActivities(res.data.activities || []);
                 setHotspots(res.data.hotspots || []);
             } catch (err) {
-                console.error("Failed to load dashboard:", err);
-                setError(
-                    err.response?.data?.detail ||
-                        "Could not load dashboard. Please retry."
-                );
+                setError(formatApiError(err, "Could not load dashboard. Please retry."));
             } finally {
                 setLoading(false);
             }
@@ -263,7 +213,7 @@ const InvestigatorPage = () => {
         <div className="min-h-screen bg-background">
             <Header />
 
-            <main className="p-6 space-y-6 pt-20">
+            <main className="p-6 space-y-6 pt-16">
                 {error && (
                     <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
                         <AlertTriangle className="h-4 w-4" />
@@ -271,7 +221,6 @@ const InvestigatorPage = () => {
                     </div>
                 )}
 
-                {/* Statistics Cards */}
                 <section aria-label="Case Statistics">
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                         {STAT_LABELS.map((s) => (
@@ -285,7 +234,6 @@ const InvestigatorPage = () => {
                     </div>
                 </section>
 
-                {/* Cases and Activities */}
                 <section
                     aria-label="Cases and Activities"
                     className="grid grid-cols-1 lg:grid-cols-3 gap-6"
@@ -301,7 +249,6 @@ const InvestigatorPage = () => {
                     </div>
                 </section>
 
-                {/* Crime Hotspot Map */}
                 <section aria-label="Crime Hotspot Map">
                     <LeafletMap
                         mode="hotspots"

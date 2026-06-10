@@ -17,7 +17,7 @@
  * Place at: src/pages/investigator/case/caseEventConstants.js
  *
  * (Co-located with the case tabs that consume it. If you'd rather keep all
- * constants together, src/pages/form/case-forms/caseFormConstants/page.jsx
+ * constants together, src/pages/form/caseFormConstants/page.jsx
  * is also fine — but importing from there would couple this file to the
  * registration-form scope, which is conceptually different from "things that
  * happen to a case after it's registered".)
@@ -71,7 +71,7 @@ export const SYSTEM_EVENT_TYPES = Object.values(SYSTEM_EVENT);
 // ═════════════════════════════════════════════════════════════════════════════
 // 3. TIMELINE — MANUAL EVENT TYPES
 // ═════════════════════════════════════════════════════════════════════════════
-// Mirrors the dropdown already used in src/pages/form/case-forms/add-timeline/
+// Mirrors the dropdown already used in src/pages/form/add-timeline/
 // page.jsx. Centralizing it here means the colour map and the option list
 // can't drift apart.
 

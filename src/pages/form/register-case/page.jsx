@@ -8,7 +8,7 @@ import {
   Save,
 } from "lucide-react";
 import { buildFirLeads } from "../ai-analysis/page";
-import { CASE_STEPS, emptyFormData } from "@/pages/form/case-forms/caseFormConstants/page";
+import { CASE_STEPS, emptyFormData } from "@/pages/form/caseFormConstants/page";
 
 // ── Step components ───────────────────────────────────────────────────────────
 import StepFIRUpload from "../fir-upload/page";
@@ -25,20 +25,13 @@ import StepLocation from "../step-location/page";
 // ── Services ──────────────────────────────────────────────────────────────────
 import { registerCaseFull, formatApiError } from "@/services/caseApi";
 import { saveDraft, getDraft } from "@/services/draftApi";
+import { getAuthHeader } from "@/services/apiCommon";
 import Header from "@/components/Header";
 import { useToast } from "@/context/ToastContext";
 
 // ── Icon map (step icons from constants are strings) ─────────────────────────
 const ICON_MAP = { Upload, FileText, MapPin, User, Users, Gavel, Camera, Brain, CheckCircle2, File };
 
-const AUTH_HEADER = () => {
-  const t = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-  return t ? { Authorization: `Bearer ${t}` } : {};
-};
-
-// Tick rate for the optional autosave timer. 30s is a sweet spot: long
-// enough that we're not hammering the server with every keystroke,
-// short enough that a crash never costs more than 30 seconds of typing.
 const AUTOSAVE_INTERVAL_MS = 30_000;
 
 
@@ -223,7 +216,7 @@ export default function RegisterCasePage() {
   // The manual Save Draft button always works regardless.
   useEffect(() => {
     const url = import.meta.env.VITE_API_URL;
-    axios.get(`${url}/api/auth/preferences`, { headers: AUTH_HEADER() })
+    axios.get(`${url}/api/auth/preferences`, { headers: getAuthHeader() })
       .then(res => {
         const v = res?.data?.preferences?.auto_save_drafts;
         setAutoSaveEnabled(!!v);
@@ -400,7 +393,7 @@ export default function RegisterCasePage() {
   // ── Loading draft splash ────────────────────────────────────────────────
   if (loadingDraft) {
     return (
-      <div className="min-h-screen bg-soft-mist font-sans mt-14">
+      <div className="min-h-screen bg-soft-mist font-sans mt-10">
         <Header />
         <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-3">
           <Loader2 className="h-10 w-10 text-deep-ocean animate-spin mx-auto" />
@@ -416,7 +409,7 @@ export default function RegisterCasePage() {
     const caseId = submitResult?.caseId || formData.caseId;
 
     return (
-      <div className="min-h-screen bg-soft-mist font-sans mt-14">
+      <div className="min-h-screen bg-soft-mist font-sans mt-10">
         <Header />
         <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
 
@@ -495,7 +488,7 @@ export default function RegisterCasePage() {
   }
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans mt-14" ref={topRef}>
+    <div className="min-h-screen bg-soft-mist font-sans mt-10" ref={topRef}>
       <Header />
       <StepProgressBar currentStep={currentStep} completedSteps={completedSteps} onStepClick={setCurrentStep} />
 

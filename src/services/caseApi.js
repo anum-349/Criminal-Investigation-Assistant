@@ -1,31 +1,16 @@
-import axios from "axios";
+import {
+    apiPost,
+    createStringNormalizer,
+    createNumberNormalizer,
+} from "./apiCommon";
+import { addVictimsToCase } from "./victimApi";
+import { addSuspectsToCase } from "./suspectApi";
+import { addWitnessesToCase } from "./witnessApi";
+import { addEvidencesToCase } from "./evidenceApi";
+import { deleteDraft } from "./draftApi";
 
-import { addVictimsToCase } from "@/services/victimApi";
-import { addSuspectsToCase } from "@/services/suspectApi";
-import { addWitnessesToCase } from "@/services/witnessApi";
-import { addEvidencesToCase, fileToDataUrl } from "@/services/evidenceApi";
-import { deleteDraft } from "@/services/draftApi";
-
-export const getAuthHeader = () => {
-    const token = localStorage.getItem("cia_token") || sessionStorage.getItem("cia_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-const apiBase = () => import.meta.env.VITE_API_URL;
-
-
-const _s = (v) => {
-    if (v === undefined || v === null) return undefined;
-    if (typeof v !== "string") return v;
-    const t = v.trim();
-    return t === "" ? undefined : t;
-};
-
-const _num = (v) => {
-    if (v === undefined || v === null || v === "") return undefined;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : undefined;
-};
+const _s = createStringNormalizer();
+const _num = createNumberNormalizer();
 
 export const buildCreateCasePayload = (f) => ({
     firNumber: _s(f.firNumber),
@@ -89,62 +74,33 @@ export const buildCreateCasePayload = (f) => ({
     },
 });
 
-export const fetchLinkedCases = async (caseId) => {
-    const { data } = await axios.get(
-        `${apiBase()}/api/investigator/cases/${encodeURIComponent(caseId)}/linked-cases`,
-        { headers: getAuthHeader() },
-    );
-    return data; // array or { items: [...] }
-};
-
 export const createCase = async (formData) => {
-    const url = apiBase();
-    const headers = getAuthHeader();
-
+    const { fileToDataUrl } = await import("./apiCommon");
     const body = buildCreateCasePayload(formData);
 
-    const res = await axios.post(
-        `${url}/api/investigator/cases/register`,
-        body,
-        { headers },
-    );
-
+    const res = await apiPost(`/api/investigator/cases/register`, body);
     const data = res.data || {};
     const caseId = data.case_id || data.caseId;
-    if (!caseId) {
-        throw new Error("Server did not return a case_id");
-    }
+    
+    if (!caseId) throw new Error("Server did not return a case_id");
 
-    // ── Optional FIR file upload ──────────────────────────────────────
     if (formData.firFile instanceof File || formData.firFileDataUrl) {
         try {
-            const dataUrl =
-                formData.firFileDataUrl ||
-                (await fileToDataUrl(formData.firFile));
+            const dataUrl = formData.firFileDataUrl || (await fileToDataUrl(formData.firFile));
             if (dataUrl) {
-                await axios.patch(
-                    `${url}/api/investigator/cases/${caseId}/fir-file`,
-                    {
-                        fileDataUrl: dataUrl,
-                        fileName: formData.firFileName ||
-                            formData.firFile?.name ||
-                            null,
-                        fileMime: formData.firFile?.type || null,
-                    },
-                    { headers },
-                );
+                await apiPost(`/api/investigator/cases/${caseId}/fir-file`, {
+                    fileDataUrl: dataUrl,
+                    fileName: formData.firFileName || formData.firFile?.name || null,
+                    fileMime: formData.firFile?.type || null,
+                });
             }
         } catch (err) {
-            console.warn("FIR file upload failed:", err);
             return {
                 caseId,
                 firNumber: data.fir_number || data.firNumber,
                 timeline_events: data.timeline_events || [],
                 fir_file_failed: true,
-                fir_file_error:
-                    err?.response?.data?.detail ||
-                    err.message ||
-                    "FIR file upload failed",
+                fir_file_error: err?.response?.data?.detail || err.message || "FIR file upload failed",
             };
         }
     }
@@ -156,17 +112,15 @@ export const createCase = async (formData) => {
         fir_file_failed: false,
     };
 };
+
 const _isBlankPerson = (p) => {
-    // Drop ONLY when literally everything is empty. A suspect with just
-    // a reason, physical description, or status counts as real and must
-    // be sent to the server.
     return (
         !p?.name?.trim() &&
         !p?.cnic?.trim() &&
         !p?.contact?.trim() &&
         !p?.address?.trim() &&
-        !p?.reason?.trim() &&                // suspects often have only this
-        !p?.physicalDescription?.trim() &&   // and this
+        !p?.reason?.trim() &&
+        !p?.physicalDescription?.trim() &&
         !p?.relationToCase?.trim() &&
         !p?.alibi?.trim() &&
         !p?.notes?.trim()
@@ -175,9 +129,6 @@ const _isBlankPerson = (p) => {
 
 const _isBlankEvidence = (e) =>
     !e?.type && !e?.description && !e?.fileName && !(e?.file instanceof File);
-
-const _isBlankLead = (l) =>
-    !l?.type && !l?.description;
 
 export const addAllChildEntities = async (caseId, formData) => {
     if (!caseId) throw new Error("caseId is required");
@@ -244,13 +195,10 @@ export const addAllChildEntities = async (caseId, formData) => {
 };
 
 export const registerCaseFull = async (formData) => {
-    // Phase 1
     const caseResult = await createCase(formData);
     const { caseId } = caseResult;
 
-    // Phase 2
-    const { childResults, partialFailures } =
-        await addAllChildEntities(caseId, formData);
+    const { childResults, partialFailures } = await addAllChildEntities(caseId, formData);
 
     if (caseResult.fir_file_failed) {
         partialFailures.unshift({
@@ -259,15 +207,11 @@ export const registerCaseFull = async (formData) => {
         });
     }
 
-    // Phase 0 cleanup: if this submission came from a draft, throw the
-    // draft away now that we have a real case. Best-effort — a failure
-    // here doesn't matter to the user (worst case: a stale draft they
-    // can delete manually).
     if (formData.draftId) {
         try {
             await deleteDraft(formData.draftId);
         } catch (err) {
-            console.warn("Draft cleanup failed (non-fatal):", err);
+            // Non-fatal
         }
     }
 
@@ -280,22 +224,19 @@ export const registerCaseFull = async (formData) => {
     };
 };
 
-// ───────────────────────────────────────────────────────────────────────────
-// Error utility
-// ───────────────────────────────────────────────────────────────────────────
-export const formatApiError = (err, fallback = "Request failed") => {
-    if (!err) return fallback;
-    const detail = err?.response?.data?.detail;
-    if (Array.isArray(detail)) {
-        return detail.map((d) => d?.msg || JSON.stringify(d)).join("; ");
-    }
-    if (typeof detail === "string") return detail;
-    return err.message || fallback;
-};
-
-export const regenerateLinkedCases = async (caseId) => {
-    const { data } = await axios.post(
-        `${apiBase()}/api/investigator/cases/${encodeURIComponent(caseId)}/links/regenerate`,
+export const fetchLinkedCases = async (caseId) => {
+    const { apiGet } = await import("./apiCommon");
+    const { data } = await apiGet(
+        `/api/investigator/cases/${encodeURIComponent(caseId)}/linked-cases`
     );
     return data;
 };
+
+export const regenerateLinkedCases = async (caseId) => {
+    const { data } = await apiPost(
+        `/api/investigator/cases/${encodeURIComponent(caseId)}/links/regenerate`
+    );
+    return data;
+};
+
+export { formatApiError, getAuthHeader } from "./apiCommon";

@@ -1,24 +1,53 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage } = require('electron');
 const path = require('path');
+
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+function log(msg) {
+  fs.appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`);
+}
+
+function resolveIconPath() {
+  if (isDev) {
+    return path.join(__dirname, '../build/icon.ico');
+  }
+
+  const candidates = [
+    path.join(process.resourcesPath, 'icon.ico'),
+    path.join(path.dirname(app.getPath('exe')), 'resources', 'icon.ico'),
+    path.join(app.getAppPath(), '..', 'icon.ico'),
+  ];
+
+  for (const p of candidates) {
+    const exists = fs.existsSync(p);
+    if (exists) return p;
+  }
+
+  return null;
+}
+
+const iconPath = resolveIconPath(); 
+
+let tray = null;
 
 function createWindow() {
-  const iconPath = isDev
-    ? path.join(__dirname, '../build/icon.ico')
-    : path.join(process.resourcesPath, 'icon.ico');
-
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: iconPath,
+    icon: iconPath ?? undefined,           // taskbar icon on Linux/Windows
     autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#1b3c53',
+      symbolColor: '#ffffff',
+      height: 40,
+    },
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      autoplayPolicy: 'no-user-gesture-required', // ✅ lowercase 'p'
+      autoplayPolicy: 'no-user-gesture-required',
     },
   });
 
@@ -31,29 +60,30 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // ✅ Inject the sounds path so ToastContext can build file:// URLs
-  // main.cjs
   mainWindow.webContents.on('did-finish-load', () => {
-    // ✅ Force taskbar icon explicitly
-    mainWindow.setIcon(iconPath);
+    if (iconPath) mainWindow.setIcon(iconPath);
 
-    // ... your existing __APP_PATH__ injection
     const soundsPath = isDev
       ? path.join(__dirname, '../public/sounds')
       : path.join(process.resourcesPath, 'sounds');
 
     mainWindow.webContents.executeJavaScript(`
-    window.__APP_PATH__ = ${JSON.stringify(soundsPath.replace(/\\/g, '/'))};
-    window.__ELECTRON__ = true;
-  `);
+      window.__APP_PATH__ = ${JSON.stringify(soundsPath.replace(/\\/g, '/'))};
+      window.__ELECTRON__ = true;
+    `);
   });
 }
 
 app.whenReady().then(() => {
   createWindow();
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+
+  if (iconPath) {
+    const icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      tray = new Tray(icon);
+      tray.setToolTip('Criminal Investigation Assistant');
+    }
+  }
 });
 
 app.on('window-all-closed', () => {

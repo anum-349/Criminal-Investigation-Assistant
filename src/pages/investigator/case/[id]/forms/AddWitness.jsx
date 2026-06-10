@@ -1,4 +1,4 @@
-import StepWitnesses, { validateWitness } from "@/pages/form/case-forms/step-witness/page";
+import StepWitnesses, { validateWitness } from "@/pages/form/step-witness/page";
 import { Loader2, Save, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 

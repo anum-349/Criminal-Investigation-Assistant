@@ -26,14 +26,14 @@
  *   detailed and most often hand-tuned ("Apt 12, 3rd floor, behind the
  *   reception"), so it's worth protecting separately.
  *
- * Place at: src/pages/form/case-forms/step-location/page.jsx
+ * Place at: src/pages/form/step-location/page.jsx
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { MapPin, Sparkles } from "lucide-react";
-import { PROVINCES } from "@/pages/form/case-forms/caseFormConstants/page";
-import { SectionHeading, TextField, SelectField, TextareaField } from "@/pages/form/case-forms/CaseFormFields/page";
-import LocationPicker from "@/pages/form/case-forms/locationPicker";
+import { PROVINCES } from "@/pages/form/caseFormConstants/page";
+import { SectionHeading, TextField, SelectField, TextareaField } from "@/pages/form/CaseFormFields/page";
+import LocationPicker from "@/pages/form/locationPicker";
 
 // Try to map Nominatim's "state" string to one of our PROVINCES options.
 // Nominatim returns things like "Sindh", "Punjab", "Khyber Pakhtunkhwa" —

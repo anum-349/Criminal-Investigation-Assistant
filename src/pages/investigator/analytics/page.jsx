@@ -228,8 +228,6 @@ const AnalyticsPage = () => {
     const limeExplanation = predictionsData?.limeExplanation ?? null;
     const evaluationMetrics = predictionsData?.evaluationMetrics ?? null;
 
-    console.log(predictionsData);
-    // Derived heatmap insights from live data
     const heatmapInsights = (() => {
         if (!heatmap) return null;
         const DAYS = heatmap.days;
@@ -259,7 +257,7 @@ const AnalyticsPage = () => {
 
     // ── Render ────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-slate-100 font-sans text-slate-900 mt-14">
+        <div className="min-h-screen bg-slate-100 font-sans text-slate-900 mt-10">
             <Header />
 
             <main className="max-w-7xl mx-auto px-4 lg:px-6 py-8 space-y-6">

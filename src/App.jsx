@@ -18,7 +18,7 @@ function AuthenticatedShell({ children }) {
                 }
             })
             .catch(() => { });
-    }, []);   // run once after login
+    }, []);
 
     return children;
 }
@@ -53,23 +53,30 @@ const ShortcutHandler = () => {
                 navigate('/investigator/help');
             }
 
+            if (ctrl && e.key === 'r') {
+                e.preventDefault();
+                navigate('/investigator/report');
+            }
+
+            if (ctrl && e.key === 'a') {
+                e.preventDefault();
+                navigate('/investigator/cases');
+            }
+
             if (ctrl && e.key === 'p') {
                 e.preventDefault();
                 window.print();
             }
-
-            // Esc is handled natively by modals/dropdowns already
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [navigate]);
 
-    return null; // renders nothing
+    return null;
 };
 
 function App() {
-    // Show main application if authenticated
     return (
         <div className="min-h-screen bg-gray-100">
             <HashRouter>

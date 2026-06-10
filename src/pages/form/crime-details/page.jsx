@@ -5,8 +5,8 @@
  * Place at: src/pages/investigator/case-forms/StepCrimeDetails.jsx
  */
 import { Gavel, AlertTriangle, Shield } from "lucide-react";
-import { SectionHeading, TextField, SelectField, TextareaField, FieldLabel, CheckField } from "@/pages/form/case-forms/CaseFormFields/page";
-import { WEAPONS } from "@/pages/form/case-forms/caseFormConstants/page";
+import { SectionHeading, TextField, SelectField, TextareaField, FieldLabel, CheckField } from "@/pages/form/CaseFormFields/page";
+import { WEAPONS } from "@/pages/form/caseFormConstants/page";
 
 export function StepCrimeDetails({ data, setData, errors }) {
   const set = (k) => (e) => setData(d => ({ ...d, [k]: e.target.value }));

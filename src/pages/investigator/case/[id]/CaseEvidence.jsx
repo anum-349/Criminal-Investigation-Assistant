@@ -38,6 +38,7 @@ import {
     rowToFormShape,
     formatApiError,
 } from "@/services/evidenceApi";
+import { photoSrc } from "@/utils/formatters";
 
 const PAGE_SIZE = 5;
 
@@ -57,18 +58,6 @@ const STATUSES = [
     { value: 'all',         label: 'All Evidences' },
 ];
 
-// ── URL helpers ─────────────────────────────────────────────────────────────
-
-/** Build absolute URL for a server-relative file path. */
-const photoSrc = (rawUrl) => {
-    if (!rawUrl) return '';
-    if (rawUrl.startsWith('http')) return rawUrl;
-    if (rawUrl.startsWith('/uploads')) return `${import.meta.env.VITE_API_URL}${rawUrl}`;
-    return rawUrl;
-};
-
-/** Derive a coarse file category from MIME type or filename extension.
- *  Used by renderFileSection() to pick a renderer. */
 const getFileCategory = (mime, fileName) => {
     if (!mime && !fileName) return 'unknown';
     const m = (mime || '').toLowerCase();

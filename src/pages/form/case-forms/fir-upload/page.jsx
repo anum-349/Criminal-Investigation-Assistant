@@ -10,9 +10,9 @@ import {
   Upload, FileText, CheckCircle2, AlertTriangle,
   Loader2, ArrowRight, FastForward, Info, ChevronDown, ChevronUp,
 } from "lucide-react";
-import { SectionHeading } from "@/pages/form/case-forms/CaseFormFields/page";
+import { SectionHeading } from "@/pages/form/CaseFormFields/page";
 import { useToast } from "@/context/ToastContext";
-import { defaultSuspect, defaultVictim } from "@/pages/form/case-forms/caseFormConstants/page";
+import { defaultSuspect, defaultVictim } from "@/pages/form/caseFormConstants/page";
 
 // ─── API config ────────────────────────────────────────────────────────────
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -440,10 +440,8 @@ export default function StepFIRUpload({
             }
 
             const p = evt.payload;
-            console.log("[FIR Pipeline] Raw payload:", p);
 
             const extracted = buildExtracted(p);
-            console.log("[FIR Pipeline] Mapped extracted:", extracted);
 
             onExtracted(extracted);
 

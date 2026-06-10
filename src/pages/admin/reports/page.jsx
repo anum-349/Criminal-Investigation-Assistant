@@ -191,7 +191,7 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-14">
+    <div className="min-h-screen bg-soft-mist font-sans text-slate-900 mt-10">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-6 py-8 space-y-6">

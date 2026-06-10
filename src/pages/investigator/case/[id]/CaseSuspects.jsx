@@ -12,18 +12,10 @@ import { Badge } from '@/components/ui/Badge';
 
 import AddSuspectDialog from './forms/AddSuspect';
 import { listSuspects, updateSuspect } from '@/services/suspectApi';
+import { getAuthHeader, formatApiError } from '@/services/apiCommon';
 
 const PAGE_SIZE = 5;
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-// Pick a Badge variant from a status label. Loose matching so any label
-// the lookup table eventually contains still gets a sensible colour.
 const getStatusVariant = (status) => {
   const s = (status || '').toLowerCase();
   if (s.includes('confirmed')) return 'success';
