@@ -110,7 +110,9 @@ export default function AppRoutes() {
             <Route path="/admin/help" element={
                 <ProtectedRoute requiredRole="admin">
                     <AdminHelpPage />
-                </ProtectedRoute>} />
+                </ProtectedRoute>
+            }
+            />
 
             <Route path="/admin/profile" element={
                 <ProtectedRoute requiredRole="admin">

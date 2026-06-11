@@ -1,11 +1,8 @@
 const { app, BrowserWindow, Tray, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-
-function log(msg) {
-  fs.appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`);
-}
 
 function resolveIconPath() {
   if (isDev) {
@@ -22,6 +19,7 @@ function resolveIconPath() {
     const exists = fs.existsSync(p);
     if (exists) return p;
   }
+
 
   return null;
 }

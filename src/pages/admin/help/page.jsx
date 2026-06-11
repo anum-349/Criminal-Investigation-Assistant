@@ -1,17 +1,4 @@
-/**
- * src/pages/admin/help/page.jsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Admin — Help & Documentation.
- * Route: /admin/help
- *
- * Mostly static (FAQ, quick links, video guides). The one wired piece is
- * the "Contact Engineering" button — it opens a modal that posts to
- *   POST /api/tickets
- * via services/ticketApi.js → createTicket(). Same endpoint investigators
- * use for support; admin tickets are routed to the same admin queue.
- */
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   HelpCircle, Search, Book, MessageSquare, Mail, ExternalLink,
@@ -24,81 +11,116 @@ import Header from "@/components/Header";
 import { Card } from "@/components/ui/Card";
 import { createTicket, formatApiError } from "@/services/ticketApi";
 
+const VIDEO_BASE = window.location.protocol === 'file:'
+  ? './videos/'   // Electron: relative to dist/index.html
+  : '/videos/';   // Browser dev server
+  
 const CATEGORIES = [
-  { id: "user-mgmt", icon: Users,    label: "User Management" },
-  { id: "database",  icon: Database, label: "Database & Backups" },
-  { id: "security",  icon: Shield,   label: "Security & Audit" },
-  { id: "reports",   icon: FileText, label: "Reports" },
-  { id: "settings",  icon: Settings, label: "Settings & Config" },
-  { id: "account",   icon: Lock,     label: "Account & Login" },
+  { id: "user-mgmt", icon: Users, label: "User Management" },
+  { id: "database", icon: Database, label: "Database & Backups" },
+  { id: "security", icon: Shield, label: "Security & Audit" },
+  { id: "reports", icon: FileText, label: "Reports" },
+  { id: "settings", icon: Settings, label: "Settings & Config" },
+  { id: "account", icon: Lock, label: "Account & Login" },
 ];
 
 const FAQS = {
   "user-mgmt": [
-    { q: "How do I add a new investigator account?",
-      a: "Go to Admin → User Management and click 'Add User'. Fill in the full name, username, email, password, and select 'Investigator' as the role. The system auto-generates a badge number (INV-XXXX) when the account is created." },
-    { q: "How do I deactivate a user?",
-      a: "On the User Management page, find the user and click the Active/Inactive toggle in the Status column. The user is immediately signed out and cannot log back in until reactivated. The action is recorded in the audit log." },
-    { q: "Can I delete a user account?",
-      a: "Yes — click the trash icon next to the user. However, if the investigator has active assigned cases, the system blocks deletion and asks you to re-assign or close those cases first. This safeguard is required by UC-6." },
-    { q: "What's the difference between Inactive and Deleted?",
-      a: "Inactive users still exist in the database (so audit history stays linked) but cannot log in. Deleted users are permanently removed. Prefer Inactive when in doubt — it's reversible." },
+    {
+      q: "How do I add a new investigator account?",
+      a: "Go to Admin → User Management and click 'Add User'. Fill in the full name, username, email, password, and select 'Investigator' as the role. The system auto-generates a badge number (INV-XXXX) when the account is created."
+    },
+    {
+      q: "How do I deactivate a user?",
+      a: "On the User Management page, find the user and click the Active/Inactive toggle in the Status column. The user is immediately signed out and cannot log back in until reactivated. The action is recorded in the audit log."
+    },
+    {
+      q: "Can I delete a user account?",
+      a: "Yes — click the trash icon next to the user. However, if the investigator has active assigned cases, the system blocks deletion and asks you to re-assign or close those cases first. This safeguard is required by UC-6."
+    },
+    {
+      q: "What's the difference between Inactive and Deleted?",
+      a: "Inactive users still exist in the database (so audit history stays linked) but cannot log in. Deleted users are permanently removed. Prefer Inactive when in doubt — it's reversible."
+    },
   ],
   database: [
-    { q: "How often are backups taken?",
-      a: "By default, the system performs a nightly full backup at 02:00 UTC and incremental backups every 4 hours. You can trigger a manual backup from Admin → Database → 'Backup Now'." },
-    { q: "How do I restore from a backup?",
-      a: "From Admin → Database, click the restore icon next to the backup file you want to restore. The system will confirm twice and then take ~5 minutes to restore. Plan a maintenance window — users will be signed out during restore." },
-    { q: "What does Database Optimization do?",
-      a: "It rebuilds indexes, removes orphaned records, and reclaims unused storage. Recommended monthly. Takes about 2 minutes and does NOT cause downtime." },
+    {
+      q: "How often are backups taken?",
+      a: "By default, the system performs a nightly full backup at 02:00 UTC and incremental backups every 4 hours. You can trigger a manual backup from Admin → Database → 'Backup Now'."
+    },
+    {
+      q: "How do I restore from a backup?",
+      a: "From Admin → Database, click the restore icon next to the backup file you want to restore. The system will confirm twice and then take ~5 minutes to restore. Plan a maintenance window — users will be signed out during restore."
+    },
+    {
+      q: "What does Database Optimization do?",
+      a: "It rebuilds indexes, removes orphaned records, and reclaims unused storage. Recommended monthly. Takes about 2 minutes and does NOT cause downtime."
+    },
   ],
   security: [
-    { q: "Where can I see who deleted a case?",
-      a: "Admin → Audit Logs. Filter by Module='Case Management' and Action='DELETE'. Every state change is logged with user, timestamp, IP, and action detail." },
-    { q: "How long are audit logs retained?",
-      a: "Indefinitely by default. For compliance, the platform supports configurable retention via the SETTINGS table (default = 7 years for forensics, 2 years for read-only views)." },
-    { q: "What should I do if I see a failed login burst?",
-      a: "The dashboard alerts banner highlights repeated failures. From Audit Logs, filter by Status='Failed' and Action='LOGIN'. If you see >10 attempts on one account in 5 minutes, the account is auto-locked for 15 minutes — you can manually unlock from User Management." },
+    {
+      q: "Where can I see who deleted a case?",
+      a: "Admin → Audit Logs. Filter by Module='Case Management' and Action='DELETE'. Every state change is logged with user, timestamp, IP, and action detail."
+    },
+    {
+      q: "How long are audit logs retained?",
+      a: "Indefinitely by default. For compliance, the platform supports configurable retention via the SETTINGS table (default = 7 years for forensics, 2 years for read-only views)."
+    },
+    {
+      q: "What should I do if I see a failed login burst?",
+      a: "The dashboard alerts banner highlights repeated failures. From Audit Logs, filter by Status='Failed' and Action='LOGIN'. If you see >10 attempts on one account in 5 minutes, the account is auto-locked for 15 minutes — you can manually unlock from User Management."
+    },
   ],
   reports: [
-    { q: "Which report types are available?",
-      a: "Case Summary, Crime Hotspot, Case Timeline, AI Leads Report, and Suspect Analysis. Generate them from Admin → Reports — each has its own filter set (date range, province, crime type, etc.)." },
-    { q: "What formats can I export to?",
-      a: "PDF (default, formatted), CSV (raw data), and JSON (machine-readable). All formats include a header with generation timestamp and admin name for audit traceability." },
-    { q: "Can investigators see admin-generated reports?",
-      a: "No — reports are scoped to the user who generated them. Investigators only see their own report history; admins see only admin-generated reports. Audit logs are separate." },
+    {
+      q: "Which report types are available?",
+      a: "Case Summary, Crime Hotspot, Case Timeline, AI Leads Report, and Suspect Analysis. Generate them from Admin → Reports — each has its own filter set (date range, province, crime type, etc.)."
+    },
+    {
+      q: "What formats can I export to?",
+      a: "PDF (default, formatted), CSV (raw data), and JSON (machine-readable). All formats include a header with generation timestamp and admin name for audit traceability."
+    },
+    {
+      q: "Can investigators see admin-generated reports?",
+      a: "No — reports are scoped to the user who generated them. Investigators only see their own report history; admins see only admin-generated reports. Audit logs are separate."
+    },
   ],
   settings: [
-    { q: "How do I change the password complexity policy?",
-      a: "Admin → Settings → Security. Adjust the minimum length, required character classes, and rotation interval. New policies apply on the user's next password change — existing passwords are not invalidated." },
-    { q: "Can I customize the dashboard theme?",
-      a: "Yes — Admin → Settings → Appearance lets you toggle light/dark, accent color, and density (comfortable/compact). Themes are per-user; your investigators' choices are saved separately." },
+    {
+      q: "How do I change the password complexity policy?",
+      a: "Admin → Settings → Security. Adjust the minimum length, required character classes, and rotation interval. New policies apply on the user's next password change — existing passwords are not invalidated."
+    },
+    {
+      q: "Can I customize the dashboard theme?",
+      a: "Yes — Admin → Settings → Appearance lets you toggle light/dark, accent color, and density (comfortable/compact). Themes are per-user; your investigators' choices are saved separately."
+    },
   ],
   account: [
-    { q: "How do I change my own password?",
-      a: "Admin → Profile → Security tab. Enter your current password, then the new one twice. The change is logged in the audit trail." },
-    { q: "What if I forget my password?",
-      a: "There is no self-service password reset for admins (security policy). Another admin must reset your password from User Management. If you are the only admin, contact engineering via the form below." },
+    {
+      q: "How do I change my own password?",
+      a: "Admin → Profile → Security tab. Enter your current password, then the new one twice. The change is logged in the audit trail."
+    },
+    {
+      q: "What if I forget my password?",
+      a: "There is no self-service password reset for admins (security policy). Another admin must reset your password from User Management. If you are the only admin, contact engineering via the form below."
+    },
   ],
 };
 
 const QUICK_LINKS = [
-  { icon: Activity,  label: "Admin Onboarding Guide",  desc: "Walkthrough for new administrators",       href: "#" },
-  { icon: Shield,    label: "Security Best Practices", desc: "Audit logs, password policy, MFA setup",   href: "#" },
-  { icon: Database,  label: "Backup & Recovery",       desc: "Disaster-recovery playbook",                href: "#" },
-  { icon: FileText,  label: "Reporting Guide",         desc: "Generating audit-ready reports",            href: "#" },
+  { icon: Activity, label: "Admin Onboarding Guide", desc: "Walkthrough for new administrators", href: "#" },
+  { icon: Shield, label: "Security Best Practices", desc: "Audit logs, password policy, MFA setup", href: "#" },
+  { icon: Database, label: "Backup & Recovery", desc: "Disaster-recovery playbook", href: "#" },
+  { icon: FileText, label: "Reporting Guide", desc: "Generating audit-ready reports", href: "#" },
 ];
 
 const VIDEO_GUIDES = [
-  { title: "Adding your first user",       duration: "2 min", color: "bg-blue-50 border-blue-200",    icon: Users },
-  { title: "Running a backup & restore",   duration: "4 min", color: "bg-purple-50 border-purple-200", icon: Database },
-  { title: "Reading the audit log",        duration: "3 min", color: "bg-green-50 border-green-200",   icon: Activity },
-  { title: "Generating compliance reports",duration: "5 min", color: "bg-amber-50 border-amber-200",   icon: FileText },
+  { title: "Adding your first user", duration: "1:16 min", color: "bg-blue-50 border-blue-200", icon: Users, src: `${VIDEO_BASE}/add-user.mp4`, description: "Learn how to create investigator accounts and manage permissions." },
+  { title: "Running a backup & restore", duration: "1:07 min", color: "bg-purple-50 border-purple-200", icon: Database, src: `${VIDEO_BASE}/backup.mp4`, description: "Learn how to manage database backups and perform a restore." },
+  { title: "Reading the audit log", duration: "1:11 min", color: "bg-green-50 border-green-200", icon: Activity, src: `${VIDEO_BASE}/log.mp4`, description: "Learn how to navigate and filter the audit logs for security monitoring." },
+  { title: "Generating compliance reports", duration: "1:13 min", color: "bg-amber-50 border-amber-200", icon: FileText, src: `${VIDEO_BASE}/generate-report.mp4`, description: "Learn how to create and export compliance reports for audit purposes." },
 ];
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Contact Engineering Modal
-// ═════════════════════════════════════════════════════════════════════════════
 function ContactModal({ onClose, onSent }) {
   const [form, setForm] = useState({ priority: "normal", subject: "", message: "" });
   const [busy, setBusy] = useState(false);
@@ -146,8 +168,8 @@ function ContactModal({ onClose, onSent }) {
             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Priority</label>
             <div className="flex gap-2">
               {[
-                { value: "normal",   label: "Normal",   color: "border-blue-200    bg-blue-50    text-blue-700" },
-                { value: "urgent",   label: "Urgent",   color: "border-orange-200 bg-orange-50  text-orange-700" },
+                { value: "normal", label: "Normal", color: "border-blue-200    bg-blue-50    text-blue-700" },
+                { value: "urgent", label: "Urgent", color: "border-orange-200 bg-orange-50  text-orange-700" },
                 { value: "critical", label: "Critical", color: "border-red-200    bg-red-50     text-red-700" },
               ].map(p => (
                 <button key={p.value}
@@ -213,11 +235,20 @@ export default function AdminHelpPage() {
   const [expanded, setExpanded] = useState({});
   const [showContact, setShowContact] = useState(false);
   const [toast, setToast] = useState(null);
+  const [activeVideo, setActiveVideo] = useState(null)
 
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setActiveVideo(null);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
 
   const visibleFaqs = (FAQS[activeCategory] || []).filter(f => {
     if (!search.trim()) return true;
@@ -329,16 +360,20 @@ export default function AdminHelpPage() {
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
             Video Tutorials
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {VIDEO_GUIDES.map(v => (
-              <div key={v.title}
-                className={`p-4 rounded-xl border-2 ${v.color} hover:shadow-sm cursor-pointer transition-all`}>
-                <div className="flex items-center justify-between mb-3">
-                  <v.icon className="h-5 w-5 text-slate-700" />
-                  <PlayCircle className="h-5 w-5 text-slate-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {VIDEO_GUIDES.map(({ title, duration, color, icon: Icon, src, description }) => (
+              <div key={title} className={`rounded-lg border ${color} p-5 flex items-start gap-4 cursor-pointer hover:shadow-md transition-shadow`}
+                onClick={() => setActiveVideo({ title, src, description })}>
+                <div className="p-2 bg-white rounded-lg border border-slate-200 shrink-0">
+                  <Icon className="h-5 w-5 text-deep-ocean" />
                 </div>
-                <p className="font-semibold text-sm text-slate-800">{v.title}</p>
-                <p className="text-xs text-slate-500 mt-1">{v.duration}</p>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{title}</p>
+                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <PlayCircle className="h-3 w-3" /> {duration} guide
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">{description}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -365,6 +400,57 @@ export default function AdminHelpPage() {
           </div>
         </Card>
       </main>
+
+      {/* Video Modal */}
+      {activeVideo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setActiveVideo(null)}  // click backdrop to close
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden"
+            onClick={e => e.stopPropagation()}  // prevent closing when clicking inside
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">{activeVideo.title}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{activeVideo.description}</p>
+              </div>
+              <button
+                onClick={() => setActiveVideo(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Video player */}
+            <div className="bg-black aspect-video">
+              <video
+                key={activeVideo.src}   // remounts player when switching videos
+                src={activeVideo.src}
+                controls
+                autoPlay
+                className="w-full h-full"
+                onError={() => alert('Video file not found. Add .mp4 files to public/videos/')}
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
+
+            {/* Modal footer */}
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setActiveVideo(null)}
+                className="px-4 py-2 rounded-lg bg-deep-ocean text-white text-sm font-medium hover:bg-[#162f42] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contact modal */}
       {showContact && (

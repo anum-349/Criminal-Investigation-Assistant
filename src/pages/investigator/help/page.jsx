@@ -14,6 +14,10 @@ import { getAuthHeader } from '@/services/apiCommon';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
+const VIDEO_BASE = window.location.protocol === 'file:'
+  ? './videos/'   // Electron: relative to dist/index.html
+  : '/videos/';   // Browser dev server
+
 const CATEGORIES = [
     { id: 'cases', icon: FolderOpen, label: 'Case Management' },
     { id: 'search', icon: Search, label: 'Search & Filters' },
@@ -26,26 +30,26 @@ const CATEGORIES = [
 const GUIDES = [
     {
         title: 'Registering your first case',
-        duration: '3 min',
+        duration: '1:16 min',
         color: 'bg-blue-50  border-blue-200',
         icon: FolderOpen,
-        src: '/videos/sample.mp4',
+        src: `${VIDEO_BASE}/new-case.mp4`,
         description: 'Learn how to upload an FIR and register a new case in the system.',
     },
     {
         title: 'Using the AI lead generator',
-        duration: '5 min',
+        duration: '1:04 min',
         color: 'bg-purple-50 border-purple-200',
         icon: Brain,
-        src: '/videos/sample.mp4',
+        src: `${VIDEO_BASE}/generate-leads.mp4`,
         description: 'See how the AI extracts suspects, locations, and generates leads.',
     },
     {
         title: 'Reading the crime hotspot map',
-        duration: '2 min',
+        duration: '1:02 min',
         color: 'bg-green-50 border-green-200',
         icon: Crosshair,
-        src: '/videos/sample.mp4',
+        src: `${VIDEO_BASE}/hotspots.mp4`,
         description: 'Navigate the map, filter hotspots, and fly to crime locations.',
     },
 ]
