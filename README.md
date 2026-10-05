@@ -110,7 +110,7 @@ src/
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/anum-349/Criminal-Investigation-Assistant
    cd criminal-investigation-assistant
    ```
 
@@ -374,10 +374,6 @@ CMD ["npm", "run", "preview"]
 npm run electron:build
 ```
 Generates installers in `release/` directory
-
-## License
-
-[Your License Here]
 
 ## Support & Contributing
 
